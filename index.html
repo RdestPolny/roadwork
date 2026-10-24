@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roadwork</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&amp;family=IM+Fell+English+SC&amp;family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&amp;family=Silkscreen&amp;family=Rye&amp;family=Ultra&amp;display=swap">
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+<div id="top"><span id="grade">&nbsp;</span><span id="info"></span><span id="lives"></span><span id="next"></span><span id="simMini"></span></div>
+<div id="saveWarning" role="status" hidden></div>
+<div id="levelToast" role="status" aria-live="polite" hidden></div>
+<div id="stage">
+  <canvas id="screen"></canvas>
+  <div id="simCard" class="simcard" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="needsHud" class="needs-hud" role="status" aria-live="polite" aria-atomic="true" aria-label="Stan postaci"></div>
+  <div id="fightPlate" class="fight-plate" hidden><small id="fpKicker"></small><b id="fpName"></b><span id="fpRisk"></span></div>
+  <div id="keys" class="keys"><button id="charBtn" type="button" title="Karta postaci (P)"><kbd>P</kbd> karta</button><button id="sysBtn" type="button" title="Pauza (Esc, F10)"><kbd class="k-hub">Esc</kbd><kbd class="k-play">F10</kbd> pauza</button></div>
+  <div id="sessionHud" class="session-hud" role="status" aria-live="polite" hidden></div>
+  <section id="crankHud" hidden aria-label="Praca przy żelaznej korbie">
+    <header class="cr-scoreboard"><div><small>PEŁNE OBROTY</small><b id="crScore">0</b><span> / <span id="crNorm">10</span></span></div><div class="cr-timer"><small>DO DZWONKA</small><b><span id="crClock">30</span><em>s</em></b></div><div><small>OBROTY / MIN</small><b id="crPace">0</b></div></header>
+    <div class="cr-controls"><b id="crHint">6 → 12 · TRZYMAJ SPACJĘ</b><div id="crMeter" role="meter" aria-label="Tempo korby" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="crFill"></i></div><p id="crFeedback" role="status" aria-live="polite"></p><button id="crHold" type="button" aria-pressed="false">Spacja · trzymaj</button></div>
+  </section>
+  <section id="crankBoard" class="ov" hidden role="dialog" aria-modal="true" aria-labelledby="crTitle"><div class="card cr-board"><small>NEWGATE · BEZCELNA PRACA</small><h2 id="crTitle">Żelazna korba</h2><p id="crLead"></p><div id="crRows"></div><footer><button id="crGo">Chwyć korbę</button><button id="crBack">Wróć do Wardu</button></footer></div></section>
+  <section id="shadowHud" hidden aria-label="Walka z cieniem">
+    <header><b id="shadowCounter"></b><span id="shadowTempo">Tempo 1.00×</span><progress id="shadowPace" max="1" value="0" aria-label="Przyspieszenie animacji"></progress><small id="shadowQueue"></small></header>
+    <ol id="shadowSteps" aria-label="Aktualna kombinacja"></ol>
+    <p id="shadowNotice" role="status" aria-live="polite"></p>
+    <footer><label>Stamina <progress id="shadowStamina" max="90" value="90"></progress></label><div><button data-shadow="DF">Doskok</button><button data-shadow="DB">Odskok</button><button data-shadow="P">Pivot</button><button id="shadowRestart" hidden>Jeszcze raz</button><button id="shadowExit">Zakończ trening</button></div></footer>
+    <p id="shadowSummary" hidden></p>
+  </section>
+  <section id="cardHud" hidden aria-label="Walka na skille">
+    <div class="kh-vit kh-me"><b class="kh-name">Ty</b><span id="khHp0" class="kh-hp"><i></i><i></i><em></em></span><span id="khStats" class="kh-stats"></span></div>
+    <div class="kh-top"><div class="kh-vit kh-who"><b id="khRivalName" class="kh-name"></b><span id="khHp1" class="kh-hp"><i></i><i></i><em></em></span><span id="khRivalInfo" class="kh-stats"></span></div></div>
+    <div id="khMenu" class="kh-menu" aria-label="Skille"></div>
+    <div class="kh-bottom">
+      <div id="khTimeline" class="kh-timeline" aria-label="Wymiana"></div>
+      <div class="kh-side"><div id="khEnergy" class="kh-stats"></div>
+        <div class="kh-act"><button id="khZone" type="button" hidden>Strefa <kbd>Z</kbd></button><button id="khUndo" type="button">Cofnij <kbd>⌫</kbd></button></div></div>
+      <p id="khLog" class="kh-log" role="status" aria-live="polite"></p>
+    </div>
+    <div id="khReact" class="kh-react" hidden><button id="khDodge" type="button"><kbd>Q</kbd> Unik</button><button id="khParry" type="button"><kbd>E</kbd> Parowanie</button></div>
+    <div id="khQte" class="kh-qte" hidden></div>
+  </section>
+  <div id="npcSay" class="npcsay" hidden></div>
+  <div id="dlg" class="ov" hidden><canvas id="dlgPic"></canvas><div class="dband"><div class="dsay"><div class="dhead"><span class="dname">PROFESOR</span><span class="dsub">Współwięzień z Wardu</span></div><div class="dtext" id="dlgText"></div></div><div class="dbox"><div class="dopts" id="dlgOpts"></div><div class="dhint">↑↓ wybierz · E dalej · Esc wyjdź</div></div></div></div>
+  <div id="storyCard" class="ov" hidden><div class="card story"><div class="story-kicker" id="storyKicker"></div><h1 id="storyTitle"></h1><div class="story-stamp" id="storyStamp" hidden></div><div class="story-body" id="storyBody"></div><div id="storyChoices" class="story-choices"></div></div></div>
+  <div id="sys" class="ov" hidden><div class="card"><div class="sys-head"><div class="sys-kicker" id="sysKicker"></div><h1 id="sysTitle">ROADWORK</h1><div class="sub" id="sysSub"></div></div><div id="sysBody"></div><div class="sys-today" id="sysToday" hidden></div></div></div>
+  <div id="opts" class="ov" hidden><div class="card">
+    <h1>OPCJE</h1>
+    <p>Dźwięk i ustawienia gry. Zmiany działają od razu.</p>
+    <h2>DŹWIĘK</h2>
+    <label><input id="snd" type="checkbox" checked> dźwięk (klawisz M)</label>
+    <label><input id="optCardAuto" type="checkbox"> walka: obrona i momenty bez wyczucia czasu (auto)</label>
+    <h2 class="debug-only">OBRAZ</h2>
+    <label class="debug-only"><input id="dbg" type="checkbox"> szkielet (klawisz G)</label>
+    <h2>TRYB DEVELOPERSKI</h2>
+    <div class="obtns">
+      <button id="optDevScenesBtn" type="button">Tryb developerski (przełącz scenę)</button>
+    </div>
+    <div id="devScenesBox" hidden style="display:none; flex-direction:column; gap:6px; margin:8px 0; padding:8px; background:rgba(0,0,0,0.35); border:1px solid var(--linia);">
+      <div style="font-size:12px; color:var(--szary); margin-bottom:4px;">Wybierz scenę do przetestowania:</div>
+      <div class="obtns" style="margin:0; gap:6px;">
+        <button type="button" data-dev-scene="cell">Cela (Ward)</button>
+        <button type="button" data-dev-scene="yard">Spacerniak</button>
+        <button type="button" data-dev-scene="laznia">Łaźnia</button>
+        <button type="button" data-dev-scene="work">Rzeźnia</button>
+        <button type="button" data-dev-scene="arm">Siłowanie na rękę</button>
+        <button type="button" data-dev-scene="spar">Bójka kartami</button>
+        <button type="button" data-dev-scene="shadow">Trening: Cień</button>
+        <button type="button" data-dev-scene="pushups">Trening: Pompki</button>
+        <button type="button" data-dev-scene="pullups">Trening: Drążek</button>
+        <button type="button" data-dev-scene="roaches">Trening: Karaluchy</button>
+        <button type="button" data-dev-scene="kierat">Kierat</button>
+        <button type="button" data-dev-scene="crank">Żelazna korba</button>
+      </div>
+    </div>
+    <label class="debug-only"><input id="optDev" type="checkbox" autocomplete="off"> tryb developera: z drzwi dowolna lokacja o dowolnej porze, bez harmonogramu i bez autozapisu (wyłączenie wczytuje ostatni zapis)</label>
+    <div class="obtns"><button id="optClose">Zamknij (Esc)</button></div>
+  </div></div>
+  <div id="stMenu" class="stmenu" hidden></div>
+  <div id="prompt" class="prompt" hidden><kbd id="promptKey">E</kbd><div><b id="promptTitle"></b><small id="promptSub"></small></div></div>
+  <div id="over" class="ov" hidden><div class="card">
+    <h1 id="overTitle">KO</h1>
+    <div class="stats" id="overStats"></div>
+    <div class="modes"><button id="again"><b>Jeszcze raz</b><small>Enter</small></button><button id="toMenu"><b>Wróć do Wardu</b><small>Esc</small></button></div>
+  </div></div>
+  <div id="workEnd" class="ov" hidden><div class="card">
+    <h1>KONIEC ZMIANY</h1>
+    <p>Rzeźnia · chłodnia 2.</p>
+    <div class="stats" id="workStats"></div>
+    <div class="modes"><button id="wkReturn"><b>Wróć do Wardu</b><small>Enter</small></button></div>
+  </div></div>
+  <div id="wheelIntro" class="ov" hidden><div class="card brief">
+    <h1 id="wiTitle">KIERAT</h1>
+    <p id="wiLead"></p>
+    <div class="stats" id="wiRows"></div>
+    <div class="modes"><button id="wiGo"><b>Wejdź na koło</b><small>Enter · ← / →</small></button><button id="wiBack"><b>Wróć</b><small>Esc</small></button></div>
+  </div></div>
+</div>
+<dialog id="charSheet" aria-labelledby="csTitle">
+  <div class="cs-tabs" role="tablist" aria-label="Karta postaci">
+    <button type="button" role="tab" id="cs-tab-who" data-cs-tab="who" aria-controls="cs-panel-who" aria-selected="true">Osobowe</button><button type="button" role="tab" id="cs-tab-stats" data-cs-tab="stats" aria-controls="cs-panel-stats" aria-selected="false" tabindex="-1">Drzewka</button><button type="button" role="tab" id="cs-tab-perks" data-cs-tab="perks" aria-controls="cs-panel-perks" aria-selected="false" tabindex="-1">Cechy</button><button type="button" role="tab" id="cs-tab-punch" data-cs-tab="punch" aria-controls="cs-panel-punch" aria-selected="false" tabindex="-1">Ciosy</button><button type="button" role="tab" id="cs-tab-deck" data-cs-tab="deck" aria-controls="cs-panel-deck" aria-selected="false" tabindex="-1">Skille</button><button type="button" role="tab" id="cs-tab-fights" data-cs-tab="fights" aria-controls="cs-panel-fights" aria-selected="false" tabindex="-1">Walki</button><button type="button" role="tab" id="cs-tab-train" data-cs-tab="train" aria-controls="cs-panel-train" aria-selected="false" tabindex="-1">Treningi</button>
+  </div>
+  <div class="cs-paper">
+    <div class="cs-heading"><div><div class="cs-kicker" id="csKicker">Karta ewidencyjna</div><h1 id="csTitle">BOHATER</h1></div><button id="csClose" type="button" autofocus><kbd>P</kbd> <kbd>Esc</kbd> zamknij</button></div>
+    <section class="cs-panel cs-who" id="cs-panel-who" role="tabpanel" aria-labelledby="cs-tab-who">
+      <aside class="cs-side"><div class="cs-mug"><canvas id="csPortrait" width="96" height="120" aria-label="Portret bohatera"></canvas></div><div id="cs-who"></div><div class="cs-stamp" id="csStamp" hidden></div></aside>
+      <div class="cs-main"><div id="cs-facts"></div><h2>Do pobicia</h2><div id="cs-quest"></div><h2>Potrzeby i forma</h2><div id="cs-needs"></div><h2>Rany</h2><div id="cs-wounds"></div><h2>Drzewka</h2><div id="cs-sum"></div></div>
+    </section>
+    <section class="cs-panel" id="cs-panel-stats" role="tabpanel" aria-labelledby="cs-tab-stats" hidden><h2>Statystyki i doświadczenie</h2><div id="cs-stats"></div></section>
+    <section class="cs-panel" id="cs-panel-perks" role="tabpanel" aria-labelledby="cs-tab-perks" hidden><h2>Cechy</h2><div id="cs-perks"></div></section>
+    <section class="cs-panel" id="cs-panel-punch" role="tabpanel" aria-labelledby="cs-tab-punch" hidden><h2>Drzewka ciosów</h2><div id="cs-punch"></div></section>
+    <section class="cs-panel" id="cs-panel-deck" role="tabpanel" aria-labelledby="cs-tab-deck" hidden><h2>Zestaw skilli do bójki</h2><div id="cs-deck"></div></section>
+    <section class="cs-panel" id="cs-panel-fights" role="tabpanel" aria-labelledby="cs-tab-fights" hidden><h2>Walki</h2><div id="cs-fights"></div></section>
+    <section class="cs-panel" id="cs-panel-train" role="tabpanel" aria-labelledby="cs-tab-train" hidden><h2>Treningi · najlepsze oceny</h2><div id="cs-train"></div></section>
+  </div>
+</dialog>
+<dialog id="skillTree" aria-labelledby="skillTitle" aria-describedby="skillIntro">
+  <div class="skill-heading"><div><div class="skill-kicker">ROADWORK / PROFESOR</div><h1 id="skillTitle">CECHY</h1></div><button id="skillClose" type="button" autofocus>Wróć do Wardu <kbd>Esc</kbd></button></div>
+  <p id="skillIntro">Na poziomach 5, 10 i 15 każdego atrybutu wybierasz jedną z dwóch Cech; działają zawsze. Punkty z awansów i prób idą na ciosy tego atrybutu.</p>
+  <div id="skillTabs" role="tablist" aria-label="Drzewka umiejętności">
+    <button id="skill-tab-str" type="button" role="tab" data-skill-tab="str" aria-controls="skill-panel-str" aria-selected="true"><b>Siła</b><span>Kontuzje i nokaut</span></button>
+    <button id="skill-tab-spd" type="button" role="tab" data-skill-tab="spd" aria-controls="skill-panel-spd" aria-selected="false" tabindex="-1"><b>Szybkość</b><span>Uniki i kombinacje</span></button>
+    <button id="skill-tab-end" type="button" role="tab" data-skill-tab="end" aria-controls="skill-panel-end" aria-selected="false" tabindex="-1"><b>Wytrzymałość</b><span>Zdrowie i kondycja</span></button>
+    <button id="skill-tab-bare" type="button" role="tab" data-skill-tab="bare" aria-controls="skill-panel-bare" aria-selected="false" tabindex="-1"><b>Spacerniak</b><span>Triki i przetrwanie</span></button>
+  </div>
+  <div id="skillBranches"></div>
+  <div class="skill-footer"><span class="skill-save-hint">Zapis automatyczny <span>·</span> Zmiany działają od następnego sparingu lub bójki.</span><span id="skillNotice" role="status" aria-live="polite"></span></div>
+</dialog>
+<div id="panel">
+  <button id="pullupAction" class="pullup-only">Przytrzymaj · podciągnij</button>
+  <button id="pushupAction" class="pushup-only">Przytrzymaj · w dół</button>
+  <button data-m="0">1 · Jab</button><button data-m="1">2 · Cross</button><button data-m="2">3 · Hook</button><button data-m="3">4 · Upper</button><button data-m="4">5 · Unik</button><button data-m="5" class="shadow-only">Q · Slip</button><button data-m="8" class="shadow-only">◀ A</button><button data-m="7" class="shadow-only">D ▶</button><label class="shadow-only"><input id="bodyMode" type="checkbox"> na korpus (↓)</label>
+  <button class="hub-only" data-hk="u">▲ W</button><button class="hub-only" data-hk="l">◀ A</button><button class="hub-only" data-hk="d">▼ S</button><button class="hub-only" data-hk="r">D ▶</button><button class="hub-only" id="hubUse">E · Użyj</button>
+  <button class="arm-only" data-arm="push">Spacja · Pchnij</button><button class="arm-only" data-arm="brace">S · Zaprzyj</button><button class="arm-only" data-arm="quit">Esc · Poddaj</button>
+  <button class="work-only" data-wk="m">Spacja · Dźwignij (mashuj) / rzut / cios</button><button class="work-only" data-wk="l">◀ A · krok / hak</button><button class="work-only" data-wk="r">krok / podbródek · D ▶</button><button class="work-only" data-wk="x">Esc · Koniec zmiany</button>
+  <button id="menuBtn">Wróć do Wardu</button>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

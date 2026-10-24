@@ -1,0 +1,24 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "roadwork",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "roadwork-test",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "PORT=5191",
+        "node",
+        "scripts/serve.mjs"
+      ],
+      "port": 5191
+    }
+  ]
+}
