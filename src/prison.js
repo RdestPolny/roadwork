@@ -18,7 +18,6 @@ import { DEBUG } from './config.js';
 import { PRISON_ROOMS, isWorkDay, respektRank, RESPEKT_RANKS, WORK_TARGET, workStage, workPay, fmtMoney,
   weekday, isShopDay, inmateRank, pickDailyEvent, bicieOpponents, BICIE_SEC, BICIE_RESPEKT, fightNote, BARE_PERKS, barePoints, bareSpent, bareBlock, BARE_RESPEC_FAJKI, LISTA, lessonText, listEntry, lessonOk, MEMORIES, AMBU_DAYS, AMBU_RENTA, REVENGE_DAYS, RAPORT_OPINIA, OPINIA_GOOD, guardRisk, fightRespekt } from './prison-data.js';
 import { startWork } from './work.js';
-import { startTreadwheel } from './treadwheel.js';
 import { startCrank } from './crank.js';
 import { onSessionEnd } from './training-session.js';
 
@@ -174,11 +173,6 @@ function toCell(){ if(gymState.hubRoom!=='cell') goRoom('cell',0); }
 function workSettled(){ const P=prisonSave(), day=progressionState.save.sim.day; return P.flagi['praca-'+(day%7)]===true; }
 /** Mark today's work as done or refused. */
 function settleWork(){ const P=prisonSave(), day=progressionState.save.sim.day; for(let k=0;k<7;k++) delete P.flagi['praca-'+k]; P.flagi['praca-'+(day%7)]=true; }
-/** Is supper denied today (thrown off the treadwheel this morning)? */
-export function supperDenied(){ return isPrison()&&prisonSave().flagi['bez-kolacji-'+(progressionState.save.sim.day%7)]===true; }
-/** Deny today's supper. */
-function denySupper(){ const P=prisonSave(), day=progressionState.save.sim.day; for(let k=0;k<7;k++) delete P.flagi['bez-kolacji-'+k]; P.flagi['bez-kolacji-'+(day%7)]=true; }
-
 /** Is there a shift to go to this morning? */
 export function workDue(){ const s=progressionState.save.sim; return isWorkDay(s.day)&&s.faza===0&&!workSettled(); }
 
@@ -195,7 +189,7 @@ function phaseStart(){
     guard(weekday(s.day)===6?'Długi spacerniak — pod murem niedzielne bicie.':prisonSave().flagi['zakaz-spaceru']?'Spacerniak — ty zostajesz, zakaz po raporcie.':'Spacerniak otwarty do wieczora.');
     return dailyEvent('yard');
   }
-  guard(supperDenied()?'Kolacja przez klapę. Siedemnasty — ty dziś nie jesz. Kierat pamięta.':'Kolacja przez klapę. Łaźnia otwarta.');
+  guard('Kolacja przez klapę. Łaźnia otwarta.');
   return dailyEvent('meal');
 }
 
@@ -220,17 +214,6 @@ function workShift(){
     choices:[{label:'Do roboty',fn:()=>startWork({target,minutes:0,returnSt:doorStation(),onEnd:r=>workDone(r)})}]}]);
 }
 
-/** The treadwheel instead of the slaughterhouse: the shed behind the yard, a bet among the men, then the wheel. */
-function wheelShift(){
-  const P=prisonSave(), cobb=Math.random()<0.2, start=(/** @type {number} */ bet)=>{ if(bet&&!spendTobacco(bet)) bet=0; persist();
-    startTreadwheel({returnSt:doorStation(),cobb,onEnd:m=>wheelDone(m,bet)}); };
-  /** @type {{label:string,sub?:string,fn:()=>void}[]} */ const choices=[{label:'Wejdź do boksu',sub:'bez zakładu',fn:()=>start(0)}];
-  for(const n of [5,10]) if(P.fajki>=n) choices.push({label:'Postaw '+n+' prymek na siebie',sub:'ostatni na kole: ×3 · drugi: zwrot',fn:()=>start(n)});
-  showCards([{kicker:'ZBIÓRKA · RANO',title:'Szopa kieratu',
-    body:'<p>Plotka okazała się prawdą: za spacerniakiem stoi szopa, a w niej koło na całą ścianę. Drewniane boksy, poręcz, kreda na słupkach. Nad oknem kręci się wiatrak, który niczego nie miele.</p><p>Bez zapłaty. Za to kto zejdzie ostatni, ten coś znaczy na spacerniaku.'+(cobb?' Dyżur ma ślepy <b>Cobb</b>: długo patrzy w pustkę, zamiast na boksy.':'')+'</p><p class="hint">Kiedy klucznik odwraca głowę i zamyka latarnię, można odpocząć na poręczy. Przyłapany trzeci raz — zlatujesz z koła i nie dostaniesz kolacji.</p>',
-    choices}]);
-}
-
 /** Pointless labour instead of the paid shift; the callback owns its once-only cost and rewards. */
 function crankShift(){
   stMenuClose();
@@ -243,22 +226,6 @@ function crankShift(){
     persist();
     return [['Praca','1 akcja · bez zapłaty'],['Trening','+'+strength+' XP siły · +'+endurance+' XP wytrzymałości'],['Respekt',r.won?'+2':'bez zmiany']];
   }});
-}
-
-/** What the wheel did to the day: the work settled, the tiredness, respect, the bet, a scraped shin or no supper.
- * @param {{won:boolean,place:number,field:number,how:string,alone:number,caught:number,strongBeaten:number,fell:boolean,firstOff:boolean,stage:number}} m @param {number} bet
- * @returns {[string,string][]} summary rows */
-function wheelDone(m,bet){
-  const P=prisonSave(); /** @type {[string,string][]} */ const rows=[];
-  settleWork(); spendAction('kierat');
-  if(m.how==='zrzucony'){ denySupper(); rows.push(['Kara','zrzucony z koła: wieczorem klapa zostanie zamknięta — bez kolacji']); if(bet) rows.push(['Zakład','przepadł ('+bet+' prymek)']); persist(); return rows; }
-  if(m.won){ const n=2+m.strongBeaten; addRespekt(n,'ostatni na kole'); rows.push(['Respekt','+'+n+' · ostatni na kole']); }
-  else if(m.firstOff&&m.stage>=3){ addRespekt(-2,'pierwszy z koła'); rows.push(['Respekt','−2 · pierwszy z koła']); }
-  if(bet){ const back=m.won?bet*3:m.place===2?bet:0; P.fajki+=back; rows.push(['Zakład',back?'+'+back+' prymek':'przepadł ('+bet+' prymek)']); }
-  if(m.alone){ const xp=6*m.alone; addXP('end',xp); rows.push(['Sam na kole','+'+xp+' XP wytrzymałości']); }
-  if(m.fell&&Math.random()<0.3){ simNudge('zm',1); rows.push(['Otarta goleń','stopień zdarł skórę do kości: zmęczenie +1']); }
-  persist();
-  return rows;
 }
 
 /** Pay, opinion and the summary card of a shift. @param {{norma:number,hung:number,target:number,drops:number,punches:number,grade:string,gained:string}} r */
@@ -681,5 +648,5 @@ export function initialize(){
   state.cardEl.addEventListener('mousedown',e=>e.stopPropagation());
   state.cardEl.addEventListener('click',e=>e.stopPropagation());
   syncPhaseClass();
-  onSessionEnd(r=>{ if(isPrison()&&r.id!=='work'&&r.id!=='kierat') spendAction('trening'); });   // a training takes an action of the phase and tires (the wheel is charged as the day's work)
+  onSessionEnd(r=>{ if(isPrison()&&r.id!=='work') spendAction('trening'); });   // a training takes an action of the phase and tires
 }

@@ -248,7 +248,7 @@ export async function checkProfesorList(page) {
   const r = await page.evaluate(async () => {
     const b = window.__boxer; b.newGame('prison'); b.pause();
     const P = await import('/src/progression.js'), G = await import('/src/gym.js'), N = await import('/src/navigation.js'), D = await import('/src/dialog.js'),
-      X = await import('/src/prison.js'), SP = await import('/src/sparring.js'), B = await import('/src/boxing.js'), R = await import('/src/rooms.js'), I = await import('/src/input.js');
+      X = await import('/src/prison.js'), SP = await import('/src/sparring.js'), IFM = await import('/src/iso-fight.js'), IFS = IFM.state, B = await import('/src/boxing.js'), R = await import('/src/rooms.js'), I = await import('/src/input.js');
     document.querySelector('#storyChoices button').click(); b.pause();
     const S = P.state.save, PR = S.prison, out = {}, cards = [];
     const run = n => { for (let i = 0; i < n; i++) { b.step(1); if (X.cardOpen()) { cards.push(document.getElementById('storyTitle').textContent); document.querySelector('#storyChoices button').click(); b.pause(); } } };
@@ -290,7 +290,7 @@ export async function checkProfesorList(page) {
 export async function checkSpacerniak(page) {
   const r = await page.evaluate(async () => {
     const b = window.__boxer; b.newGame('prison'); b.pause();
-    const P = await import('/src/progression.js'), X = await import('/src/prison.js'), SP = await import('/src/sparring.js'), ST = await import('/src/skill-tree.js'), G = await import('/src/gym.js');
+    const P = await import('/src/progression.js'), X = await import('/src/prison.js'), SP = await import('/src/sparring.js'), IFM = await import('/src/iso-fight.js'), IFS = IFM.state, ST = await import('/src/skill-tree.js'), G = await import('/src/gym.js');
     document.querySelector('#storyChoices button').click(); b.pause();
     const S = P.state.save, PR = S.prison, out = {};
     try {
@@ -306,11 +306,6 @@ export async function checkSpacerniak(page) {
       out.unlocked = S.bare.unlocked.slice();
       out.loadout = S.loadout.slice();
       document.getElementById('skillTree').close();
-      SP.startCardSpar(0, 'yard', G.stationOf(G.state.gymItems.find(x => x.t === 'cdoor')));
-      const C = await import('/src/card-fight.js');
-      out.perks = ['piach', 'kciuk'].every(p => C.state.duel.f[0].perks.includes(p));
-      out.fightSkills = C.state.duel.f[0].skills.slice();
-      (await import('/src/navigation.js')).exitToHub();
       X.countFight('yard:1'); X.countFight('yard:1');
       out.memory = X.fightsWith('yard:1');
     } catch (e) { out.error = String(e) + ' ' + e.stack; }
@@ -322,9 +317,7 @@ export async function checkSpacerniak(page) {
   assert.deepEqual([r.tab, r.cards], [true, 10], 'nine perks and Brudna robota, moved from Siła');
   assert.deepEqual([r.buyKciuk, r.buyNerki], ['', 'rank']);
   assert.deepEqual(r.unlocked, ['piach', 'kciuk'], 'the card click buys, then three points are spent');
-  assert.equal(r.perks, true);
   assert.deepEqual([r.loadout.includes('piach'), r.loadout.includes('kciuk'), r.loadout.length], [true, false, 6], 'a bought yard trick goes into the set while it has room');
-  assert.ok(r.fightSkills.includes('piach') && !r.fightSkills.includes('kciuk'), 'the brawl takes the set: piach in it, kciuk waits in the collection');
   assert.equal(r.memory, 2, 'repeat encounters are remembered');
 }
 
@@ -333,7 +326,7 @@ export async function checkSundayAndEvents(page) {
   const r = await page.evaluate(async () => {
     const b = window.__boxer; b.newGame('prison'); b.pause();
     const P = await import('/src/progression.js'), G = await import('/src/gym.js'), N = await import('/src/navigation.js'), X = await import('/src/prison.js'),
-      SP = await import('/src/sparring.js'), PD = await import('/src/prison-data.js'), R = await import('/src/rooms.js'), NP = await import('/src/npcs.js');
+      SP = await import('/src/sparring.js'), IFM = await import('/src/iso-fight.js'), IFS = IFM.state, PD = await import('/src/prison-data.js'), R = await import('/src/rooms.js'), NP = await import('/src/npcs.js');
     document.querySelector('#storyChoices button').click(); b.pause();
     const S = P.state.save, PR = S.prison, out = {}, cards = [];
     const run = (n, pick = 0) => { for (let i = 0; i < n; i++) { b.step(1); if (X.cardOpen()) { cards.push(document.getElementById('storyTitle').textContent); const bs = document.querySelectorAll('#storyChoices button'); bs[Math.min(pick, bs.length - 1)].click(); b.pause(); } } };
@@ -351,9 +344,9 @@ export async function checkSundayAndEvents(page) {
       out.bicieCard = cards[cards.length - 1]; out.limit = SP.state.timeLimit;
       const resp0 = PR.respekt;
       for (let f = 0; f < 3; f++) {
-        for (let i = 0; i < 80 && SP.state.SP.phase !== 'fight'; i++) b.step(1);
-        SP.cardFinish(0, 'KO'); b.step(180);
-        out['how' + f] = SP.state.SP.how;
+        for (let i = 0; i < 80 && IFS.phase !== 'fight'; i++) b.step(1);
+        IFM.isoFightFinish(0, 'KO'); b.step(180);
+        out['how' + f] = IFS.how;
         N.exitToHub(); b.step(30); run(3);
       }
       out.bicie = {wins: PR.bicie.wygrane, resp: PR.respekt - resp0, points: X.bareInfo().points, ranks: [1, 2, 3, 4].filter(k => PR.flagi['ranga-' + k]).length, gstate: (await import('/src/boxing.js')).state.gstate, limit: SP.state.timeLimit};
@@ -384,7 +377,7 @@ export async function checkSundayAndEvents(page) {
 export async function checkBath(page) {
   const r = await page.evaluate(async () => {
     const b = window.__boxer; b.newGame('prison'); b.pause();
-    const P = await import('/src/progression.js'), G = await import('/src/gym.js'), N = await import('/src/npcs.js'), SP = await import('/src/sparring.js'),
+    const P = await import('/src/progression.js'), G = await import('/src/gym.js'), N = await import('/src/npcs.js'), SP = await import('/src/sparring.js'), IFM = await import('/src/iso-fight.js'), IFS = IFM.state,
       NV = await import('/src/navigation.js'), B = await import('/src/boxing.js'), R = await import('/src/rooms.js');
     document.querySelector('#storyChoices button').click(); b.pause();
     const S = P.state.save.sim, PR = P.state.save.prison, out = {};
@@ -404,10 +397,10 @@ export async function checkBath(page) {
       const C = N.state.YN[1];
       G.state.hubNear = {id:'bathfight', yn:1, name:'W', title:'W', look:[C.i, C.j, 15], spot:[G.state.hubP.i, G.state.hubP.j], item:null};
       const fo = G.stationOptions(G.state.hubNear); out.fight = fo[0][0];
-      fo[0][1](); out.venue = [SP.state.sparVenue, SP.isBareknuckle(), SP.towelOut(), SP.prisonOut()];
+      fo[0][1](); out.venue = [SP.state.sparVenue, SP.isBareknuckle(), G.state.hubRoom, B.state.gstate];
       b.step(5); b.step(1);
-      SP.cardFinish(0, 'KO'); b.step(180);
-      out.won = SP.state.SP.winner === SP.state.FA;
+      IFM.isoFightFinish(0, 'KO'); b.step(180);
+      out.won = IFS.winner === IFS.P;
       NV.exitToHub(); for (let i = 0; i < 40; i++) b.step(1);
       out.back = [G.state.hubRoom, B.state.gstate, N.state.YN.filter(C => C.sleeves).length];
       out.afterFight = S.akcje;
@@ -428,7 +421,7 @@ export async function checkBath(page) {
   assert.equal(r.perShower, 1, 'one man to a tub');
   assert.equal(r.overlap, 0, 'nobody stands in the picture of a man in a tub');
   assert.match(r.fight, /^Bójka w łaźni: .* para kryje \(klucznik 20%\)/);
-  assert.deepEqual(r.venue, ['laznia', true, true, false], 'a bareknuckle fight in towels, not in the drelich');
+  assert.deepEqual(r.venue, ['laznia', true, 'laznia', 'isofight'], 'a bareknuckle fight in the bath room, in towels');
   assert.equal(r.won, true);
   assert.deepEqual(r.back, ['laznia', 'hub', 0], 'back in the bath, still in towels');
   assert.equal(r.afterFight, 1, 'the fight took an action');
@@ -439,13 +432,13 @@ export async function checkBath(page) {
 export async function checkCharSheet(page) {
   const r = await page.evaluate(async () => {
     const b = window.__boxer; b.newGame('prison'); b.pause();
-    const P = await import('/src/progression.js'), D = await import('/src/data.js'), SP = await import('/src/sparring.js'), NV = await import('/src/navigation.js');
+    const P = await import('/src/progression.js'), D = await import('/src/data.js'), SP = await import('/src/sparring.js'), IFM = await import('/src/iso-fight.js'), IFS = IFM.state, NV = await import('/src/navigation.js');
     document.querySelector('#storyChoices button').click(); b.pause();
     const out = {};
     out.look = JSON.stringify(P.state.save.look) === JSON.stringify(D.HERO_LOOK);
     out.lookTab = !!document.querySelector('#shop .tabs [data-slot="look"]');
     // a bare fight goes into the record
-    SP.startSpar(0, 'cell', null); b.step(60); SP.cardFinish(0, 'KO'); b.step(180);
+    SP.startSpar(0, 'cell', null); b.step(60); IFM.isoFightFinish(0, 'KO'); b.step(180);
     NV.exitToHub(); b.step(30);
     out.record = [P.state.save.record.bare.w + P.state.save.record.bare.l + P.state.save.record.bare.d, P.state.save.record.last.length, P.state.save.record.last[0]?.v];
     return out;

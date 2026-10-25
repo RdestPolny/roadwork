@@ -4,11 +4,11 @@ import { state as boxingState, setFlow, resetClock } from './boxing.js';
 import { state as armState } from './armwrestle.js';
 import { profOpen } from './profesor.js';
 import { workReset } from './work.js';
-import { sparExit, state as sparringState, isBareknuckle, isShadowboxing, setRigged, setFightLimit } from './sparring.js';
+import { stopIsoFight, isoFightOutcome } from './iso-fight.js';
+import { sparExit, state as sparringState, isShadowboxing, setRigged, setFightLimit } from './sparring.js';
 import { puReset, state as pushupsState } from './pushups.js';
 import { resetPullups } from './pullups.js';
 import { resetRoaches } from './roaches.js';
-import { resetTreadwheel, treadwheelReturn } from './treadwheel.js';
 import { resetCrank, crankReturn } from './crank.js';
 import { state as inputState, setInfo, clearHeldInput } from './input.js';
 import { state as progressionState, applyStats, persist } from './progression.js';
@@ -29,15 +29,15 @@ function leaveMode(){
   clearHeldInput(); sessionLeave();
   if(boxingState.gstate==='work') workReset();
   if(boxingState.gstate==='spar') sparExit();
+  if(boxingState.gstate==='isofight') stopIsoFight();
   if(boxingState.gstate==='arm'){ armState.A=null; document.body.classList.remove('arm'); }
   if(boxingState.gstate==='pushup') puReset();
   if(boxingState.gstate==='pullup') resetPullups();
   if(boxingState.gstate==='roach') resetRoaches();
-  if(boxingState.gstate==='kierat') resetTreadwheel();
   if(boxingState.gstate==='crank') resetCrank();
   applyGear(progressionState.save.eq);
   boxingState.mode=boxingState.M_FREE; setFlow(false); boxingState.combo=0; animationState.posX=0; boxingState.state=animationState.IDLE; boxingState.buffered=-1; animationState.walkHeld=-1; animationState.cur.set(animationState.GUARD); animationState.lastPose.set(animationState.cur); boxingState.idleT=0;
-  document.body.classList.remove('pushup','pullup','roach','kierat','spar','flow');
+  document.body.classList.remove('pushup','pullup','roach','spar','flow');
   inputState.overEl.hidden=true;
 }
 
@@ -61,12 +61,11 @@ export function exitToHub(){
   if(boxingState.gstate==='spar'&&isShadowboxing()){const st=sparringState.cellFightSt;setRoomRaw('cell');enterHub(st);return;}
   if(boxingState.gstate==='pullup'){ const it=gymState.cellList.find(x=>x.t==='cpull'); enterHub(it?stationOf(it):null); return; }
   if(boxingState.gstate==='roach'){ const it=gymState.cellList.find(x=>x.t==='croach'); enterHub(it?stationOf(it):null); return; }
-  if(boxingState.gstate==='kierat'){ enterHub(treadwheelReturn()); return; }
   if(boxingState.gstate==='pushup'&&pushupsState.puVenue==='cell'){ const it=gymState.cellList.find(x=>x.t==='cfloor'); enterHub(it?stationOf(it):null); pushupsState.puVenue=''; return; }
-  if(boxingState.gstate==='spar'&&isBareknuckle()){
-    const idx=sparringState.sparOpp, room=sparringState.sparVenue, won=sparringState.SP.phase==='end'&&sparringState.SP.winner===sparringState.FA, st=sparringState.cellFightSt;
+  if(boxingState.gstate==='isofight'){
+    const {idx,venue:room,won,station}=isoFightOutcome();
     if(gymState.hubRoom!==room) setRoomRaw(room);
-    enterHub(st); if(room!=='canteen'&&room!=='laznia') finishPrisonFight(idx,won,room==='yard'); setRigged(false); setFightLimit(0);
+    enterHub(station); if(room!=='canteen'&&room!=='laznia') finishPrisonFight(idx,won,room==='yard'); setRigged(false); setFightLimit(0);
     return; }
   enterHub(null); } function hubLaunch(st,fn){
   stMenuClose(); initAudio(); sfxWhoosh(0.5); gymState.hubLastItem=st.item||null;
@@ -119,7 +118,7 @@ export function hubKey(e,down){
 export function setPanelMode(){
   document.body.classList.toggle('hub',boxingState.gstate==='hub'||boxingState.gstate==='menu');
   for(const mode of ['work','arm']) document.body.classList.toggle(mode,boxingState.gstate===mode);
-  const pullup=boxingState.gstate==='pullup'||boxingState.gstate==='roach'||boxingState.gstate==='kierat', pu=boxingState.gstate==='pushup';
+  const pullup=boxingState.gstate==='pullup'||boxingState.gstate==='roach', pu=boxingState.gstate==='pushup';
   document.getElementById('menuBtn').textContent=boxingState.gstate==='spar'&&sparringState.sparVenue==='yard'?'Wróć na spacerniak':boxingState.gstate==='spar'&&sparringState.sparVenue==='laznia'?'Wróć do łaźni':'Wróć do Wardu';
   const labels=['1 · Jab','2 · Cross','3 · Hook','4 · Upper','Spacja · Blok'];
   document.querySelectorAll('#panel button[data-m]').forEach(b=>{ const m=+b.dataset.m; if(m<=4){ b.textContent=labels[m]; b.style.display=pullup||pu?'none':''; } });

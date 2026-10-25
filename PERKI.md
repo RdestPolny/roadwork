@@ -22,7 +22,7 @@ konkretnych ciosów. Wszystko, co wzmacnia jeden cios, idzie do drzewek ciosów 
   dziewięć na postać przy limicie Newgate. Cecha 10 otwiera się po osiągnięciu poziomu 10, jeszcze przed próbą Profesora.
 - Cechy są **zawsze aktywne**: bez punktów, slotów, ścieżek i wymagań.
 - **Punkty atrybutu idą tylko na ciosy tego atrybutu**: naukę ruchów i drzewka ciosów (`CIOSY.md` §3). Trening
-  kształtuje styl: pompki i krata rozwijają cross i uppercut, Cień i karaluchy jab i hook, kierat ciosy na korpus.
+  kształtuje styl: pompki i krata rozwijają cross i uppercut, Cień i karaluchy jab i hook.
 - **Zmiana wyboru** u Profesora: pierwsza w atrybucie za darmo, potem 5 prymek za jedną Cechę. Wolne miejsce wybiera się za
   darmo także w karcie postaci.
 - **Każdy atrybut działa sam z siebie**, bez Cech:

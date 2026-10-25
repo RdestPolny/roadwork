@@ -9,5 +9,5 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src/realtime-rules.js", "src/crank-rules.js", "src/time.js", "src/save-store.js", "src/fighter-context.js", "src/stats.js", "src/training-data.js", "src/perk-rules.js", "src/skill-data.js", "src/prison-data.js", "src/card-data.js", "src/card-rules.js"]
+  "include": ["src/realtime-rules.js", "src/crank-rules.js", "src/time.js", "src/save-store.js", "src/fighter-context.js", "src/stats.js", "src/training-data.js", "src/perk-rules.js", "src/skill-data.js", "src/prison-data.js", "src/card-data.js"]
 }

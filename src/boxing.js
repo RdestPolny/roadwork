@@ -1,5 +1,5 @@
 import { state as appearanceState, rampIndex, rgb } from './appearance.js';
-import { oppSurface, sparClamp, prisonOut, towelOut, bareTorsoOut, state as sparringState, stain, catchBloodOnClothes, sparRaiseGuard, sparDashCost, sparEvadeCost, sparOnAttack, staF, sparImpact } from './sparring.js';
+import { oppSurface, sparClamp, prisonOut, bareTorsoOut, state as sparringState, stain, sparRaiseGuard, sparDashCost, sparEvadeCost, sparOnAttack, staF } from './sparring.js';
 import { wkSurf, drawCap, drawApron, redrawLeadLeg, wkStain, wkImpact } from './work.js';
 import { state as animationState, samplePose, isDash } from './animation.js';
 import { pset, taper, disc, state as rendererState, line, isSkinPx, shadowEll } from './renderer.js';
@@ -24,49 +24,104 @@ export function ik(sx,sy,tx,ty,l1,l2,sign){
    SOLVE POSE -> JOINTS
    ===================================================================== */
 function solveArm(shx,shy,relx,rely,r,fl,isLead){
-  // integer-first: shoulder and glove offset are snapped BEFORE IK, so a guard pose moves as one rigid pixel block
-  let gx=shx+Math.round(relx), gy=shy+Math.round(rely);
-  ik(shx,shy,gx,gy,appearanceState.UPPER,appearanceState.FORE,1); gx=state.IKtx; gy=state.IKty;          // reachable target (straight arm if beyond reach)
-  const tip=gx+r, surf=state.gstate==='spar'?oppSurface(gy):(state.gstate==='work'?wkSurf(gy):999); // opponent or hanging meat
-  if(gx+r>surf+state.PENMAX){ gx=surf+state.PENMAX-r; ik(shx,shy,gx,gy,appearanceState.UPPER,appearanceState.FORE,1); }   // glove sinks in at most PENMAX px
-  let ex=state.IKx, ey=state.IKy; gx=Math.round(state.IKtx); gy=Math.round(state.IKty);
-  if(fl>0){ex+=((shx+gx)*0.5-ex)*fl; ey+=((shy+gy)*0.5-2-ey)*fl;}
-  else if(fl<0){ const dx=gx-shx, dy=gy-shy, L=Math.hypot(dx,dy)||1, ux=dx/L, uy=dy/L, vx=ex-shx, vy=ey-shy, pr=vx*ux+vy*uy;   // elbow up (hooks): the bend flipped over the shoulder-glove line
-    const rx=shx+2*pr*ux-vx, ry=shy+2*pr*uy-vy; ex+=(rx-ex)*(-fl); ey+=(ry-ey)*(-fl); }
-  if(isLead){state.lTipRaw=tip;state.lSurf=surf;state.lex=Math.round(ex);state.ley=Math.round(ey);state.lgx=gx;state.lgy=gy;}
-  else {state.rTipRaw=tip;state.rSurf=surf;state.rex=Math.round(ex);state.rey=Math.round(ey);state.rgx=gx;state.rgy=gy;}
+  // Obliczamy IK na wartościach zmiennoprzecinkowych, aby uniknąć schodkowego skakania łokcia
+  let gx=shx+relx, gy=shy+rely;
+  ik(shx,shy,gx,gy,appearanceState.UPPER,appearanceState.FORE,1);
+  gx=state.IKtx; gy=state.IKty;
+  const tip=gx+r, surf=state.gstate==='spar'?oppSurface(Math.round(gy)):(state.gstate==='work'?wkSurf(Math.round(gy)):999);
+  if(gx+r>surf+state.PENMAX){
+    gx=surf+state.PENMAX-r;
+    ik(shx,shy,gx,gy,appearanceState.UPPER,appearanceState.FORE,1);
+  }
+  let ex=state.IKx, ey=state.IKy;
+  gx=state.IKtx; gy=state.IKty;
+
+  // Poprawione unoszenie łokcia (fl): zachowuje długość kości (brak zapadania się stawu przy sierpowym)
+  if(fl!==0){
+    const dx=gx-shx, dy=gy-shy, L=Math.hypot(dx,dy)||1, ux=dx/L, uy=dy/L;
+    const vx=ex-shx, vy=ey-shy, pr=vx*ux+vy*uy;
+    const px=shx+pr*ux, py=shy+pr*uy; // rzut łokcia na oś bark-pięść
+    const h=Math.hypot(ex-px,ey-py);
+    // Zamiast liniowego przejścia przez 0, skalujemy odchylenie cosinusem i lekko unosimy łokieć w górę (-Y)
+    const angle=Math.max(-1,Math.min(1,fl))*Math.PI;
+    const nx=-uy, ny=ux;
+    const dir=Math.cos(angle);
+    const lift=Math.abs(Math.sin(angle))*0.45;
+    ex=px+nx*h*dir;
+    ey=py+ny*h*dir-h*lift;
+  }
+
+  if(isLead){state.lTipRaw=tip;state.lSurf=surf;state.lex=Math.round(ex);state.ley=Math.round(ey);state.lgx=Math.round(gx);state.lgy=Math.round(gy);}
+  else {state.rTipRaw=tip;state.rSurf=surf;state.rex=Math.round(ex);state.rey=Math.round(ey);state.rgx=Math.round(gx);state.rgy=Math.round(gy);}
 }
 
 export function solve(){
   const P=animationState.cur;
-  const bx=appearanceState.BASE_X+(state.gstate==='spar'?sparClamp(animationState.posX+P[animationState.GX]):animationState.posX+P[animationState.GX]), fy=appearanceState.FLOOR_Y+Math.round(P[animationState.GY]);   // footwork origin (x) and foot baseline (airborne when GY<0)
-  state.hipX=Math.round(bx+P[animationState.BX]); state.hipY=Math.round(appearanceState.HIP_Y0+P[animationState.BY]+P[animationState.GY]);
-  state.sx=Math.round(bx+P[animationState.BX]+P[animationState.LEAN]); state.sy=Math.round(appearanceState.HIP_Y0+P[animationState.BY]+P[animationState.GY]-appearanceState.TORSO-P[animationState.SQ]);
-  const rot=P[animationState.ROT];
-  state.lsx=state.sx+Math.round(1-2.5*rot); state.lsy=state.sy+1; state.rsx=state.sx+Math.round(-1+2.5*rot); state.rsy=state.sy+1;
+  const bx=appearanceState.BASE_X+(state.gstate==='spar'?sparClamp(animationState.posX+P[animationState.GX]):animationState.posX+P[animationState.GX]);
+  const fy=appearanceState.FLOOR_Y+Math.round(P[animationState.GY]);
+
+  // Zachowujemy dokładne (float) pozycje kręgosłupa na potrzeby płynnego widoku plakatowego
+  const hipXf=bx+P[animationState.BX], hipYf=appearanceState.HIP_Y0+P[animationState.BY]+P[animationState.GY];
+  const lean=P[animationState.LEAN], sq=P[animationState.SQ];
+  const downBlend=Math.max(0,Math.min(1,(P[animationState.BY]-5)/6)); // 0 w stójce, 1 na deskach (KD/KO)
+  const spineLen=Math.max(6,appearanceState.TORSO+sq*(1-downBlend*0.5));
+  const leanAng=Math.max(-1.05,Math.min(1.05,lean/13));
+  const sxfStand=hipXf+Math.sin(leanAng)*spineLen, syfStand=hipYf-Math.cos(leanAng)*spineLen;
+  const sxfDown=hipXf+lean, syfDown=hipYf-appearanceState.TORSO-sq;
+  const sxf=sxfStand*(1-downBlend)+sxfDown*downBlend;
+  const syf=syfStand*(1-downBlend)+syfDown*downBlend;
+
+  state.hipX=Math.round(hipXf); state.hipY=Math.round(hipYf);
+  state.sx=Math.round(sxf); state.sy=Math.round(syf);
+
+  const rot=P[animationState.ROT], hrot=P[animationState.HROT];
+  // Szersza obręcz barkowa + naturalna asymetria wysokości barków przy rotacji (bark bijący chroni szczękę)
+  const shSpan=1.6;
+  const shTilt=Math.max(-1.5,Math.min(1.5,rot*0.75-lean*0.08));
+  state.lsx=Math.round(sxf+shSpan-2.6*rot);
+  state.lsy=Math.round(syf+1+shTilt*0.5);
+  state.rsx=Math.round(sxf-shSpan+2.6*rot);
+  state.rsy=Math.round(syf+1-shTilt*0.5);
+
   state.lgr=3.5+P[animationState.LGS]; state.rgr=4+P[animationState.RGS];
   solveArm(state.lsx,state.lsy,P[animationState.LGX],P[animationState.LGY],state.lgr,P[animationState.LFL],true);
   solveArm(state.rsx,state.rsy,P[animationState.RGX],P[animationState.RGY],state.rgr,P[animationState.RFL],false);
-  state.headX=state.sx+Math.round(2+P[animationState.HX]); state.headY=state.sy+Math.round(-6+P[animationState.HY]);
-  // legs: feet planted on the (possibly lifted) baseline, hips move over them
+
+  state.headX=Math.round(sxf+2+P[animationState.HX]);
+  state.headY=Math.round(syf-6+P[animationState.HY]);
+
   const st=P[animationState.ST], h=P[animationState.HEEL];
-  const la0=Math.round(bx+P[animationState.STEP]+st*0.44), lh=Math.round(P[animationState.LHEEL]);   // lead foot under a bent knee, rear leg long and almost straight
+  const la0=Math.round(bx+P[animationState.STEP]+st*0.44), lh=Math.round(P[animationState.LHEEL]);
   const ll=Math.round(P[animationState.LLIFT]), rl=Math.round(P[animationState.RLIFT]);
-  const lhU=Math.max(lh,0), lhT=Math.max(-lh,0);                       // heel up (ball of the foot) / toe up (heel strike)
-  state.lax=la0+Math.round(lhU*0.6); state.lay=fy-3-lhU-ll;                 // lead heel lifts and turns out on hooks
+  const lhU=Math.max(lh,0), lhT=Math.max(-lh,0);
+  state.lax=la0+Math.round(lhU*0.6); state.lay=fy-3-lhU-ll;
   const r0=Math.round(bx-st*0.56+P[animationState.RSTEP]), hr=Math.round(h), hrU=Math.max(hr,0), hrT=Math.max(-hr,0);
   state.rax=r0+Math.round(hrU*0.7); state.ray=fy-3-hrU-rl;
-  const hrot=P[animationState.HROT];
-  state.lhx=state.hipX+1-Math.round(hrot); state.lhy=state.hipY; state.rhx=state.hipX-1+Math.round(3*hrot); state.rhy=state.hipY+(hrot>0.5?1:0);   // rear hip drives through
-  state.torsoX=state.hipX+Math.round(hrot);
-  ik(state.lhx,state.lhy,state.lax,state.lay,appearanceState.THIGH,appearanceState.SHIN,-1); state.lkx=Math.round(state.IKx+P[animationState.LKN]); state.lky=Math.round(state.IKy+P[animationState.LKN]*0.8);   // knee turns in
-  ik(state.rhx,state.rhy,state.rax,state.ray,appearanceState.THIGH,appearanceState.SHIN,-1); state.rkx=Math.round(state.IKx); state.rky=Math.round(state.IKy);
-  state.ltx=la0+4-Math.round(0.6*lhU)-Math.round(0.4*lhT); state.lty=fy-1-ll-lhT; state.lhex=la0-1+Math.round(lhU*0.9); state.lhey=fy-1-lhU-ll;
-  state.rtx=r0+4-Math.round(1.5*Math.max(0,hrot))-Math.round(0.4*hrT); state.rty=fy-1-rl-hrT;   // rear foot turns in on the pivot (foreshortened)
+
+  state.lhx=Math.round(hipXf+1.2-hrot*1.1); state.lhy=state.hipY;
+  state.rhx=Math.round(hipXf-1.2+hrot*2.8); state.rhy=state.hipY+(hrot>0.5?1:0);
+  state.torsoX=Math.round(hipXf+hrot);
+
+  // Kolana: zapobiegamy przeprostowi (wygięciu kolana w tył przy ujemnym LKN)
+  const lkn=Math.max(-0.15,P[animationState.LKN]);
+  ik(state.lhx,state.lhy,state.lax,state.lay,appearanceState.THIGH,appearanceState.SHIN,-1);
+  state.lkx=Math.round(state.IKx+lkn*0.85); state.lky=Math.round(state.IKy+Math.abs(lkn)*0.55);
+
+  ik(state.rhx,state.rhy,state.rax,state.ray,appearanceState.THIGH,appearanceState.SHIN,-1);
+  state.rkx=Math.round(state.IKx); state.rky=Math.round(state.IKy);
+
+  state.ltx=la0+4-Math.round(0.6*lhU)-Math.round(0.4*lhT); state.lty=fy-1-ll-lhT;
+  state.lhex=la0-1+Math.round(lhU*0.9); state.lhey=fy-1-lhU-ll;
+  state.rtx=r0+4-Math.round(1.5*Math.max(0,hrot))-Math.round(0.4*hrT); state.rty=fy-1-rl-hrT;
   state.rhex=r0-1+Math.round(hrU*0.9); state.rhey=fy-1-hrU-rl;
+
   state.shDirX=0; state.shDirY=1;
-  if(state.gstate==='spar'&&P[animationState.BY]>6){ const dx=(state.lkx+state.rkx)*0.5-state.hipX, dy=(state.lky+state.rky)*0.5-state.hipY, d=Math.sqrt(dx*dx+dy*dy)||1; state.shDirX=dx/d; state.shDirY=dy/d; }   // sitting / lying: trunks follow the thighs
-} function trailRecord(){
+  if(state.gstate==='spar'&&P[animationState.BY]>6){
+    const dx=(state.lkx+state.rkx)*0.5-state.hipX, dy=(state.lky+state.rky)*0.5-state.hipY, d=Math.sqrt(dx*dx+dy*dy)||1;
+    state.shDirX=dx/d; state.shDirY=dy/d;
+  }
+}
+function trailRecord(){
   const m=state.state>=0?animationState.MOVES[state.state]:null, punching=m&&m.glove>=0&&m.apex>=0&&state.stateT<=m.times[m.apex]+3;
   for(let h=0;h<2;h++){
     const L=state.trl.h[h];
@@ -120,7 +175,7 @@ function drawGlove(gx,gy,r,ex,ey,far,flash){
   if(bareTorsoOut()){ drawBareFist(gx,gy,ex,ey,far); return; }
   let dx=ex-gx, dy=ey-gy; const d=Math.sqrt(dx*dx+dy*dy)||1; dx/=d; dy/=d;
   const wx=Math.round(gx+dx*2), wy=Math.round(gy+dy*2);
-  if(prisonOut()||towelOut()){ for(let p=0;p<2;p++){ taper(wx,wy,1.5,gx,gy,1.5,p,far?appearanceState.R_SKINF:appearanceState.R_SKIN,0,-9,-9,0); disc(gx,gy,1.9,p,far?appearanceState.R_SKINF:appearanceState.R_SKIN); }   // bare knuckles
+  if(prisonOut()){ for(let p=0;p<2;p++){ taper(wx,wy,1.5,gx,gy,1.5,p,far?appearanceState.R_SKINF:appearanceState.R_SKIN,0,-9,-9,0); disc(gx,gy,1.9,p,far?appearanceState.R_SKINF:appearanceState.R_SKIN); }   // bare knuckles
     pset(gx+(far?0:1),gy-1,appearanceState.PAL[(far?appearanceState.R_SKINF:appearanceState.R_SKIN)*3+2]); return; }
   for(let p=0;p<2;p++){ taper(wx,wy,1.5,gx,gy,1.4,p,far?appearanceState.R_TRIMF:appearanceState.R_TRIM,0,-9,-9,0); disc(gx,gy,1.7,p,far?appearanceState.R_SKINF:appearanceState.R_SKIN); }
   pset(gx,gy+1,appearanceState.PAL[(far?appearanceState.R_TRIMF:appearanceState.R_TRIM)*3+1]);            // wrap across the knuckles
@@ -255,30 +310,36 @@ function skinTone(k,far){
  * @param {number} sx @param {number} sy @param {number} ex @param {number} ey
  * @param {number} gx @param {number} gy @param {boolean} far */
 function drawArmMuscles(sx,sy,ex,ey,gx,gy,far){
-  const cap=far?2.8:3.4;
+  const cap=far?3.2:3.9;
   for(let y=Math.max(0,Math.ceil(sy-cap));y<=Math.min(appearanceState.H-1,Math.floor(sy+cap));y++)for(let x=Math.max(0,Math.ceil(sx-cap));x<=Math.min(appearanceState.W-1,Math.floor(sx+cap));x++){
     const nx=(x-sx)/cap,ny=(y-sy)/cap,z2=1-nx*nx-ny*ny,i=y*appearanceState.W+x;
-    if(z2<=0.12||!isSkinPx(rendererState.fb[i]))continue;
-    const light=nx*rendererState.LX+ny*rendererState.LY+0.55*Math.sqrt(z2);
-    rendererState.fb[i]=skinTone(Math.max(0,Math.min(5,Math.round(2.6+2*light))),far);
+    if(z2<=0.1||!isSkinPx(rendererState.fb[i]))continue;
+    const light=nx*rendererState.LX+ny*rendererState.LY+0.6*Math.sqrt(z2);
+    rendererState.fb[i]=skinTone(Math.max(0,Math.min(5,Math.round(2.7+2.2*light))),far);
   }
-  const segments=[[sx,sy,ex,ey,2.8,2,0.8],[ex,ey,gx,gy,2.2,1.6,0.35]];
+  const bend=Math.max(0,1-Math.hypot(gx-sx,gy-sy)/(appearanceState.UPPER+appearanceState.FORE));
+  const segments=[[sx,sy,ex,ey,3.1,2.2,0.95+0.45*bend],[ex,ey,gx,gy,2.5,1.65,0.5]];
   for(let part=0;part<segments.length;part++){
     const [ax,ay,bx,by,r0,r1,bulge]=segments[part],dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy);
     if(len<1)continue;
     const ux=dx/len,uy=dy/len,nx=-uy,ny=ux,light=nx*rendererState.LX+ny*rendererState.LY;
-    const x0=Math.max(0,Math.floor(Math.min(ax,bx)-4)),x1=Math.min(appearanceState.W-1,Math.ceil(Math.max(ax,bx)+4));
-    const y0=Math.max(0,Math.floor(Math.min(ay,by)-4)),y1=Math.min(appearanceState.H-1,Math.ceil(Math.max(ay,by)+4));
+    const x0=Math.max(0,Math.floor(Math.min(ax,bx)-5)),x1=Math.min(appearanceState.W-1,Math.ceil(Math.max(ax,bx)+5));
+    const y0=Math.max(0,Math.floor(Math.min(ay,by)-5)),y1=Math.min(appearanceState.H-1,Math.ceil(Math.max(ay,by)+5));
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
       const t=((x-ax)*ux+(y-ay)*uy)/len;
-      if(t<0.08||t>0.95)continue;
+      if(t<0.06||t>0.96)continue;
       const r=r0+(r1-r0)*t+bulge*4*t*(1-t),across=((x-ax)*nx+(y-ay)*ny)/r;
       const i=y*appearanceState.W+x;
-      if(Math.abs(across)>0.93||!isSkinPx(rendererState.fb[i]))continue;
-      /* Rounded muscle light, a recessed elbow and a narrow forearm tendon instead of flat bands. */
-      let value=2.7+across*light*2+0.8*Math.sqrt(1-across*across);
-      if(part===0){ value+=0.6*Math.sin(Math.PI*t); if(t>0.76)value-=1.2; }
-      else { if(t<0.2)value-=0.7; if(t>0.25&&Math.abs(across-0.2)<0.18)value+=0.6; }
+      if(Math.abs(across)>0.94||!isSkinPx(rendererState.fb[i]))continue;
+      let value=2.7+across*light*2.1+0.85*Math.sqrt(1-across*across);
+      if(part===0){
+        value+=0.75*Math.sin(Math.PI*t);
+        if(Math.abs(across)<0.16&&t>0.25&&t<0.8) value-=0.9; // bruzda między bicepsem a tricepsem
+        if(t>0.78) value-=1.1;
+      } else {
+        if(t<0.18) value-=0.7;
+        if(t>0.2&&t<0.75&&Math.abs(across-0.22)<0.2) value+=0.75; // mięsień ramienno-promieniowy
+      }
       rendererState.fb[i]=skinTone(Math.max(0,Math.min(5,Math.round(value))),far);
     }
   }
@@ -301,7 +362,7 @@ function drawChestHair(){
 }
 
 export function drawBoxer(){
-  const PU=state.gstate==='pushup', PO=prisonOut(), BARE=bareTorsoOut(), SHIRT=PO&&!BARE, WO=state.workOutfit||PO, TW=towelOut(), GLV=!(PU||WO||TW);   // TW: the bath — a towel, bare fists
+  const PU=state.gstate==='pushup', PO=prisonOut(), BARE=bareTorsoOut(), SHIRT=PO&&!BARE, WO=state.workOutfit||PO, GLV=!(PU||WO);
   if(GLV) trailRecord();
   if(PU) shadowEll(Math.round((state.lax+pushupsState.PU_HANDX)*0.5),appearanceState.FLOOR_Y,15,1);
   else if(state.gstate!=='spar') shadowEll(state.hipX,appearanceState.FLOOR_Y,Math.round(animationState.cur[animationState.ST]*0.5+6+animationState.cur[animationState.GY]*0.8),1);   // (spar: shadows go on the floor buffer)
@@ -314,7 +375,7 @@ export function drawBoxer(){
   if(state.workOutfit) for(let p=0;p<2;p++) taper(state.lsx,state.lsy,2.7,Math.round(state.lsx+(state.lex-state.lsx)*0.45),Math.round(state.lsy+(state.ley-state.lsy)*0.45),2.2,p,appearanceState.R_SHIRTF,0,-9,-9,0);   // short sleeve
   if(SHIRT){ const cx=Math.round(state.lex+(state.lgx-state.lex)*0.72), cy=Math.round(state.ley+(state.lgy-state.ley)*0.72);   // drelich: long sleeve down to the wrist
     for(let p=0;p<2;p++){ taper(state.lsx,state.lsy,3.0,state.lex,state.ley,2.3,p,appearanceState.R_SHIRTF,0,-9,-9,0); taper(state.lex,state.ley,2.3,cx,cy,1.9,p,appearanceState.R_SHIRTF,0,-9,-9,0); } }
-  if(PU||WO||TW) drawHand(state.lgx,state.lgy,state.lex,state.ley,true); else drawGlove(state.lgx,state.lgy,state.lgr,state.lex,state.ley,true,state.flashL>0);
+  if(PU||WO) drawHand(state.lgx,state.lgy,state.lex,state.ley,true); else drawGlove(state.lgx,state.lgy,state.lgr,state.lex,state.ley,true,state.flashL>0);
   }
   if(!BARE){
     drawLeg(state.lhx,state.lhy,state.lkx,state.lky,state.lax,state.lay,state.lhex,state.lhey,state.ltx,state.lty,true);
@@ -375,8 +436,9 @@ export function drawBoxer(){
   if(!SHIRT){ let dx=state.rex-state.rsx, dy=state.rey-state.rsy; const d=Math.sqrt(dx*dx+dy*dy)||1; dx/=d; dy/=d;
     pset(Math.round(state.rsx+dx*3.2+dy*1.5),Math.round(state.rsy+dy*3.2-dx*1.5),SS);   // deltoid/biceps split
     pset(state.rsx,state.rsy-2,SH); }
-  if(PU||WO||TW) drawHand(state.rgx,state.rgy,state.rex,state.rey,false); else drawGlove(state.rgx,state.rgy,state.rgr,state.rex,state.rey,false,state.flashR>0);
-  if(GLV&&drawTrails()) drawGlove(state.rgx,state.rgy,state.rgr,state.rex,state.rey,false,state.flashR>0);   // smear over the body, glove crisp on top
+  if(PU||WO) drawHand(state.rgx,state.rgy,state.rex,state.rey,false); else drawGlove(state.rgx,state.rgy,state.rgr,state.rex,state.rey,false,state.flashR>0);
+  const SHOW_TRAIL = !PU && (GLV || state.gstate === 'spar' || prisonOut());
+  if(SHOW_TRAIL && drawTrails()){ if(GLV) drawGlove(state.rgx,state.rgy,state.rgr,state.rex,state.rey,false,state.flashR>0); else drawHand(state.rgx,state.rgy,state.rex,state.rey,false); }   // smear over the body, glove crisp on top
 }
 
 // Cheap integer hash for procedural textures and deterministic scene details.
@@ -401,7 +463,6 @@ export function updateParticles(){
     if(t===state.P_SWEAT||t===state.P_BIT){
       const x0=state.pX[i],y0=state.pY[i],blood=t===state.P_BIT&&(state.pC[i]===sparringState.C_BLOOD||state.pC[i]===sparringState.C_BLOOD2);
       state.pVY[i]+=0.09;state.pX[i]+=state.pVX[i];state.pY[i]+=state.pVY[i];
-      if(blood&&catchBloodOnClothes(x0,y0,state.pX[i],state.pY[i],state.pC[i])){state.pL[i]=0;continue;}
       if(state.pY[i]>=appearanceState.FLOOR_Y-(t===state.P_BIT&&state.gstate==='work'?(i%5):0)){
         if(blood){if(state.gstate==='spar')stain(state.pX[i]);else if(state.gstate==='work')wkStain(state.pX[i],state.pY[i]);}
         state.pL[i]=0;
@@ -516,7 +577,6 @@ export function spawnSweat(n){
   if(state.gstate==='spar'&&sparringState.ctxF) n=Math.round(n*(0.2+1.3*(1-staF(sparringState.ctxF))));   // sparring: sweat follows fatigue
   for(let j=0;j<n;j++) spawn(state.P_SWEAT,state.headX-2+Math.random()*3,state.headY-3+Math.random()*2,-0.4-Math.random()*0.9,-0.6-Math.random()*0.9,40,appearanceState.C_SWEAT);
 } function impact(m){
-  if(state.gstate==='spar'){ sparImpact(m); return; }
   if(state.gstate==='work'){ wkImpact(m); return; }
 }
 
@@ -778,7 +838,7 @@ state.FONT = new Uint16Array(128);
   for(const ch in G) state.FONT[ch.charCodeAt(0)]=parseInt(G[ch],2);
 })();
 
-// Preserve popup indices used by exercises and card-fight captions.
+// Preserve popup indices used by exercises and the brawl captions.
 state.TXT = ['PERFECT','GOOD','OK','MISS','','','','','','','','','','','','','','','','','','MASH','WYRZUT!','KLASK!','FAIL','ZA MOCNO',
  'RUNDA 1','RUNDA 2','RUNDA 3','WALCZ!','NOKDAUN','CZAS!','BLOK','UNIK','KONTRA!','KO!','TKO','WYGRANA','PRZEGRANA','REMIS','IDEALNY UNIK!','SILA UP!','SZYBKOSC UP!','WYTRZYMALOSC UP!'];
 

@@ -9,9 +9,8 @@ import { renderWork } from './work.js';
 import { state as pushupsState, drawPushupMeter } from './pushups.js';
 import { renderPullup } from './pullups.js';
 import { renderRoaches } from './roaches.js';
-import { renderTreadwheel } from './treadwheel.js';
 import { crankFrame, renderCrank } from './crank.js';
-import { posterFightOn, renderPosterFight, syncPosterClass } from './poster-fight.js';
+import { renderIsoFight } from './iso-fight.js';
 
 // Runtime values owned by renderer; initialized explicitly by main.js.
 export const state = {};
@@ -105,15 +104,7 @@ export function shadowEll(cx,cy,rx,ry){
   }
 }
 
-/** The fight camera for the next frame; sparring sets it every frame of a card brawl, null shows the whole picture.
- * y,at: the native row that sits at that fraction of the screen height; h: native rows that fill the screen height;
- * x: the native column in the middle; w: the native width that always stays on screen; px,py,m: a punch-in by the
- * factor m that keeps the native point (px,py) in place.
- * @param {{x:number,y:number,at:number,h:number,w:number,px:number,py:number,m:number}|null} c */
-export function setCamera(c){ state.cam=c; }
-
-/** Where the picture lands on the screen: left, top and the size of a native pixel, in device pixels. The camera may
- * show less than the picture, never beside or above it; below it the card panel covers the dark. @returns {number[]} */
+/** Where the picture lands on the screen: left, top and the size of a native pixel, in device pixels. @returns {number[]} */
 function viewRect(){
   if(boxingState.gstate==='crank'){
     const d=window.devicePixelRatio||1, w=state.screen.width,h=state.screen.height,short=h/d<500;
@@ -121,14 +112,7 @@ function viewRect(){
     const v=CRANK_VIEW,scale=Math.max(.25,Math.min(w/v.w,(h-top-bottom)/v.h));
     return [Math.round((w-v.w*scale)/2-v.x*scale),Math.round(top+(h-top-bottom-v.h*scale)/2-v.y*scale),scale];
   }
-  const c=boxingState.gstate==='spar'?state.cam:null;
-  if(!c) return [state.ox,state.oy,state.scale];
-  const W=appearanceState.W, sw=state.screen.width, sh=state.screen.height, p0=Math.max(Math.min(sh/c.h,sw/c.w),sw/W), p=p0*c.m;
-  let x=c.px+(c.x-c.px)/c.m, y=c.py+(c.y-(c.at-0.5)*sh/p0-c.py)/c.m;
-  const hw=sw/(2*p), hh=sh/(2*p);
-  x=Math.max(hw,Math.min(W-hw,x));
-  if(y<hh) y=hh;
-  return [Math.round(sw/2-x*p),Math.round(sh/2-y*p),p];
+  return [state.ox,state.oy,state.scale];
 }
 
 /** @param {boolean} face @param {boolean} [blit] false: only place the picture (another renderer paints it) */
@@ -147,13 +131,12 @@ function present(face,blit=true){
 }
 
 export function render(){
-  syncPosterClass();
   if(boxingState.gstate==='crank'){ crankFrame(); withHD(()=>{ renderCrank(); present(false); }); return; }
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ if(hubHD()) withHD(()=>{ renderHub(); present(false); }); else { renderHub(); present(false); } return; }
-  if(boxingState.gstate==='spar'){ const poster=posterFightOn(); renderSpar(!poster); if(!poster) drawProfShadow(); present(false); if(poster) renderPosterFight(); return; }
+  if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); }); return; }
+  if(boxingState.gstate==='spar'){ renderSpar(); drawProfShadow(); present(false); return; }
   if(boxingState.gstate==='pullup'){ renderPullup(); present(false); return; }
   if(boxingState.gstate==='roach'){ renderRoaches(); present(false); return; }
-  if(boxingState.gstate==='kierat'){ renderTreadwheel(); present(false); return; }
   if(boxingState.gstate==='work'){ renderWork(); present(false); return; }
   if(boxingState.gstate==='arm'){ renderArm(); withHD(()=>{ renderArmHD(); present(false); }); return; }   // arm wrestling: a close-up in the 2× frame
   if(boxingState.gstate!=='pushup') return;   // push-ups on the cell floor: the last side-view mode
@@ -204,7 +187,6 @@ state.scale = 1;
 state.ox = 0;
 state.oy = 0;
 state.vx = 0; state.vy = 0; state.vs = 1;
-state.cam = null;
 new ResizeObserver(()=>resize()).observe(state.stage);   // the card fight folds the top line away: the stage grows without a window resize
 state.uiK = 1;
 state.inHD = false;

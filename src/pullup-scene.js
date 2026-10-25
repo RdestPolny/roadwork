@@ -10,7 +10,7 @@ import { state as rendererState } from './renderer.js';
 import { h2 } from './boxing.js';
 import { state as roomsState, skyBucket } from './rooms.js';
 import { skyColors, weatherNow } from './weather.js';
-import { vnoise, fbm } from './newgate-fight.js';
+import { vnoise, fbm } from './noise.js';
 
 const CX = 72;
 /** The cross bar's middle row; the hands close on it at CX ± GRIP.x. */

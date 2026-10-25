@@ -3,7 +3,6 @@
    The form multiplier (sleep, food, rest) is applied by progression.addXP on top. */
 
 import { LEVEL_MAX } from './stats.js';
-import { wheelQuality, wheelComplete } from './treadwheel-rules.js';
 
 /** @typedef {'str'|'spd'|'end'} TreeKey */
 /** @typedef {Record<string,number>} Metrics */
@@ -60,14 +59,6 @@ export const DRILLS = {
     stages:[{pace:1,win:240},{pace:1.2,win:200},{pace:1.4,win:165}],
     quality:(m,p)=>0.6*clamp01(1-0.05*n(m,'errors')-0.07*n(m,'late'))+0.4*clamp01((n(m,'actions')?n(m,'paceSum')/n(m,'actions'):1)/p.pace),
     complete:m=>clamp01(n(m,'combos')/10)},
-  kierat:{id:'kierat',name:'Kierat',tree:{str:0.15,spd:0.1,end:0.75},base:110,worldMin:0,intensity:0.9,rounds:1,roundSec:null,restSec:0,unit:'ostatni na kole',
-    stages:[{rivals:['n31','harry','jack'],bpm:[48,64],events:['bell'],watch:[4,7],away:[5,6],warn:1,fake:false,beam:1.1,target:90},
-      {rivals:['harry','jack','walter'],bpm:[52,70],events:['bell','warp','wind'],watch:[4,7],away:[4,6],warn:1,fake:false,beam:1.2,target:105},
-      {rivals:['walter','joseph','albert'],bpm:[56,76],events:['bell','warp','wind','brake'],watch:[4,7],away:[4,5],warn:0.8,fake:false,beam:1.3,target:120},
-      {rivals:['joseph','albert','silas'],bpm:[60,82],events:['bell','warp','wind','brake','jam'],watch:[4,8],away:[4,5],warn:0.8,fake:true,beam:1.4,target:135},
-      {rivals:['silas','ned','dan'],bpm:[64,88],events:['bell','warp','wind','brake','jam','knock'],watch:[4,8],away:[3,4],warn:0.6,fake:true,beam:1.5,target:150}],   /* the three men in the other stalls (always four stalls, as in the reference), tempo [start,max], tempo events, the warder: watch / back turned (s), warning (s), feints, lantern sweep (stalls/s); seconds that count as a full session */
-    quality:m=>wheelQuality(m),
-    complete:(m,p)=>wheelComplete(m,/** @type {any} */ (p))},
   work:{id:'work',name:'Praca w rzeźni',tree:{str:0.55,spd:0,end:0.45},base:100,worldMin:0,intensity:0.9,rounds:1,roundSec:null,restSec:0,unit:'zmiana',
     stages:[{}],
     quality:m=>n(m,'squats')?clamp01((n(m,'perfect')+0.7*n(m,'good'))/n(m,'squats')-0.1*n(m,'drops')):0,
@@ -180,8 +171,7 @@ const bestGrade=(/** @type {any} */ r)=>!r.aborted&&!r.fail&&['S','A'].includes(
 export const PRISON_TRIALS = {
   'str:10':{name:'Próba siły',task:'Pompki na gazetach, stopień III, ocena A lub S',drill:'pushup',stage:3,ok:bestGrade},
   'spd:10':{name:'Próba szybkości',task:'Cień z Profesorem, stopień III, ocena A lub S',drill:'shadowp',stage:3,ok:bestGrade},
-  'end:10':{name:'Próba wytrzymałości',task:'Bójka na spacerniaku z rywalem ★★ lub mocniejszym: wygraj, nie schodząc poniżej 15% kondycji — albo kierat III: zejdź ostatni z oceną A lub S',yard:true,minStars:2,ok:f=>f.win&&f.minSta>=0.15,
-    alt:{drill:'kierat',stage:3,task:'Kierat, stopień III: zejdź ostatni, ocena A lub S',ok:(/** @type {any} */ r)=>bestGrade(r)&&!!r.metrics?.won}},
+  'end:10':{name:'Próba wytrzymałości',task:'Bójka na spacerniaku z rywalem ★★ lub mocniejszym: wygraj, nie schodząc poniżej 15% kondycji',yard:true,minStars:2,ok:f=>f.win&&f.minSta>=0.15}
 };
 
 /** Level cap of every tree while in prison; XP above it is banked up to one level. */

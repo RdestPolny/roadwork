@@ -73,7 +73,7 @@ test('clean moments of a card fight add 3% fight XP each, at most 30%', async ()
 
 
 test('available drills and trials use Newgate activities', () => {
-  assert.deepEqual(Object.keys(DRILLS).sort(),['kierat','pullup','pushup','roach','shadow','shadowp','work']);
+  assert.deepEqual(Object.keys(DRILLS).sort(),['pullup','pushup','roach','shadow','shadowp','work']);
   assert.deepEqual(Object.keys(PRISON_TRIALS).sort(),['end:10','spd:10','str:10']);
   for(const trial of Object.values(PRISON_TRIALS)) if(trial.drill) assert.ok(DRILLS[trial.drill]);
   assert.equal(PRISON_TRIALS['str:10'].drill,'pushup');

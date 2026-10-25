@@ -9,7 +9,7 @@
 import { state as appearanceState, rgb } from './appearance.js';
 import { state as rendererState } from './renderer.js';
 import { state as boxingState, h2 } from './boxing.js';
-import { vnoise, fbm } from './newgate-fight.js';
+import { vnoise, fbm } from './noise.js';
 import { SURFACE } from './roach-rules.js';
 
 /** The wall's rows end here; below lies the guard-bed. */

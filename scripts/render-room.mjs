@@ -10,7 +10,7 @@
 // --anim     n:gap — instead of the hours, n close-ups (needs --crop) of the first hour, the game stepped gap ticks between them
 // --fight    n:gap — the fight scene of the room's venue (cell, yard, canteen, laznia) against opponent 0, the card planning pose:
 //            n frames of the whole 144×96 picture, the fight stepped gap ticks between them (ignores --times/--crop/--anim)
-// --mini     pullup|pushup|roach|kierat — with --fight=n:gap: the cell's pull-up, push-up or roach-wall scene instead of a fight
+// --mini     pullup|pushup|roach — with --fight=n:gap: the cell's pull-up, push-up or roach-wall scene instead of a fight
 // --arm      n:gap — the arm wrestling close-up (the canteen), like --fight; the rival pulls, nobody presses
 // Writes artifacts/tmp/<out>.png (ignored by git). Math.random is seeded, so the same call gives the same picture.
 import { chromium } from 'playwright';
@@ -42,13 +42,12 @@ try {
     const frames = [], toCanvas = () => { const hd = R.hdRoom(), W = hd ? R.state.hd.W : A.state.W, H = hd ? R.state.hd.H : A.state.H, src = hd ? R.state.hd.fb : R.state.FB_MAIN;
       const c = document.createElement('canvas'); c.width = W; c.height = H; const id = new ImageData(W, H); new Uint32Array(id.data.buffer).set(src); c.getContext('2d').putImageData(id, 0, 0); return c; };
     if (fight) {   // the side-on fight scene of the venue
-      const hd = arm, [n, gap] = fight.split(':').map(Number), SP = await import('/src/sparring.js'), cols = hd ? 2 : 3, FW = hd ? R.state.hd.W : A.state.W, FH = hd ? R.state.hd.H : A.state.H, zs = hd ? 2 : 3, fw = FW * zs, fh = FH * zs;
+      const hd = !!arm || !mini, [n, gap] = fight.split(':').map(Number), SP = await import('/src/sparring.js'), cols = hd ? 2 : 3, FW = hd ? R.state.hd.W : A.state.W, FH = hd ? R.state.hd.H : A.state.H, zs = hd ? 2 : 3, fw = FW * zs, fh = FH * zs;
       P.state.save.sim.min = times[0];
       if (arm) (await import('/src/armwrestle.js')).startArm({ name: 'Wielki Wacek', fight: 3, oppRank: 1, stake: 'porcja', onEnd() {} });
       else if (mini === 'pullup') (await import('/src/pullups.js')).startPullups();
       else if (mini === 'pushup') { const PU = await import('/src/pushups.js'); PU.state.puVenue = 'cell'; PU.startPushup(); }
       else if (mini === 'roach') (await import('/src/roaches.js')).startRoaches();
-      else if (mini === 'kierat') (await import('/src/treadwheel.js')).startTreadwheel();
       else { SP.startSpar(0, room, null); } if (globalThis.__after) await globalThis.__after(b); b.sparStep(60);
       const sheet = document.createElement('canvas'); sheet.width = cols * fw; sheet.height = Math.ceil(n / cols) * (fh + 20); const g = sheet.getContext('2d');
       g.fillStyle = '#0a0a08'; g.fillRect(0, 0, sheet.width, sheet.height); g.imageSmoothingEnabled = false; g.font = '13px Courier New'; g.fillStyle = '#d9cfb2';

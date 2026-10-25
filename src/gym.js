@@ -114,10 +114,10 @@ export function hubRebake(){ roomsState.homeWx=weatherNow(); const bake=()=>{ bu
 export /* ---------- geometry helpers (footprint rectangles in tile space) ---------- */
 function itemRect(it){ return [it.i,it.j,it.i+itemW(it),it.j+itemH(it)]; } function rectDist(it,pi,pj){ const r=itemRect(it); const dx=Math.max(r[0]-pi,0,pi-r[2]), dy=Math.max(r[1]-pj,0,pj-r[3]); return Math.hypot(dx,dy); }
 
+/** Floor size [width, depth] of the current hub room in room units. */
+export function hubBounds(){ return state.hubRoom==='yard'?[npcsState.YARD_W,npcsState.YARD_H]:state.hubRoom==='laznia'?[BATH_W,BATH_H]:[roomsState.CELL_W,roomsState.CELL_H]; }
 export function hubBlocked(i,j){
-  if(state.hubRoom==='cell'){ if(i<0.45||j<0.45||i>roomsState.CELL_W-0.4||j>roomsState.CELL_H-0.4) return true; }
-  else if(state.hubRoom==='yard'){ if(i<0.45||j<0.45||i>npcsState.YARD_W-0.4||j>npcsState.YARD_H-0.4) return true; }
-  else if(state.hubRoom==='laznia'){ if(i<0.45||j<0.45||i>BATH_W-0.4||j>BATH_H-0.4) return true; }
+  { const [w,h]=hubBounds(); if(i<0.45||j<0.45||i>w-0.4||j>h-0.4) return true; }
   for(const it of state.gymItems){
     if(it.held) continue; const T=state.GYM_TYPES[it.t];
     if(T.block==='circle'){ if(Math.hypot(i-(it.i+0.5),j-(it.j+0.5))<0.55) return true; }
@@ -167,6 +167,9 @@ export function hubUnstuck(){   // after a layout change the boxer may stand ins
   if(!hubBlocked(state.hubP.i,state.hubP.j)) return;
   for(let rad=0.5;rad<8;rad+=0.5) for(let a=0;a<6.28;a+=0.4){ const i=state.hubP.i+Math.cos(a)*rad, j=state.hubP.j+Math.sin(a)*rad; if(!hubBlocked(i,j)){ state.hubP.i=i; state.hubP.j=j; return; } }
 }
+
+/** Cancel a running room transition (the zoom of a door or a station), for a scene that takes the room over. */
+export function hubTransReset(){ state.hubTrans.kind=0; state.hubFade=0; }
 
 export function hubTick(){
   state.hubFade=0;
@@ -318,16 +321,28 @@ export function ipAdd(f0,s0,z0,r0,f1,s1,z1,r1,rp,rp2,zz1,zz2,rp3){
   if(state.hubRoom==='yard'){ const A=appearanceState, k=A.PAL.slice(A.R_HAIR*3,A.R_HAIR*3+3); setRamp(A.R_HAIR,npcsState.HOOD,false); state.heroHood=true;   /* on the yard he wears the hood too */
     try{ drawIsoBoxerCell(); } finally { state.heroHood=false; A.PAL.set(k,A.R_HAIR*3); } return; }
   drawIsoBoxerCell();
-} function drawIsoBoxerCell(){
+} function drawIsoBoxerCell(){ withCellOutfit(drawIsoBoxer0);
+} /** Run fn with the hero's ramps set to the prison drelich (long sleeves, no belt, black shoes). @param {()=>void} fn */
+export function withCellOutfit(fn){
   const keep=state.CELL_OUTFIT.map(o=>[appearanceState.PAL[o[0]*3],appearanceState.PAL[o[0]*3+1],appearanceState.PAL[o[0]*3+2]]);
   for(const o of state.CELL_OUTFIT) setRamp(o[0],o[1],o[2]);
-  try{ drawIsoBoxer0(); } finally { state.CELL_OUTFIT.forEach((o,k)=>{ appearanceState.PAL[o[0]*3]=keep[k][0]; appearanceState.PAL[o[0]*3+1]=keep[k][1]; appearanceState.PAL[o[0]*3+2]=keep[k][2]; }); }
+  try{ fn(); } finally { state.CELL_OUTFIT.forEach((o,k)=>{ appearanceState.PAL[o[0]*3]=keep[k][0]; appearanceState.PAL[o[0]*3+1]=keep[k][1]; appearanceState.PAL[o[0]*3+2]=keep[k][2]; }); }
 } function drawIsoTowel(){                                   // in the bath: a towel round the hips and rubber slippers
+  withBathTowel(()=>{ state.isoTowel=true; try{ drawIsoBoxer0(); } finally { state.isoTowel=false; } });
+} /** Run fn with the hero's ramps set to the bath towel and rubber slippers. @param {()=>void} fn */
+export function withBathTowel(fn){
   const A=appearanceState, slots=[A.R_TRUNK,A.R_TRUNKF,A.R_TT,A.R_TTF,A.R_BOOT,A.R_BOOTF], keep=slots.map(r=>A.PAL.slice(r*3,r*3+3));
   setRamp(A.R_TRUNK,state.ISO_TOWEL,false); setRamp(A.R_TRUNKF,state.ISO_TOWEL,true); setRamp(A.R_TT,state.ISO_TOWEL,false); setRamp(A.R_TTF,state.ISO_TOWEL,true);
   setRamp(A.R_BOOT,state.ISO_SLIP,false); setRamp(A.R_BOOTF,state.ISO_SLIP,true);
-  state.isoTowel=true;
-  try{ drawIsoBoxer0(); } finally { state.isoTowel=false; slots.forEach((r,k)=>A.PAL.set(keep[k],r*3)); }
+  try{ fn(); } finally { slots.forEach((r,k)=>A.PAL.set(keep[k],r*3)); }
+} /** The hero's modelled-figure look in the current hub room and the palette wrapper to draw it in: the cell drelich, the yard hood, the bath towel.
+ * @returns {{look:any,wrap:(fn:()=>void)=>void}} */
+export function heroFigureLook(){
+  const A=appearanceState, look=/** @type {any} */ ({sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'fringe',stubble:true,cut:true});
+  if(state.hubRoom==='laznia'){ Object.assign(look,{top:look.sk,pt:look.sk,shoe:A.R_BOOT,bare:true,censor:false,waist:A.R_TRUNK}); return {look,wrap:withBathTowel}; }
+  if(state.hubRoom==='yard'){ Object.assign(look,{style:'hood',stubble:false,cut:false});
+    return {look,wrap:fn=>{ const k=A.PAL.slice(A.R_HAIR*3,A.R_HAIR*3+3); setRamp(A.R_HAIR,npcsState.HOOD,false); try{ withCellOutfit(fn); } finally { A.PAL.set(k,A.R_HAIR*3); } }}; }
+  return {look,wrap:withCellOutfit};
 } function drawIsoBoxer0(){
   state.ipC=state.hubP; state.ipN=0; state.ipPose=state.hubP.pose|0; state.ipBase=state.hubP.poseZ||0;
   const HD=state.ISO_K>1&&(PRISON_LOOK.includes(state.hubRoom)||state.hubRoom==='laznia'), jt={};   // the 2× cell: the modelled figure
@@ -392,9 +407,10 @@ function drawScene(){
   for(const it of state.gymItems){ if(state.GYM_TYPES[it.t].flat||it.held||n>=state.DR_N-1) continue; const r=itemRect(it); state.drA0[n]=r[0]; state.drB0[n]=r[1]; state.drA1[n]=r[2]; state.drB1[n]=r[3];
     state.drRef[n]=it; state.drDone[n]=0; n++; }
   const actOrd=roomsState.hubAct&&roomsState.hubAct.t>=roomsState.ACT_FADE&&roomsState.hubAct.order?roomsState.hubAct:null;   // using furniture: the boxer is drawn right before / after that item
-  let pIdx=-1; if(!actOrd){ state.drA0[n]=state.hubP.i-0.2; state.drB0[n]=state.hubP.j-0.2; state.drA1[n]=state.hubP.i+0.2; state.drB1[n]=state.hubP.j+0.2; state.drRef[n]=null; state.drDone[n]=0; pIdx=n; n++; }
-  const NPCL=state.hubRoom==='cell'?npcsState.CNL:state.hubRoom==='yard'?(cnNight()?null:npcsState.YND):(state.hubRoom==='laznia'?bathState.crowd:null);   // hooded inmates and the turnkeys
+  let pIdx=-1; if(!actOrd&&!state.actors){ state.drA0[n]=state.hubP.i-0.2; state.drB0[n]=state.hubP.j-0.2; state.drA1[n]=state.hubP.i+0.2; state.drB1[n]=state.hubP.j+0.2; state.drRef[n]=null; state.drDone[n]=0; pIdx=n; n++; }
+  const NPCL=state.actors?null:state.hubRoom==='cell'?npcsState.CNL:state.hubRoom==='yard'?(cnNight()?null:npcsState.YND):(state.hubRoom==='laznia'?bathState.crowd:null);   // hooded inmates and the turnkeys
   const cnIdx=[]; if(NPCL) for(const C of NPCL){ if(C.after||!C.step) continue; const r=cnRect(C); state.drA0[n]=r[0]; state.drB0[n]=r[1]; state.drA1[n]=r[2]; state.drB1[n]=r[3]; state.drRef[n]=null; state.drDone[n]=0; cnIdx.push([n,C]); n++; }
+  const actIdx=[]; if(state.actors) for(const a of state.actors){ state.drA0[n]=a.i-0.25; state.drB0[n]=a.j-0.25; state.drA1[n]=a.i+0.25; state.drB1[n]=a.j+0.25; state.drRef[n]=null; state.drDone[n]=0; actIdx.push([n,a]); n++; }   // fight actors: {i,j,draw}
   for(let left=n;left>0;left--){
     // pick an undrawn element with nothing undrawn behind it (fallback: the one with the smallest centre depth)
     let pick=-1, pd=1e9;
@@ -403,7 +419,8 @@ function drawScene(){
     if(pick<0){ for(let a=0;a<n;a++) if(!state.drDone[a]){ const d=state.drA0[a]+state.drA1[a]+state.drB0[a]+state.drB1[a]; if(d<pd){ pd=d; pick=a; } } }
     state.drDone[pick]=1;
     const cnE=cnIdx.length?cnIdx.find(e=>e[0]===pick):null;
-    if(cnE) cnDraw(cnE[1]); else if(pick===pIdx) drawIsoBoxer(); else { const it=state.drRef[pick], mine=actOrd&&it===actOrd.item;
+    const acE=actIdx.length?actIdx.find(e=>e[0]===pick):null;
+    if(acE) acE[1].draw(); else if(cnE) cnDraw(cnE[1]); else if(pick===pIdx) drawIsoBoxer(); else { const it=state.drRef[pick], mine=actOrd&&it===actOrd.item;
       if(mine&&actOrd.order==='before') drawIsoBoxer();
       const onIt=NPCL?NPCL.filter(C=>C.after===it):null;
       if(onIt&&onIt.length){ blitSprite(it,0,1); for(const C of onIt) cnDraw(C); blitSprite(it,0,2); }   // inmate on a stool / in a bunk (+ the bunk's front layer over him)
@@ -422,11 +439,12 @@ function drawScene(){
 export function renderHub(){
   if(hdRoom()&&!rendererState.inHD){ withHD(renderHub); return; }   // Newgate rooms are drawn into the 2× frame
   rendererState.fb=rendererState.FB_MAIN; rendererState.fb.set(state.bgHub);
+  if(state.preScene) state.preScene();   // marks on the floor under the people (iso-fight.js)
   if(state.hubRoom==='cell') wardLife();   /* rats, flies and drips under the people */
   drawScene();
-  if(state.hubRoom==='cell'){ wardBreath([state.hubP,...npcsState.CNL]); lightCell(); drawCellLights(); wardSmog(); wardVignette(); }   /* the Ward: cold breath, tallow and smog, dark edges */
+  if(state.hubRoom==='cell'){ wardBreath(state.actors||[state.hubP,...npcsState.CNL]); lightCell(); drawCellLights(); wardSmog(); wardVignette(); }   /* the Ward: cold breath, tallow and smog, dark edges */
   else if(state.hubRoom==='laznia') bathFX();   /* gaslight, steam, fog, carbolic */
-  if(state.hubRoom==='yard'){ weatherLight(); const b=skyBucket(); if(b===0) dimFB(0.45); else if(b===4) dimFB(0.25); drawRain(); yardFog(); wardBreath(npcsState.YND); wardVignette(); }   /* Newgate: smog in the well, breath through the hoods */
+  if(state.hubRoom==='yard'){ weatherLight(); const b=skyBucket(); if(b===0) dimFB(0.45); else if(b===4) dimFB(0.25); drawRain(); yardFog(); wardBreath(state.actors||npcsState.YND); wardVignette(); }   /* Newgate: smog in the well, breath through the hoods */
   drawActivityOverlay();
   drawHubMarker();
   if(state.hubTrans.kind){
@@ -479,6 +497,8 @@ state.bunkFront = false;
 state.hubP = {i:6.2,j:5.6,fi:-0.7071,fj:-0.7071,ph:0,moving:false,pose:0,poseZ:0};
    // pose: 0 stand, 1 lie, 2 sit, 3 eat
 state.hubKeys = {u:0,d:0,l:0,r:0};
+state.preScene = null;
+state.actors = null;   // fight actors drawn by the depth sorter instead of the hero and the inmates (iso-fight.js)
 
 state.hubNear = null;
 state.hubLastItem = null;

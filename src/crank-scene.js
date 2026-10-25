@@ -5,8 +5,16 @@ import { state as R, setFramebuffer, pset, line } from './renderer.js';
 import { makeFig, pose, drawFig, saveJoints, restoreJoints } from './cast.js';
 import { state as progression } from './progression.js';
 import { isRising, crankOffset } from './crank-rules.js';
-import { vnoise, fbm } from './newgate-fight.js';
-import { mixc, mulc, smooth } from './treadwheel-scene.js';
+import { vnoise, fbm } from './noise.js';
+
+const cl = (/** @type {number} */ v)=>v<0?0:v>255?255:Math.round(v);
+const pack = (/** @type {number} */ r,/** @type {number} */ g,/** @type {number} */ b)=>(0xff000000|(cl(b)<<16)|(cl(g)<<8)|cl(r))>>>0;
+/** @param {number} a @param {number} b @param {number} k */
+export function mixc(a,b,k){ return pack((a&255)+((b&255)-(a&255))*k,((a>>8)&255)+(((b>>8)&255)-((a>>8)&255))*k,((a>>16)&255)+(((b>>16)&255)-((a>>16)&255))*k); }
+/** @param {number} a @param {number} k */
+export function mulc(a,k){ return pack((a&255)*k,((a>>8)&255)*k,((a>>16)&255)*k); }
+/** @param {number} a @param {number} b @param {number} x */
+export function smooth(a,b,x){ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); }
 
 let plate=null,figure,sprite,head=[180,78],personX=158;
 const W=288,H=192,FLOOR=178,PERSON=158,HUB={x:122,y:110},RADIUS=18;

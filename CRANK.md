@@ -1,6 +1,6 @@
 # Żelazna korba
 
-Zastępuje minigrę z kulami. Rano od drugiego dnia można wybrać korbę zamiast rzeźni lub kieratu. Rozpoczęta praca kosztuje jedną akcję i rozlicza dzienny przydział pracy; nie daje zapłaty. Instrukcja i ładowanie tła nie uruchamiają zegara ani nie kosztują akcji.
+Zastępuje minigrę z kulami. Rano od drugiego dnia można wybrać korbę zamiast rzeźni. Rozpoczęta praca kosztuje jedną akcję i rozlicza dzienny przydział pracy; nie daje zapłaty. Instrukcja i ładowanie tła nie uruchamiają zegara ani nie kosztują akcji.
 
 ## Sterowanie i 30 sekund pracy
 

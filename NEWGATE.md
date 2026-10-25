@@ -1,7 +1,7 @@
 # Newgate 1868 — przeniesienie gry do epoki wiktoriańskiej
 
 Kierunek: więzienie Newgate w Londynie, rok 1868. Klimat przed historią: lekki horror, groźnie, brudno. Historyczne
-smaczki (kaptury z Pentonville, kierat) zostają, jeśli budują nastrój. Kopia sprzed zmian: `../Roadwork-backup-przed-newgate`.
+smaczki (kaptury z Pentonville) zostają, jeśli budują nastrój. Kopia sprzed zmian: `../Roadwork-backup-przed-newgate`.
 
 ## Zasady pracy
 - Najpierw styl (paleta, materiały, światło, postacie), potem pokoje; każdy pokój: zrzut wyjściowy → 2–3 rundy
@@ -39,5 +39,5 @@ smaczki (kaptury z Pentonville, kierat) zostają, jeśli budują nastrój. Kopia
 - Faza 5 (2026-10-02): sceny walk 2D — `src/newgate-fight.js` (Ward, spacerniak z zerwanym kapturem), `src/fight-crowd.js` (widzowie przodem), łaźnia w `bath-scene.js`; podciąganie na kracie okna, pompki na starych gazetach w Wardzie. Usunięte stare tła walk w celi i na spacerniaku (`cellRingBack`, `yardRingBack`). Światło i mgła tylko za walczącymi (czytelność, plamy krwi).
 - Faza 6 (2026-10-02): interfejs „Afisz i sadza” (`styles.css`: IM Fell English SC, Old Standard TT; karta fabuły jako afisz z podwójną ramką, inicjałem i czerwoną pieczęcią) i teksty aktu więziennego (słowniczek, angielskie nazwiska, karty Newgate, `fmtMoney` w szylingach i pensach; tabela nazwisk w `PRISON.md` §14). Spacerniak: więźniowie wloką się zgarbieni (`npcs.js`, `WALK_SP`).
 
-- Porządki (2026-10-03): dom, siłownia, budowanie, sklep, monety, dawne treningi sprzętowe, bieganie i roadwalk usunięte. Karty są domyślne; stary system walki na żywo jest w kopii poza Roadwork. Pozostają Newgate, ćwiczenia więzienne, wspólny szkielet i rzeźnia jako prototyp. Zmiana głównego buildu korzysta z tytoniu; stare zapisy wracają do Wardu z zachowaniem postępu.
+- Porządki (2026-10-03): dom, siłownia, budowanie, sklep, monety, dawne treningi sprzętowe, bieganie i roadwalk usunięte. Karty były domyślne (od 2026-10-25 bójka jest izometryczna w czasie rzeczywistym); stary system walki na żywo jest w kopii poza Roadwork. Pozostają Newgate, ćwiczenia więzienne, wspólny szkielet i rzeźnia jako prototyp. Zmiana głównego buildu korzysta z tytoniu; stare zapisy wracają do Wardu z zachowaniem postępu.
 - Malowany Ward (2026-10-17): `scripts/ward-plate.py` → `src/ward-plate.js` — obraz z meblami bez ludzi (edycje Codexa z `art/ward/paint.png`, wózek Profesora, kadź i beczka), dopasowany skalą do siatki izo gry; kadź, beczka, wózek i skrzynia mają maski Vision i zasłaniają stojących za nimi. Światło obrazu w `cell-light.js` (`paintedLight`), lampa nad drzwiami jak na obrazie.

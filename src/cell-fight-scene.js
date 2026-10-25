@@ -7,7 +7,7 @@ import { CELL_PLATE } from './cell-plate.js';
 import { state as appearanceState } from './appearance.js';
 import { state as rendererState } from './renderer.js';
 import { state as boxingState, h2 } from './boxing.js';
-import { vnoise, fbm } from './newgate-fight.js';
+import { vnoise, fbm } from './noise.js';
 import { mix } from './cast.js';
 
 /** @typedef {{x:number,y:number,w:number,h:number,c:Uint32Array,a:Uint8Array}} Layer */

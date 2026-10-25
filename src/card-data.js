@@ -1,5 +1,6 @@
-/* Skill combat data (KARCIANKA.md): the skill catalogue, tempo, Otwarcie levels, reactions, injuries and the
-   skill sets of the AI styles. Pure data, no DOM; the engine is card-rules.js. The file keeps its old name. */
+/* Skill data of the player's progression: the skill catalogue, moves and punch trees, the set, the Cechy cards, lasting
+   injuries, the healers and what a rival remembers. Pure data, no DOM. The file keeps its old name from the card engine,
+   which is gone: the brawl is the real-time isometric fight (iso-fight.js). */
 
 /** @typedef {'atak'|'trik'} CardKind */
 /** @typedef {'L'|'R'|''} CardHand */
@@ -58,108 +59,6 @@ export const CARDS = {
 export const TEMPO_BASE = 4;
 /** @param {CardDef} c */
 export function tempoOf(c){ return Math.max(1,TEMPO_BASE-c.speed+(c.hits||1)-1); }
-
-/** Ustawienie of a landed jab: the next punch this turn that is not a jab hits harder (a cross more) and its effects
- * (cuts, Zachwianie, Skurcz, ribs) come more often. */
-export const SETUP={add:1,cross:2,fx:1.5};
-/** Zachwianie: a clean hook to the head takes the rival's next move this turn with this chance (× the effect multiplier). */
-export const SWAY=0.25;
-/** Rozbita garda (an uppercut landed or blocked, or Łamacz gardy): the AI blocks this much as often, a block holds at most 40%. */
-export const CRACK_BLOCK=0.5;
-/** Wątroba: every this many landed liver hooks in a brawl is a Skurcz. */
-export const LIVER_EVERY=3;
-/** Telegraf: the same skill twice in a row in a queue — the second is easier to stop (AI block chance, the player's ring in ticks). */
-export const TELEGRAPH={block:0.4,ticks:2};
-/** A punch costing at most this much stamina per punch costs the defender no debt (the jab is not worth a point of the next turn). */
-export const CHEAP_PUNCH=1;
-
-/** Otwarcie I–III on the next attack (index = level): from a clean parry, worth the cost of the parried punch.
- * fx: chance of the special effects (cuts, ribs) multiplied; fizzle: the rival's next move this turn is lost (Przelot). @type {{add:number,mult:number,pierce:boolean,stun:number,fizzle:boolean,fx:number}[]} */
-export const OPEN_EFFECT = [
-  {add:0,mult:1,pierce:false,stun:0,fizzle:false,fx:1},
-  {add:1,mult:1,pierce:false,stun:0,fizzle:false,fx:1.5},
-  {add:0,mult:1.5,pierce:true,stun:0,fizzle:false,fx:2},
-  {add:0,mult:2,pierce:true,stun:4,fizzle:true,fx:2.5},
-];
-
-/**
- * The reactions to an incoming punch, in ticks either side of the impact (card-fight shows them as a closing ring).
- * The dodge is easy (ok ±10), the parry is hard (ok ±4); a press inside `clean` is a clean moment (fight XP).
- * Each costs REACT_COST stamina off the next turn, whatever the outcome.
- */
-export const REACT = {dodge:{ok:10,clean:4},parry:{ok:4,clean:2}};
-export const REACT_COST = 1;
-/** Failed dodge: a plain punch hits this much harder; a punch with a special effect gets FAIL_FX × its chance instead. */
-export const FAIL_DODGE = 1.5;
-export const FAIL_FX = 2;
-/** Failed parry: what still gets through (a heavy punch: more). */
-export const FAIL_PARRY = 0.5;
-export const FAIL_PARRY_HEAVY = 0.75;
-
-/** Injuries. `persistent` ones stay in the save until healed (KARCIANKA.md §7). @type {Record<string,{name:string,persistent:boolean}>} */
-export const INJURIES = {
-  cut:{name:'Rozcięty łuk brwiowy',persistent:true},
-  eye:{name:'Podbite oko',persistent:true},
-  nose:{name:'Złamany nos',persistent:true},
-  rib:{name:'Pęknięte żebro',persistent:true},
-  liver:{name:'Skurcz wątroby',persistent:false},
-  hand:{name:'Złamana kostka dłoni',persistent:true},
-  concussion:{name:'Wstrząs',persistent:true},
-  legs:{name:'Wiotkie nogi',persistent:false},
-  armL:{name:'Stłuczone lewe przedramię',persistent:false},
-  armR:{name:'Stłuczone prawe przedramię',persistent:false},
-  shoulder:{name:'Wybity bark',persistent:false},
-};
-
-/** The stamina bar: full again at the start of every turn (less what the reactions cost); Wytrzymałość adds a point every 4 levels. */
-export const STA_MAX = 5;
-/** Zadyszka and broken ribs never take the bar below this. Zadyszka shortens only the next bar, and the body shots of one
- * turn do not add up: the strongest counts. */
-export const STA_MIN = 3;
-/** Most moves one turn may queue (stamina is the real limit). */
-export const QUEUE_MAX = 8;
-/** Ogłuszony: the bar of the next turn is this much shorter (Szok, Wybuch). */
-export const LOCK_COST = 2;
-export const STUN_DAZE = 4;
-export const STUN_LEGS = 6;
-export const STUN_KD = 7;
-export const STUN_DECAY = 2;
-
-/** The skills of each fighting style (`bal` is also the player's base set). @type {Record<string,string[]>} */
-export const STYLE_SKILLS = {
-  bal:['jab','jab-k','cross','hook','watroba','upper'],
-  out:['jab','jab-k','cross','splot','hook','upper'],
-  press:['jab','cross','splot','hook','watroba','upper'],
-  counter:['jab','jab-k','cross','hook','watroba','upper'],
-};
-
-/** The AI's taste for a skill right after the one it queued last (CIOSY.md §4): the punch that cashes the status of the
- * one before it. Keys are plain punches; signature skills count as the punch they are (`as`). @type {Record<string,Record<string,number>>} */
-export const AI_SYNERGY = {
-  jab:{cross:1.2,hook:0.8,upper:0.8,watroba:0.6,splot:0.6},   // Ustawienie
-  'jab-k':{cross:0.8,hook:0.6,upper:1},                        // heavy legs, the head after the body
-  hook:{upper:1.2},                                            // Zachwianie keeps the wind-up safe
-  cross:{hook:0.8},                                            // the hook after the cross
-  upper:{cross:0.6,hook:0.6},                                  // Rozbita garda
-  zoladek:{upper:1.2,hook:1},                                  // Zgięty
-  watroba:{hook:1},                                            // the head after the liver
-  splot:{cross:1},                                             // Odepchnięcie: the long punch after it
-};
-/** The AI's distaste for queuing the same skill twice in a row (Telegraf). */
-export const AI_REPEAT = 0.8;
-
-/**
- * How each style plays: what it likes in a punch (damage, the body), how much stamina it keeps back, how often it
- * blocks and how often its block is a clean parry, and the softmax temperature (higher = less predictable).
- * @typedef {{deal:number,body:number,heavy:number,reserve:number,block:number,parry:number,temp:number}} StyleAI
- */
-/** @type {Record<string,StyleAI>} */
-export const STYLE_AI = {
-  bal:{deal:1,body:1,heavy:1,reserve:0.15,block:0.35,parry:0.3,temp:0.9},
-  out:{deal:0.9,body:0.7,heavy:0.7,reserve:0.25,block:0.35,parry:0.3,temp:0.9},
-  press:{deal:1.3,body:1.4,heavy:1.2,reserve:0,block:0.2,parry:0.25,temp:0.8},
-  counter:{deal:0.9,body:0.8,heavy:0.8,reserve:0.35,block:0.5,parry:0.4,temp:0.8},
-};
 
 /* ---------- lasting injuries (KARCIANKA.md §7): kept in the save until healed ---------- */
 
@@ -298,11 +197,6 @@ export const PERK_CARDS = {
   pamiec:{kind:'reguła',text:'Z rywalem, z którym już walczyłeś: widzisz, ile ruchów ułożył i za ile kondycji.'},
   bezzasad:{kind:'reguła',text:'Brudne skille jednorazowe możesz zagrać raz na turę zamiast raz na walkę.'},
 };
-
-/** The skills of a style and the skills its perks give. @param {string[]} perks @param {string} [style] */
-export function skillsFor(perks,style='bal'){
-  return [...new Set([...(STYLE_SKILLS[style]||STYLE_SKILLS.bal),...perks.flatMap(id=>PERK_CARDS[id]?.cards||[])])];
-}
 
 /* ---------- the player's moves and skill set (TALIA.md): learnt with tree points, the set chosen outside the fights ---------- */
 
@@ -457,45 +351,6 @@ export function nodeBlock(moves,id,pick,free,ready=NODE_READY){
 export function buyNode(moves,id,pick,free,ready=NODE_READY){
   const why=nodeBlock(moves,id,pick,free,ready); if(why) return why;
   moves[id].picks+=pick; return '';
-}
-
-/* ---------- rivals in skill fights (KARCIANKA.md §9): perks, a signature skill, habits, Profesor's hint ---------- */
-
-/** @typedef {{card:string,beat?:number,v:number}} Bias  the AI likes this skill (at this place of its queue) a little more */
-/** @typedef {{perks?:string[],nodes?:string[],signature?:string,bias?:Bias[],read?:number,block?:number,parry?:number,hint:string}} Rival  block/parry: his own blocking instead of the style's; nodes: his picks in the punch trees */
-/** By the rival's name in sparring.js. Perks here act only in skill fights; the nodes are his punch-tree picks (CIOSY.md §5),
- * fewer for the weak, more for the strong, always for punches his style has.
- * @type {Record<string,Rival>} */
-export const RIVALS = {
-  HARRY:{perks:['staraszkola'],nodes:['watroba:1a'],block:0.55,parry:0.3,
-    hint:'Harry to stara szkoła. Zamyka się, a z bloku odpłaca hakiem na żebra. Nie wal w niego seriami — mało ciosów, a mocnych.'},
-  ZEKE:{signature:'kosa',nodes:['cross:1a','cross:2b'],bias:[{card:'kosa',beat:0,v:2}],
-    hint:'Kosa trzyma cię na długość ręki i tnie długim prawym, zanim podejdziesz. Unik pod prawy, a potem twoja kolej.'},
-  REUBEN:{signature:'dziobanie',nodes:['jab:1a','cross:3a'],bias:[{card:'dziobanie',v:1.2}],
-    hint:'Kruk dziobie: trzy jaby jeden po drugim, a potem ciężka ręka. Unik na dziobanie, parowanie na to, co po nim.'},
-  JACK:{nodes:['jab:1a','cross:1a'],bias:[{card:'jab',v:0.8},{card:'cross',v:0.8}],block:0.05,
-    hint:'Młody bije, ile wlezie, i nie pilnuje twarzy. Przetrzymaj pierwszą burzę, potem bij, kiedy łapie oddech.'},
-  WALTER:{nodes:['jab:1a','jab:2a'],bias:[{card:'jab',v:1.2}],
-    hint:'Chudy dziobie z daleka. Bij na korpus — nogi mu zwolnią.'},
-  JOSEPH:{perks:['mirror-counter'],nodes:['jab:4b','cross:3b'],block:0.5,parry:0.45,
-    hint:'Siwy paruje. Prosty za prostym to dla niego prezent. Mieszaj piętra, bij hakiem.'},
-  ALBERT:{nodes:['watroba:1a','watroba:2a','watroba:5a','upper:1a'],bias:[{card:'upper',beat:0,v:2.5}],
-    hint:'Ciężki zaczyna od uppercuta — widać go z drugiego końca spacerniaka. Sparuj go, a masz Otwarcie III.'},
-  SILAS:{perks:['counterpuncher','read-tells'],nodes:['cross:3b','cross:4b'],signature:'cyna',
-    hint:'Cichy jest za cichy. Patrz mu na rękawy. Jak prowadzisz, nie prowadź za wysoko.'},
-  NED:{perks:['flurry'],nodes:['jab-k:2a','watroba:1b','hook:3b'],bias:[{card:'watroba',beat:1,v:1}],
-    hint:'Dym zmienia piętra: głowa, korpus, głowa. Drugi cios idzie na wątrobę.'},
-  DAN:{signature:'lawina',nodes:['upper:1a','hook:1b'],bias:[{card:'lawina',v:1.5}],
-    hint:'Głaz nie bierze zamachu. Uppercut wychodzi mu szybko jak prosty. Unik albo bij go na korpus.'},
-  BILL:{nodes:['watroba:1a','splot:2a'],bias:[{card:'watroba',v:1},{card:'splot',v:0.8}],
-    hint:'Gruby pcha i siada na tobie, bije w brzuch. Nie oddawaj mu kondycji — uniki kosztują.'},
-  SZEF:{perks:['piach','kciuk'],nodes:['jab:1a','jab:3a','cross:1a','hook:2b','upper:1a'],read:2,
-    hint:'Szef czyta ludzi: widzi, co kładziesz, i blokuje ciężkie ciosy. Graj szybkimi, niech czyta źle.'},
-};
-
-/** The skills of a rival: the style's set, the skills of the perks and the signature. @param {string} style @param {string[]} perks @param {string} [signature] */
-export function rivalSkills(style,perks,signature){
-  return [...new Set([...skillsFor(perks,style),...(signature&&signature!=='cyna'?[signature]:[])])];
 }
 
 /** @typedef {Record<string,number>[]} Habit  per place in the queue: how often the player put each skill there */

@@ -7,9 +7,9 @@ import { workTick, state as workState } from './work.js';
 import { pushupTick, solvePushup } from './pushups.js';
 import { pullupTick, solvePullup } from './pullups.js';
 import { roachTick } from './roaches.js';
-import { treadwheelTick } from './treadwheel.js';
 import { crankTick } from './crank.js';
 import { prisonTick } from './prison.js';
+import { isoFightTick } from './iso-fight.js';
 
 // Runtime values owned by runtime; initialized explicitly by main.js.
 export const state = {};
@@ -30,6 +30,7 @@ export function update(){
   if(boxingState.shakeT>0){boxingState.shakeT--;const a=Math.ceil(boxingState.shakeAmp*boxingState.shakeT/boxingState.shakeDur),s=(boxingState.shakeT&2)?1:-1;boxingState.shX=boxingState.shakeAxis===0?s*a:0;boxingState.shY=boxingState.shakeAxis===1?s*a:0;} else {boxingState.shX=0;boxingState.shY=0;}
   if(boxingState.riseT>0){boxingState.riseT--;boxingState.shY+=1;}
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ hubTick(); if(boxingState.gstate==='hub') prisonTick(); return; }
+  if(boxingState.gstate==='isofight'){ isoFightTick(); return; }
   if(boxingState.gstate==='spar'){ sparUpdate(); return; }
   if(boxingState.gstate==='work'){ workTick(); if(!workState.WK.slowT||boxingState.tick%4===0) updateParticles(); return; }
   if(boxingState.gstate==='arm'){ armTick(); updatePopups(); return; }
@@ -37,6 +38,5 @@ export function update(){
   if(boxingState.gstate==='pushup'){ pushupTick(); updateParticles(); solvePushup(); updateShorts(); return; }
   if(boxingState.gstate==='pullup'){ pullupTick(); updateParticles(); solvePullup(); return; }
   if(boxingState.gstate==='roach'){ roachTick(); return; }
-  if(boxingState.gstate==='kierat'){ treadwheelTick(); return; }
   if(boxingState.gstate==='crank'){ crankTick(); return; }
 }

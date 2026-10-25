@@ -3,14 +3,12 @@ import { state as armState, armKey, armButton } from './armwrestle.js';
 import { prisonKey } from './prison.js';
 import { state as loopState, resumeClock } from './loop.js';
 import { initAudio, state as audioState } from './audio.js';
-import { cardKey } from './card-fight.js';
-import { isCardFight, isRealtimeFight, realtimePress, setRealtimeGuard, oppDef, state as sparringState, startSpar, isShadowboxing } from './sparring.js';
+import { state as sparringState, isShadowboxing } from './sparring.js';
 import { shadowInputMirror, shadowDoubleTap, shadowPress, startShadowboxing, state as shadowState } from './shadowboxing.js';
 import { releaseWalk, state as animationState } from './animation.js';
 import { holdPushup, pushupInfo } from './pushups.js';
 import { holdPullup, pullupInfo } from './pullups.js';
 import { roachKey, roachKeysOff, roachStrike, roachInfo } from './roaches.js';
-import { wheelKey, wheelKeysOff, wheelInfo } from './treadwheel.js';
 import { crankKey, crankKeysOff, crankInfo } from './crank.js';
 import { simUI } from './simulation.js';
 import { state as gymState, clearHubInput } from './gym.js';
@@ -31,13 +29,14 @@ import { state as appearanceState } from './appearance.js';
 import { state as menuState } from './menu.js';
 import { state as dialogState } from './dialog.js';
 import { update } from './runtime.js';
+import { isoFightKey, isoFightRelease, isoFightInfo, CONTROLS as ISO_CONTROLS } from './iso-fight.js';
 
 export const state = {};
 
 /** Release held gameplay controls before opening or closing a modal. */
 export function clearHeldInput(){
-  crankKeysOff();setRealtimeGuard(false);
-  clearHubInput(); releaseWalk(); state.bodyHeld=false; holdPullup(false); holdPushup(false); roachKeysOff(); wheelKeysOff(); resetDirectionTap();
+  crankKeysOff();isoFightRelease();
+  clearHubInput(); releaseWalk(); state.bodyHeld=false; holdPullup(false); holdPushup(false); roachKeysOff(); resetDirectionTap();
 }
 
 /** Change pause without resetting time; diagnostics can freeze held input for fixed-step checks.
@@ -54,7 +53,7 @@ function freezeInfo(){
   const t=Math.round(boxingState.simNow/appearanceState.STEP_MS), SP=sparringState.SP;
   return ['FREEZE  gstate='+boxingState.gstate+(boxingState.gstate==='hub'||boxingState.gstate==='menu'?'  room='+gymState.hubRoom:''),
     'tick='+t+'  simNow='+boxingState.simNow.toFixed(1)+'ms  url='+location.search,
-    boxingState.gstate==='spar'?'spar: opp='+sparringState.sparOpp+' phase='+SP.phase+' elapsed='+SP.elapsed+(isCardFight()?' card':'')+(isShadowboxing()?' shadow':''):'',
+    boxingState.gstate==='spar'?'spar: opp='+sparringState.sparOpp+' phase='+SP.phase+' elapsed='+SP.elapsed+(isShadowboxing()?' shadow':''):'',
     'F8 wznów · . krok 1 tick'].filter(Boolean).join('\n');
 }
 function freezeShow(){
@@ -83,7 +82,6 @@ export function press(mv){
   if(state.paused||skillTreeOpen()||(sessionOpen()&&!sessionRunning())) return;
   initAudio();
   if(boxingState.gstate==='spar'&&isShadowboxing()){ if(mv<=3)resetDirectionTap(); shadowPress(mv); }
-  else if(boxingState.gstate==='spar'&&isRealtimeFight())realtimePress(mv);
 }
 
 /** One hint by the object instead of a bar of controls. @param {string} [title] @param {string} [sub] @param {string} [key] */
@@ -121,19 +119,13 @@ export function setInfo(){
   if(boxingState.gstate==='arm'){ const A=armState.A; state.infoEl.textContent='SIŁOWANIE NA RĘKĘ'+(A?' · '+A.name+(A.stake==='porcja'?' · o porcję':A.stake==='miejsce'?' · o miejsce':' · dla sportu'):''); state.nextEl.textContent=A&&A.result?'Enter — wróć do Wardu':'Spacja / E — pchnij w rytm kółka · przytrzymaj S / ↓ — zaprzyj się, gdy rywal czerwienieje · Esc — poddaj się'; return; }
   if(boxingState.gstate==='spar'){
     state.nextEl.textContent='';
-    if(isShadowboxing()){
-      state.infoEl.textContent='WALKA Z CIENIEM · WARD';
-      state.controlsText='1–4 ciosy · ↓+cios korpus · Q slip · 2×przód doskok / pivot · 2×tył odskok · Esc — koniec';
-    } else {
-      const ph=sparringState.SP.phase, V=sparringState.sparVenue;
-      state.infoEl.textContent=(V==='yard'?'BÓJKA NA SPACERNIAKU':V==='canteen'?'BÓJKA PRZY POSIŁKU':V==='laznia'?'BÓJKA W ŁAŹNI':'BÓJKA W WARDZIE')+' · '+oppDef().title+' · '+(ph==='end'||ph==='ko'?'KONIEC':'DO KO');
-      state.controlsText=isRealtimeFight()?'1 jab · 2 cross · 3 hook · 4 uppercut · ↓ korpus · Spacja blok · Q slip · ←/→ dystans · F10 pauza · Esc wyjście':'←/→ — wybór karty · 1–3 — połóż na takcie (↓ nisko) · Backspace — cofnij · X — odrzuć ranę · Z — strefa · Enter — koniec tury · Spacja — moment · Esc — wyjście';
-    }
+    state.infoEl.textContent='WALKA Z CIENIEM · WARD';
+    state.controlsText='1–4 ciosy · ↓+cios korpus · Q slip · 2×przód doskok / pivot · 2×tył odskok · Esc — koniec';
     return;
   }
+  if(boxingState.gstate==='isofight'){ state.infoEl.textContent=isoFightInfo(); state.nextEl.textContent=''; state.controlsText=ISO_CONTROLS; return; }
   if(boxingState.gstate==='pullup'){ pullupInfo(); return; }
   if(boxingState.gstate==='roach'){ roachInfo(); return; }
-  if(boxingState.gstate==='kierat'){ wheelInfo(); return; }
   if(boxingState.gstate==='crank'){ crankInfo(); return; }
   if(boxingState.gstate==='pushup'){ pushupInfo(); return; }
 
@@ -223,9 +215,9 @@ addEventListener('keydown',e=>{
   if(e.repeat)return;
   if(sessionKey(e)) return;
   if(boxingState.gstate==='work'){ workKey(e); return; }
-  if(boxingState.gstate==='kierat'){ wheelKey(e,true); return; }
   if(boxingState.gstate==='crank'){ crankKey(e,true); return; }
   if(boxingState.gstate==='arm'){ armKey(e,true); return; }
+  if(boxingState.gstate==='isofight'){ isoFightKey(e,true); return; }
   if(boxingState.gstate==='hub'){ hubKey(e,true); return; }
   if(boxingState.gstate==='spar'){
     if(isShadowboxing()&&shadowState.sequence.finished){
@@ -233,9 +225,6 @@ addEventListener('keydown',e=>{
       else if(e.code==='Escape')exitToHub();
       return;
     }
-    if(sparringState.SP.phase==='end'){ if(e.code==='Enter'||e.code==='Space'){e.preventDefault();startSpar(sparringState.sparOpp,undefined,undefined,false,sparringState.cards);} else if(e.code==='Escape')exitToHub(); return; }
-    if(isCardFight()){ if(cardKey(e,true)) return; }
-    if(isRealtimeFight()&&e.code==='Space'){e.preventDefault();if(!state.paused)setRealtimeGuard(true);return;}
     if(e.code==='Escape'){exitToHub();return;}
     if(e.code==='ArrowUp'||e.code==='ArrowDown'){
       e.preventDefault();
@@ -259,16 +248,15 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyM'){audioState.soundOn=!audioState.soundOn;state.sndEl.checked=audioState.soundOn;}
 });
 
-addEventListener('keyup',e=>{ if(e.code==='Space')setRealtimeGuard(false); if(charSheetOpen()||skillTreeKey(e)) return; if(boxingState.gstate==='arm'){ armKey(e,false); return; } if(boxingState.gstate==='spar'&&isCardFight()){ cardKey(e,false); return; } if(e.code==='Space'||e.code==='KeyE'){ holdPullup(false); holdPushup(false); } if(boxingState.gstate==='roach') roachKey(e.code,false); if(boxingState.gstate==='kierat') wheelKey(e,false); if(boxingState.gstate==='crank') crankKey(e,false); if(boxingState.gstate==='hub'||boxingState.gstate==='menu') hubKey(e,false); const k=state.KEYMAP[e.code], mv=k===animationState.M_SLIPL?k:screenMove(k); /* releasing Q must not pick the next slip side */ if(mv===animationState.walkHeld)releaseWalk(); if(e.code==='ArrowDown')state.bodyHeld=false; });
+addEventListener('keyup',e=>{ if(charSheetOpen()||skillTreeKey(e)) return; if(boxingState.gstate==='arm'){ armKey(e,false); return; } if(boxingState.gstate==='isofight'){ isoFightKey(e,false); return; } if(e.code==='Space'||e.code==='KeyE'){ holdPullup(false); holdPushup(false); } if(boxingState.gstate==='roach') roachKey(e.code,false); if(boxingState.gstate==='crank') crankKey(e,false); if(boxingState.gstate==='hub'||boxingState.gstate==='menu') hubKey(e,false); const k=state.KEYMAP[e.code], mv=k===animationState.M_SLIPL?k:screenMove(k); /* releasing Q must not pick the next slip side */ if(mv===animationState.walkHeld)releaseWalk(); if(e.code==='ArrowDown')state.bodyHeld=false; });
 
 addEventListener('blur',clearHeldInput);
 
 document.querySelectorAll('#panel button[data-m]').forEach(b=>{ const mv=+b.dataset.m; if(mv===animationState.M_WALKF||mv===animationState.M_WALKB){
   b.addEventListener('pointerdown',()=>{walkTap(screenMove(mv));}); b.addEventListener('pointerup',releaseWalk); b.addEventListener('pointerleave',releaseWalk); }});
 
-document.querySelectorAll('#panel button[data-m]').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();if(isRealtimeFight()&&+b.dataset.m===4)setRealtimeGuard(true);else press(screenMove(+b.dataset.m));}));
+document.querySelectorAll('#panel button[data-m]').forEach(b=>b.addEventListener('pointerdown',e=>{e.preventDefault();press(screenMove(+b.dataset.m));}));
 
-document.querySelectorAll('#panel button[data-m="4"]').forEach(b=>{b.addEventListener('pointerup',()=>setRealtimeGuard(false));b.addEventListener('pointerleave',()=>setRealtimeGuard(false));b.addEventListener('pointercancel',()=>setRealtimeGuard(false));});
 
 state.againFn=()=>{};
 

@@ -89,7 +89,7 @@ export /* =====================================================================
 const SIM_DEF={day:1,min:8*60,faza:0,akcje:0,zm:0,glod:0,h:80};
 
 export /* ---------- STATS: Siła / Szybkość / Wytrzymałość (levels 1-30, earned in training; see stats.js) ----------
-   Siła  -> punch power (card-fight damage and stun)
+   Siła  -> punch power (brawl damage and stun)
    Szybkość -> animation speed of every move (punches, recovery, footwork)
    Wytrzymałość -> stamina capacity, regeneration, wear of the ceiling, recovery between rounds
    XP: pompki, podciąganie, cień, praca w rzeźni i bójki kartami */

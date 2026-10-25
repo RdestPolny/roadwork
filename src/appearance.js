@@ -50,11 +50,11 @@ state.FLOOR_Y = 86;
 state.BASE_X = 56;
 state.HIP_Y0 = 66;
 
-state.UPPER = 8;
-state.FORE = 8.5;
-state.THIGH = 10.5;
-state.SHIN = 10;
-state.TORSO = 12;
+state.UPPER = 8.5;
+state.FORE = 9.0;
+state.THIGH = 11.0;
+state.SHIN = 10.5;
+state.TORSO = 12.5;
    // body proportions: long legs (wide crouch), longer torso, compact head
 state.PIVX = 86;
 state.PIVY = -2;
@@ -161,8 +161,6 @@ state.C_WOOD2 = rgb('#a8703e');
 state.C_LANE = rgb('#0a0c17');
 state.C_LANE2 = rgb('#141830');
 state.C_GRAY = rgb('#8a93b0');
-state.C_POSTER = rgb('#7a1626');
-state.C_POSTER2 = rgb('#c9a24a');
 state.C_LAMP = rgb('#2b3150');
 state.C_BULB = rgb('#fff3b0');
 state.C_WIN = rgb('#15234a');

@@ -1,4 +1,4 @@
-import { checkRealtime, checkRealtimeDefence } from './realtime.mjs';
+import { checkIsoFight, checkIsoFightRooms } from './isofight.mjs';
 import { checkCrank } from './crank.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -8,7 +8,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { checkPrisonDay, checkCanteenArm, checkSupervision, checkProfesor, checkProfesorList, checkSpacerniak, checkSundayAndEvents, checkBath, checkCharSheet , checkDevMode, checkDevSceneSwitcher, checkWardRats } from './prison.mjs';
 import { checkShadowboxing } from './shadowboxing.mjs';
-import { checkCardFight, checkCardMoments, checkCardRigged, checkHealers } from './card-fight.mjs';
+import { checkHealers } from './healers.mjs';
 
 
 const port = 5189;
@@ -85,8 +85,8 @@ async function check(name, run) {
   console.log(`PASS ${name}`);
 }
 try {
-  await check('realtime defence: ideal block, exhausted guard, ideal and mistimed slip, counter',()=>checkRealtimeDefence(page));
-  await check('realtime fight: keys, stamina, body blows, block, slip, AI, pause and result',()=>checkRealtime(page));
+  await check('isometric fight: keys, stamina, body blows, block, slip, steps, AI, knockdown, pause and result',()=>checkIsoFight(page));
+  await check('isometric fight in the yard and the bath rooms',()=>checkIsoFightRooms(page));
   await check('Newgate start and pause clock', async () => {
     await mkdir('artifacts', { recursive: true });
     assert.deepEqual(await page.evaluate(() => [window.__boxer.gstate, window.__boxer.room, window.__boxer.phase]), ['hub','cell','prison']);
@@ -159,14 +159,12 @@ try {
     assert.equal(await page.locator('.watch-meal.available').count(),0);
     await page.evaluate(async()=>{
       const P=(await import('/src/progression.js')).state.save.prison;
-      P.lista.rozdzial=3;P.flagi['bez-kolacji-2']=true;
+      P.lista.rozdzial=3;
       (await import('/src/ward-meal.js')).currentMeal().eaten=false;
       (await import('/src/simulation.js')).simUI();
     });
     assert.match(await page.locator('.watch-quest').textContent(),/Zeke/);
-    assert.match(await page.locator('.watch-meal').textContent(),/Kolacja wstrzymana/);
     await page.evaluate(async()=>{
-      delete (await import('/src/progression.js')).state.save.prison.flagi['bez-kolacji-2'];
       window.__boxer.simSet({faza:0,akcje:0,min:480});
     });
     await page.screenshot({path:'artifacts/watch-quest-meal.png'});
@@ -279,9 +277,6 @@ try {
     await check('Spacerniak: respect points, the tree tab, T tricks, jaw, stomach and yard memory', () => checkSpacerniak(page));
     await check('daily events, the Sunday brawl, bets and favours', () => checkSundayAndEvents(page));
     await check('cell shadowboxing combos, input cadence, queued pivots and XP', () => checkShadowboxing(page));
-    await check('diagnostic skill brawl in the Ward: menu bars, keys, the exchange and result', () => checkCardFight(page, port));
-    await check('skill fight moments: dodge and parry on the ring, punch on time, getting up', () => checkCardMoments(page, port));
-    await check('card fight rigged #6: Profesor\'s hint, the spoon, the infirmary', () => checkCardRigged(page, port));
     await check('healers: Śmierdziel\'s ointment by the tub, the turnkey\'s surgeon on the yard', () => checkHealers(page, port));
     await check('Victorian slaughterhouse lifts, carries, hangs and returns with its previous palette', async () => {
       const outfitBefore=await page.evaluate(async()=>{const {state:a}=await import('/src/appearance.js');return Array.from(a.PAL.slice(a.R_SHIRT*3,(a.R_PANTF+1)*3));});
@@ -388,12 +383,9 @@ try {
       await page.reload();
       const reloaded=await page.evaluate(async () => {
         const p=await import('/src/progression.js');
-        window.__boxer.pause(); window.__boxer.startCardSpar(0);
-        const c=await import('/src/card-fight.js');
-        return {traits:p.state.save.traits,player:c.state.duel.f[0].perks};
+        return {traits:p.state.save.traits};
       });
       assert.deepEqual(reloaded.traits,saved.traits);
-      assert.deepEqual(reloaded.player.filter(id=>!['piach','kciuk','szczeka','zoladek','zaskoczenie','kostki','nerki','pamiec','bezzasad','dirty-work'].includes(id)),['bone-on-bone','knockout'],'fights take the chosen Cechy');
     });
     await check('pull-up from behind: fists stay on the cross bar, arms keep their length, the body blocks more light at the top', async () => {
       const result=await page.evaluate(async () => {
@@ -549,36 +541,6 @@ try {
       assert.equal(await page.evaluate(() => window.__boxer.gstate),'hub');
       assert.equal(await page.evaluate(() => window.__boxer.hub.near),'croach');
       assert.equal(await page.evaluate(() => document.body.classList.contains('roach')),false);
-    });
-    await check('kierat wheel: a step on the line counts, a missed tread lowers him, rest on the rail while the lantern is away', async () => {
-      const r=await page.evaluate(async () => {
-        const b=window.__boxer;b.goRoom('cell');b.startTreadwheel();b.pause();b.step(5);
-        const T=await import('/src/treadwheel.js'),Sess=await import('/src/training-session.js'),S=T.state,m=()=>Sess.state.S.m;
-        const key=(code,down=true)=>T.wheelKey({code,preventDefault(){},repeat:false},down);
-        const out={g:b.gstate,n:S.stalls,cls:document.body.classList.contains('kierat')};
-        out.intro=[S.phase,!document.getElementById('wheelIntro').hidden,/Kroki/.test(document.getElementById('wiRows').textContent)];
-        const pos0=S.pos;b.step(60);out.stood=S.pos===pos0;key('ArrowLeft');b.step(1);
-        out.board=[S.phase,document.getElementById('wheelIntro').hidden,(m().off||0)+(m().clean||0)+(m().good||0)];
-        S.guard.phase='away';S.guard.sec=1e9;
-        const nk=S.nk;for(let i=0;i<300&&S.nk===nk;i++) b.step(1);
-        b.resume();key(((S.nk-1)&1)?'ArrowRight':'ArrowLeft');b.pause();
-        out.step=(m().clean||0)+(m().good||0);out.stumble=m().off||0;
-        b.step(Math.ceil(2.5*3600/S.bpm));out.missed=m().missed||0;out.P=S.hero.P;
-        S.hero.O=40;key('ArrowUp');b.step(60);out.resting=S.hero.resting;out.O=S.hero.O;key('ArrowUp',false);b.step(1);
-        return out;});
-      assert.deepEqual([r.g,r.n,r.cls],['kierat',4,true]);
-      assert.deepEqual(r.intro,['intro',true,true],'the board explains the wheel first');
-      assert.equal(r.stood,true,'the wheel stands while the board is up');
-      assert.deepEqual(r.board,['run',true,0],'a step key takes him onto the wheel without counting a step');
-      assert.equal(r.step,1,'a step on the crossing tread counts');assert.equal(r.stumble,0);
-      assert.ok(r.missed>=2&&r.P<3,`treads gone by without a step lower him: ${r.missed}, P ${r.P}`);
-      assert.equal(r.resting,true);assert.ok(r.O>41,'the rail gives breath back while the warder is away: '+r.O);
-      await page.screenshot({path:'artifacts/kierat.png'});
-      await page.evaluate(() => window.__boxer.resume());await page.keyboard.press('Escape');await page.evaluate(() => {window.__boxer.pause();window.__boxer.step(5);});
-      assert.equal(await page.locator('#over').isVisible(),true,'Esc steps off the wheel: the summary');
-      await page.keyboard.press('Escape');await page.evaluate(() => window.__boxer.step(30));
-      assert.equal(await page.evaluate(() => window.__boxer.gstate),'hub');
-      assert.equal(await page.evaluate(() => document.body.classList.contains('kierat')),false);
     });
     await check('pull-up perfect streak buys time, the target shrinks to the stage minimum, sweat runs and the minute ends', async () => {
       // Stage V: the target starts at 9 rows and shrinks to 5.

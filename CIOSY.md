@@ -1,3 +1,5 @@
+> **2026-10-25:** silnik kart (`card-rules.js`, `card-fight.js`) i jego symulator zostały usunięte; dokument opisuje rozwój postaci (drzewka, ruchy) i historię silnika. Bójka jest dziś w czasie rzeczywistym (`iso-fight.js`) i drzewka ciosów jeszcze na nią nie wpływają.
+
 # Ciosy: balans, synergie i drzewka — przegląd i projekt
 
 Stan (2026-10-18): **§2 wdrożone** w `card-data.js` i `card-rules.js` (testy w `tests/card-rules.test.js`, tryb

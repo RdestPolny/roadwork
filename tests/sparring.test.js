@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 // Imports only define modules; config reads the browser's query string.
 globalThis.location = { search: '' };
-const { state: sparring, sparOnAttack, sparMoveSpeed, sparRaiseGuard, sparDashCost, catchBloodOnClothes, fighterView, bareTorsoOut } = await import('../src/sparring.js');
+const { state: sparring, sparOnAttack, sparMoveSpeed, sparRaiseGuard, sparDashCost, fighterView, bareTorsoOut } = await import('../src/sparring.js');
 const { state: boxing } = await import('../src/boxing.js');
 
 test('throwing pays only the miss cost and punch speed follows stamina percentage', async () => {
@@ -31,56 +31,28 @@ test('throwing pays only the miss cost and punch speed follows stamina percentag
 });
 
 
-test('in a card fight the engine owns stamina: guard and dash cost nothing there, in Cień they do', () => {
+test('in Cień guard and dash cost effort, and bare fists are quicker', () => {
   const F={sta:100,staMax:100,staCap:100,fat:0};
   try{
-    sparring.shadow=false;sparring.cards=true;
-    sparRaiseGuard(F); sparDashCost(F); assert.equal(F.sta,100);
-    sparring.cards=false;sparring.shadow=true;
+    sparring.shadow=true;
     sparRaiseGuard(F); assert.equal(F.sta,99);
     sparDashCost(F); assert.equal(F.sta,96.5);
     sparring.bareknuckle=true; F.sta=100;
     assert.ok(Math.abs(sparMoveSpeed({...F,spd:1,stun:0},0)-1.15)<1e-8); // bare fists are quicker
-  }finally{ sparring.cards=false; sparring.shadow=false; sparring.bareknuckle=false; }
+  }finally{ sparring.shadow=false; sparring.bareknuckle=false; }
 });
 
-test('falling blood catches fabric on either mirrored fighter only in bareknuckle', async () => {
-  const {state:appearance}=await import('../src/appearance.js');
-  const previous={bare:sparring.bareknuckle,fig:sparring.FIG,ctx:sparring.ctxF,mode:boxing.gstate,width:appearance.W};
-  const fighter=mirror=>({mirror,bt:'mid',blood:[],S:{torsoX:30,hipY:65,sx:32,sy:45}});
-  const A=fighter(false),B=fighter(true);
-  try{
-    appearance.W=144;boxing.gstate='spar';sparring.bareknuckle=true;sparring.FIG=[A,B];sparring.ctxF=null;
-    assert.equal(catchBloodOnClothes(31,38,31,70,123),true); // Swept path cannot tunnel through a shirt.
-    assert.equal(A.blood.length,1);assert.equal(B.blood.length,0);
-    assert.equal(catchBloodOnClothes(112,38,112,70,123),true);
-    assert.equal(B.blood.length,1);assert.equal(B.blood[0].part,A.blood[0].part);
-    assert.equal(catchBloodOnClothes(72,38,72,70,123),false);
-    assert.equal(catchBloodOnClothes(31,60,31,38,123),false); // Rising spray has not landed yet.
-    sparring.bareknuckle=false;
-    assert.equal(catchBloodOnClothes(31,38,31,70,123),false);
-    assert.equal(A.blood.length,1);
-  }finally{
-    appearance.W=previous.width;boxing.gstate=previous.mode;sparring.bareknuckle=previous.bare;sparring.FIG=previous.fig;sparring.ctxF=previous.ctx;
-  }
-});
-
-test('the player fights bare-chested: exposed skin lets blood fall, trousers still catch it', () => {
-  const previous={a:sparring.FA,fig:sparring.FIG,ctx:sparring.ctxF,bare:sparring.bareknuckle,venue:sparring.sparVenue,mode:boxing.gstate};
+test('the player trains bare-chested: skin follows identity, the bath and the work keep their outfits', () => {
+  const previous={a:sparring.FA,ctx:sparring.ctxF,bare:sparring.bareknuckle,venue:sparring.sparVenue,mode:boxing.gstate};
   const A={mirror:false,bt:'low',blood:[],S:{torsoX:30,hipY:65,sx:32,sy:45}};
   try{
-    sparring.FA=A;sparring.FIG=[A];sparring.ctxF=null;sparring.bareknuckle=true;sparring.sparVenue='cell';boxing.gstate='spar';
+    sparring.FA=A;sparring.ctxF=null;sparring.bareknuckle=true;sparring.sparVenue='cell';boxing.gstate='spar';
     assert.equal(bareTorsoOut(A),true);
     assert.equal(bareTorsoOut({mirror:false}),false,'skin follows identity, not which side the fighter faces');
-    assert.equal(catchBloodOnClothes(32,45,32,54,123),false,'bare chest has no fabric');
-    assert.equal(catchBloodOnClothes(32,54,32,60,123),false,'the bare belly above the waistband has no fabric');
-    assert.equal(catchBloodOnClothes(30,60,30,66,123),true,'waistband is still fabric');
-    assert.equal(A.blood[0].part,2,'section indices remain stable');
-    sparring.sparVenue='yard';assert.equal(bareTorsoOut(A),true);
     sparring.sparVenue='laznia';assert.equal(bareTorsoOut(A),false,'bath keeps its own outfit');
     sparring.sparVenue='cell';boxing.gstate='work';assert.equal(bareTorsoOut(A),false,'work keeps its own outfit');
   }finally{
-    sparring.FA=previous.a;sparring.FIG=previous.fig;sparring.ctxF=previous.ctx;sparring.bareknuckle=previous.bare;sparring.sparVenue=previous.venue;boxing.gstate=previous.mode;
+    sparring.FA=previous.a;sparring.ctxF=previous.ctx;sparring.bareknuckle=previous.bare;sparring.sparVenue=previous.venue;boxing.gstate=previous.mode;
   }
 });
 

@@ -16,10 +16,9 @@ XP nalicza się za wynik całej sesji, a nie za klikanie pojedynczych ciosów. S
 | Cień | 65% szybkość, 35% wytrzymałość |
 | Cień z Profesorem | 25% siła, 55% szybkość, 20% wytrzymałość |
 | Praca w rzeźni | 55% siła, 45% wytrzymałość |
-| Kierat (zamiast rzeźni) | 15% siła, 10% szybkość, 75% wytrzymałość |
 | Bójka kartami | Wszystkie drzewka; wynik, ranga rywala, PERFECT i dzienna świeżość |
 
-Próby Profesora: Siła — pompki III na A/S; Szybkość — Cień z Profesorem III na A/S; Wytrzymałość — wygrana z rywalem co najmniej ★★ na spacerniaku przy zachowaniu wymaganej kondycji albo kierat III wygrany z oceną A/S. Próby współczesnego trenera zostały usunięte.
+Próby Profesora: Siła — pompki III na A/S; Szybkość — Cień z Profesorem III na A/S; Wytrzymałość — wygrana z rywalem co najmniej ★★ na spacerniaku przy zachowaniu wymaganej kondycji. Próby współczesnego trenera zostały usunięte.
 
 ## Cechy, punkty i ciosy
 

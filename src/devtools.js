@@ -6,7 +6,8 @@ import { state as roomsState, goRoom, actStop } from './rooms.js';
 import { simFormText, simUI, simSetPhase, PHASES } from './simulation.js';
 import { enterHub, exitToHub, state as navigationState, stMenuPick, stMenuRender, stMenuClose } from './navigation.js';
 import { state as boxingState } from './boxing.js';
-import { state as sparringState, startSpar, startCardSpar, startLiveSpar, hipDist } from './sparring.js';
+import { state as sparringState, startSpar } from './sparring.js';
+import { isoFightFinish } from './iso-fight.js';
 import { state as appearanceState } from './appearance.js';
 import { state as animationState } from './animation.js';
 import { state as rendererState, render } from './renderer.js';
@@ -14,7 +15,6 @@ import { update } from './runtime.js';
 import { startPushup, holdPushup, state as pushupsState } from './pushups.js';
 import { startPullups } from './pullups.js';
 import { startRoaches } from './roaches.js';
-import { startTreadwheel } from './treadwheel.js';
 import { startShadowboxing } from './shadowboxing.js';
 import { press, state as inputState, setPaused, setInfo } from './input.js';
 import { DEBUG } from './config.js';
@@ -91,9 +91,6 @@ export function devSwitchScene(scene){
     case 'roaches':
       startRoaches();
       break;
-    case 'kierat':
-      startTreadwheel();
-      break;
     case 'crank':
       startCrank();
       break;
@@ -136,13 +133,12 @@ export function initialize(){
     hubSet(i,j){gymState.hubP.i=i;gymState.hubP.j=j;}, hubKeys:gymState.hubKeys,
     stMenuPick, stSel(k){navigationState.stSel=k;stMenuRender();},
     get snap(){return {pal:Array.from(appearanceState.PAL).join(','),lk:JSON.stringify(appearanceState.lk),tr:appearanceState.trStyle,gl:appearanceState.glStyle,posX:animationState.posX,state:boxingState.state,fbMain:rendererState.fb===rendererState.FB_MAIN,mirror:sparringState.mirrorCtx,aimLow:sparringState.aimLow,idleOff:sparringState.idleOff,spd:boxingState.STATS.speed};},
-    startSpar, startCardSpar, startLiveSpar, get stats(){return JSON.parse(JSON.stringify(progressionState.save.stats));}, addXP,
+    startSpar, isoFightFinish, get stats(){return JSON.parse(JSON.stringify(progressionState.save.stats));}, addXP,
     get power(){return boxingState.STATS.power;}, get speed(){return boxingState.STATS.speed;},
     get dash(){return [animationState.M_DASHF,animationState.M_DASHB];},
-    get spar(){const f=F=>({hp:+F.hp.toFixed(1),sta:Math.round(F.sta),staMax:Math.round(F.staMax),cap:F.staCap,stun:Math.round(F.stun),score:F.score,kd:F.kdN,thrown:F.thrown,landed:F.landed,ev:F.evades,bl:F.blocks,st:F.st,pos:+F.effPos.toFixed(1),dmg:+F.dmg.toFixed(2)});return {phase:sparringState.SP.phase,round:sparringState.SP.round,t:sparringState.SP.t,kd:!!sparringState.SP.kd,winner:sparringState.SP.winner?sparringState.SP.winner.name:null,how:sparringState.SP.how,dist:+hipDist(sparringState.FA).toFixed(1),A:f(sparringState.FA),B:f(sparringState.FB)};},
     sparStep:step, fighter(i){return sparringState.FIG[i];},
     S_IDS:{S_HITJ:animationState.S_HITJ,S_HIT:animationState.S_HIT,S_HOOKED:animationState.S_HOOKED,S_UPPED:animationState.S_UPPED,S_BODY:animationState.S_BODY,S_BLOCK:animationState.S_BLOCK,S_BLOCKHIT:animationState.S_BLOCKHIT,S_STAGGER:animationState.S_STAGGER,S_KD:animationState.S_KD,S_GETUP:animationState.S_GETUP,S_KO:animationState.S_KO},
-    startPushup, holdPushup, startPullups, startRoaches, startTreadwheel, startShadowboxing,
+    startPushup, holdPushup, startPullups, startRoaches, startShadowboxing,
     get pu(){return {phase:pushupsState.puPhase,h:+pushupsState.puH.toFixed(3),reps:pushupsState.puReps,streak:pushupsState.puStreak,burn:+pushupsState.puBurn.toFixed(3),zone:pushupsState.puZone,lock:pushupsState.puLock};},
     press, pause(){setPaused(true,false);}, resume(){setPaused(false);},
     step(n){step(n);render();}, get now(){return boxingState.simNow;},

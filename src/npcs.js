@@ -246,7 +246,8 @@ function profTick(){
 
 export function cnRect(C){ return C.act==='pushup'?crewRect(C):[C.i-0.2,C.j-0.2,C.i+0.2,C.j+0.2]; } // ---- drawing ----
 /** How a cell person looks in the 2× room: ramps of his colour block plus hair, beard and stubble. @param {any} C */
-function cnLookHD(C){ const rb=C.rb, L={sk:[rb,rb+1],top:[rb+6,rb+7],pt:[rb+2,rb+3],shoe:appearanceState.R_NPCB,hair:rb+9,...(C.hd||{})};
+/** The modelled-figure look of a hub person (also the fighters of the isometric fight). @param {any} C */
+export function cnLookHD(C){ const rb=C.rb, L={sk:[rb,rb+1],top:[rb+6,rb+7],pt:[rb+2,rb+3],shoe:appearanceState.R_NPCB,hair:rb+9,...(C.hd||{})};
   if(C.hood&&gymState.hubRoom==='yard') Object.assign(L,{style:'hood',cap:rb+8,beard:false,mustache:false,chops:false,stubble:false});   /* the yard: everyone under the same grey hood */
   if(C.bath){ const wet=C.act==='scrub'||C.tub; Object.assign(L,{top:L.sk,pt:L.sk,shoe:rb+8,bare:true,censor:C.act==='scrub',waist:wet?undefined:rb+4}); }   /* the bath: slippers and a towel, naked under the shower */
   return L; }

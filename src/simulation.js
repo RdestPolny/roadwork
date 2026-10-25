@@ -9,7 +9,7 @@ import { weekday, WEEKDAYS, ladderNext, listEntry } from './prison-data.js';
 import { weatherNow, WEATHER_PL } from './weather.js';
 import { drawPocketWatch } from './pocket-watch.js';
 import { drawNeedIcons } from './need-icons.js';
-import { workDue, prisonGate, supperDenied } from './prison.js';
+import { workDue, prisonGate } from './prison.js';
 import { currentMeal } from './ward-meal.js';
 
 // Runtime values owned by simulation; initialized explicitly by main.js.
@@ -26,7 +26,7 @@ export const TIRED_MAX = 8;
 export const SLEEP_REST = 4, NAP_REST = 2;
 
 /** What an action does to the needs. @type {Record<string,{zm?:number,glod?:number,h?:number}>} */
-const ACTION_FX = {trening:{zm:1,h:-10}, praca:{zm:1,h:-20}, kierat:{zm:2,h:-20}, walka:{zm:1,h:-10}, drzemka:{zm:-NAP_REST}, posilek:{}, mycie:{}};
+const ACTION_FX = {trening:{zm:1,h:-10}, praca:{zm:1,h:-20}, walka:{zm:1,h:-10}, drzemka:{zm:-NAP_REST}, posilek:{}, mycie:{}};
 
 function S(){ return progressionState.save.sim; }
 function clamp(){ const s=S(); s.zm=Math.max(0,Math.min(TIRED_MAX,Math.round(s.zm))); s.glod=Math.max(0,Math.min(5,Math.round(s.glod))); s.h=Math.max(0,Math.min(100,s.h)); }
@@ -123,8 +123,8 @@ export function simUI(){
     for(let i=0;i<ACTIONS;i++) h+='<i class="action-token'+(i<left?' available':'')+'" aria-hidden="true"></i>';
     h+='<span>akcje <b>'+left+'/'+ACTIONS+'</b></span></div>';
     if(weatherNow()!=='sun') h+='<div class="watch-weather">'+WEATHER_PL[weatherNow()]+'</div>';
-    const M=currentMeal(), mealAvailable=!!M&&!M.eaten&&!prisonGate()&&!(s.faza===2&&supperDenied());
-    h+='<div class="watch-meal'+(mealAvailable?' available':'')+'">'+(mealAvailable?(M.label==='śniadanie'?'Śniadanie':'Kolacja')+' · '+(M.tray?'zjedz na pryczy':'odbierz przy drzwiach'):M?.eaten?'Posiłek zjedzony':s.faza===2&&supperDenied()?'Kolacja wstrzymana':'Posiłek niedostępny')+'</div>';
+    const M=currentMeal(), mealAvailable=!!M&&!M.eaten&&!prisonGate();
+    h+='<div class="watch-meal'+(mealAvailable?' available':'')+'">'+(mealAvailable?(M.label==='śniadanie'?'Śniadanie':'Kolacja')+' · '+(M.tray?'zjedz na pryczy':'odbierz przy drzwiach'):M?.eaten?'Posiłek zjedzony':'Posiłek niedostępny')+'</div>';
     h+='<div class="watch-mealtimes">◆ Posiłki: rano i wieczorem</div></div>';
     const P=progressionState.save.prison, next=P.profesor.spotkany?listEntry(P.lista.rozdzial):ladderNext(P.pokonani);
     h+='<div class="watch-quest"><small>'+(P.profesor.spotkany?'Lista Profesora':'Następny przeciwnik')+'</small><b>'+(next?next.name:'Lista ukończona')+'</b>'+(next?'<span>'+next.where+'</span>':'');

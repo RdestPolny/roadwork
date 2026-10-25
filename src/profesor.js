@@ -83,7 +83,7 @@ function talk(){
   dlgLineSay(night()?pick(NIGHT):pick(TALK));
 }
 
-const DRILL_PL = /** @type {Record<string,string>} */ ({shadow:'walka z cieniem',pushup:'pompki',pullup:'podciąganie',roach:'karaluchy na ścianie',work:'praca w rzeźni',kierat:'kierat'});
+const DRILL_PL = /** @type {Record<string,string>} */ ({shadow:'walka z cieniem',pushup:'pompki',pullup:'podciąganie',roach:'karaluchy na ścianie',work:'praca w rzeźni'});
 
 /** The list: who is next, where, what he wants to see, and the names already done. */
 function listTalk(){

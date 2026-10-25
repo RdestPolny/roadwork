@@ -8,7 +8,7 @@ import { rgb } from './appearance.js';
 import { state as roomsState, startActivity, goRoom, solidDraw } from './rooms.js';
 import { state as sparringState } from './sparring.js';
 import { state as progressionState, persist, showToast, addXP } from './progression.js';
-import { prisonSave, addRespekt, myRank, prisonGate, showCards, listCanteenOption, supperDenied } from './prison.js';
+import { prisonSave, addRespekt, myRank, prisonGate, showCards, listCanteenOption } from './prison.js';
 import { spendAction, simNudge } from './simulation.js';
 import { startArm } from './armwrestle.js';
 import { isShopDay, inmateRank, EXTRA_PORTION, weekday, OPINIA_GOOD, OPINIA_NO_SHOP, fmtMoney } from './prison-data.js';
@@ -61,7 +61,7 @@ function wrestle(O,stake){
 /** Extra options at the Ward door during a meal: the bowl through the flap, the turnkey's trade, a list fight. @returns {any[]} */
 export function mealDoorOptions(){
   const M=meal(); if(!M||gymState.hubRoom!=='cell') return [];
-  /** @type {any[]} */ const out=[M.label==='kolacja'&&supperDenied()?['Klapa zamknięta — bez kolacji, kara z kieratu',()=>{},true]:[M.tray||M.eaten?'Miska już odebrana':'Odbierz miskę przez klapę · '+M.label,()=>{ M.tray=true; showToast('Masz miskę i chleb. Zjedz na pryczy.'); },M.tray||M.eaten]];
+  /** @type {any[]} */ const out=[[M.tray||M.eaten?'Miska już odebrana':'Odbierz miskę przez klapę · '+M.label,()=>{ M.tray=true; showToast('Masz miskę i chleb. Zjedz na pryczy.'); },M.tray||M.eaten]];
   const s=progressionState.save.sim, op=prisonSave().opinia, day=isShopDay(s.day)||(op>=OPINIA_GOOD&&weekday(s.day)===5);
   if(M.label==='kolacja'&&day) out.push(op<=OPINIA_NO_SHOP?['Klucznik nie sprzedaje ci — za słaba opinia',()=>{},true]:['Handel przez klapę · na koncie '+fmtMoney(prisonSave().wypiska),()=>openShop()]);
   const L=listCanteenOption(); if(L) out.push(L);

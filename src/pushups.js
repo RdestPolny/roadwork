@@ -9,14 +9,14 @@ import { state as animationState } from './animation.js';
 import { state as inputState, setInfo } from './input.js';
 import { setPanelMode } from './navigation.js';
 import { newspaperColor, NEWSPAPER_COLORS } from './rooms.js';
-import { wardFightBg } from './newgate-fight.js';
+import { wardWallBg } from './ward-wall.js';
 import { beginSession, sessionMetric, sessionAddTime, sessionOpen, sessionRunning, sessionParams } from './training-session.js';
 
 const C_PERFECT=rgb('#a8f28c'), C_LOCK=rgb('#4a1812'), C_PAPER=rgb('#8a8070'), C_BURN=['#e8c050','#e07a30','#d83a2a'].map(rgb);
 
 // Runtime values owned by pushups; initialized explicitly by main.js.
 export const state = {}; function buildPuCell(){                    // side view of the cell wall + newspapers under the hands / feet
-  const save0=rendererState.fb; rendererState.fb=state.bgPU; wardFightBg();   /* the Ward's wall behind, old broadsheets on the flags */
+  const save0=rendererState.fb; rendererState.fb=state.bgPU; wardWallBg();   /* the Ward's wall behind, old broadsheets on the flags */
   // The same three editions as the room asset, foreshortened on the floor below feet and hands.
   const sheets=[[35,82,1.08,1.45,-0.3],[59,85,2.16,1.45,0.16],[35,88,1.08,1.45,-0.48]];
   for(const [k,[cx,cy,w,h,rot]] of sheets.entries()){

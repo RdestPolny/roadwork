@@ -11,6 +11,7 @@ function ease(id,a){
     case state.E_OUT: {const b=1-a; return 1-b*b*b;}
     case state.E_IN: return a*a;
     case state.E_IO: return 0.5-0.5*Math.cos(Math.PI*a);
+    case state.E_SNAP: {const b=1-a; return 1-b*b*b*b;} // eksplozywny wystrzał bokserski
     default: return a;
   }
 } function K(t,e,o){const p=new Float32Array(state.NP);p.set(state.GUARD);for(const k in o)p[state.IDX[k]]=o[k];return {t,e,p};} function MOVE(name,keys,opt){
@@ -36,8 +37,7 @@ export function isFwd(id){ return id===state.M_WALKF||id===state.M_DASHF; }
  * @returns {number} Pose time in 60 Hz ticks, independent of event/cancel timing.
  */
 export function poseSampleTime(m,t,events){
-  const fr=m.fr||5;
-  return Math.min(m.dur,m.id>=0&&m.id<=3&&!events?t+fr:(Math.floor(t/fr)+1)*fr);
+  return Math.max(0,Math.min(m.dur,t));
 }
 
 export function samplePose(m,t,out){
@@ -75,8 +75,11 @@ export function samplePose(m,t,out){
 function sparPoseExtras(m,t,out){
   const F=sparringState.ctxF; if(!F) return;
   if(m.id>=state.S_HITJ&&m.id<=state.S_UPPED){
-    const k=Math.min(1.8,(sparringState.bareknuckle?1.15:1)*(1+0.8*Math.max(0,1-F.hp/F.hpMax))), kb=1+(k-1)*0.35;
-    for(const c of [state.HX,state.HY]) out[c]=state.GUARD[c]+(out[c]-state.GUARD[c])*k;
+    // Zamiast wyrywać głowę z szyi (k do 1.8), dzielimy impet między głowę (k<=1.35) a ugięcie tułowia (kb)
+    const rawK=(sparringState.bareknuckle?1.12:1)*(1+0.6*Math.max(0,1-F.hp/F.hpMax));
+    const k=Math.min(1.35,rawK), kb=Math.min(1.45,1+(rawK-1)*0.55);
+    out[state.HX]=Math.max(-3.6,Math.min(3.0,state.GUARD[state.HX]+(out[state.HX]-state.GUARD[state.HX])*k));
+    out[state.HY]=Math.max(-3.4,Math.min(3.0,state.GUARD[state.HY]+(out[state.HY]-state.GUARD[state.HY])*k));
     for(const c of [state.LEAN,state.ROT,state.HROT]) out[c]=state.GUARD[c]+(out[c]-state.GUARD[c])*kb;
   }
   if(m.id===state.S_BLOCK||m.id===state.S_BLOCKHIT||m.id===state.S_SHELL){
@@ -188,81 +191,88 @@ state.E_LIN = 0;
 state.E_OUT = 1;
 state.E_IN = 2;
 state.E_IO = 3;
+state.E_SNAP = 4;
 
 /* Keyframe times are 60 Hz ticks. Punch poses update every tick; events retain the 5-tick grid. */
 state.MOVES = [
- // Victorian jab: linear piston strike from the long guard; lead foot steps in, chin stays protected behind the shoulder.
+ // JAB (Lewy prosty): krótki impuls z przedniej nogi, biodro i lewy bark wkręcają się do przodu,
+ // prawa ręka asekuruje szczękę (RGY:-3.2), broda schowana za lewym barkiem, błyskawiczny powrót po linii ciosu.
  MOVE('JAB',[
    K(0,state.E_LIN,{}),
-   K(3,state.E_OUT,{LGX:15.8,LGY:-0.5,ROT:-0.25,LEAN:0.2,BX:-0.5,HX:-0.1,HY:0,RGX:4.6,RGY:4.8,HROT:-0.05,STEP:0.3}),
-   K(5,state.E_OUT,{LGX:17.5,LGY:-2.8,ROT:-0.45,LEAN:0.35,BX:-0.2,HX:-0.2,HY:0,RGX:4.2,RGY:5.2,HROT:-0.1,STEP:0.7}),
-   K(6,state.E_OUT,{LGX:18.2,LGY:-3.5,ROT:-0.55,LEAN:0.45,BX:0,HX:-0.3,HY:0,RGX:4.0,RGY:5.4,HROT:-0.15,STEP:0.8}),
-   K(9,state.E_OUT,{LGX:15.0,LGY:0.6,ROT:-0.2,LEAN:0.1,BX:-0.5,HX:-0.1,HY:0,RGX:4.6,RGY:4.6,STEP:0.3}),
-   K(14,state.E_IO,{})
- ],{apex:3,glove:0,fstep:1,twist:0.006,cancel:9,imp:0.0024,dent:1.6,stop:2,shake:0,weight:0.45,fr:3,smear:[2]}),
+   K(2,state.E_IN,{LGX:12.8,LGY:0.5,ROT:-0.15,HROT:-0.1,LEAN:0.4,BX:0.2,BY:0.6,HX:-0.2,HY:0.6,RGX:4.8,RGY:-2.8,STEP:0.4,HEEL:0.5}),
+   K(5,state.E_SNAP,{LGX:19.2,LGY:-4.2,ROT:-0.75,HROT:-0.35,LEAN:1.8,BX:0.9,BY:0.9,HX:-0.6,HY:1.1,RGX:4.2,RGY:-3.8,STEP:1.2,HEEL:1.2,LGS:0.3}),
+   K(6,state.E_OUT,{LGX:19.6,LGY:-4.4,ROT:-0.82,HROT:-0.4,LEAN:2.0,BX:1.0,BY:1.0,HX:-0.7,HY:1.2,RGX:4.0,RGY:-4.0,STEP:1.3,HEEL:1.3,LGS:0.4}),
+   K(9,state.E_OUT,{LGX:13.5,LGY:-1.0,ROT:-0.25,HROT:-0.1,LEAN:0.6,BX:0.2,BY:0.5,HX:-0.2,HY:0.5,RGX:4.6,RGY:-1.5,STEP:0.5}),
+   K(13,state.E_IO,{})
+ ],{apex:3,glove:0,fstep:1.5,twist:0.008,cancel:9,imp:0.0028,dent:1.8,stop:2,shake:0,weight:0.5,fr:2,smear:[2,3]}),
+
+ // CROSS (Prawy prosty): załadowanie ciężaru na tylną nogę, mocny skręt tylnej stopy (HEEL:3.6) i biodra (HROT:1.1),
+ // prawy bark wybija przed brodę (ROT:1.25), lewa ręka wraca wysoko pod policzek (LGX:5.5, LGY:-4.5).
  MOVE('CROSS',[
    K(0,state.E_LIN,{}),
-   // Victorian cross-counter: coil onto the rear foot and load hips and shoulders.
-   K(5,state.E_IN,{ROT:-0.35,LEAN:-0.5,BY:0.8,BX:-0.6,RGX:3.5,RGY:4.2,LGX:11.5,LGY:3.0,HY:0.4,HROT:-0.25}),
-   // drive: rear heel turns and lifts, hip drives through, right shoulder powers forward
-   K(10,state.E_OUT,{ROT:0.5,LEAN:3.8,BX:0.6,BY:1.4,RGX:11.8,RGY:-1.0,HEEL:2.2,HROT:0.65,LGX:6.5,LGY:3.8,HY:0.6}),
-   // apex: full extension into the head/jaw; lead fist tightly guards the solar plexus
-   K(15,state.E_OUT,{ROT:1.15,LEAN:7.2,BX:1.2,BY:1.8,RGX:18.5,RGY:-2.5,HEEL:3.5,HROT:1.0,LGX:4.0,LGY:4.8,HX:0.2,HY:0.8}),
-   // active recovery begins immediately rather than freezing in an over-extended dive
-   K(22,state.E_OUT,{ROT:0.75,LEAN:4.8,BX:0.8,BY:1.4,RGX:14.5,RGY:-0.5,HEEL:2.0,HROT:0.6,LGX:6.5,LGY:3.8,HY:0.5}),
-   // settling hips and shoulders on return
-   K(28,state.E_IO,{ROT:0.25,LEAN:1.8,BX:0.2,BY:0.8,RGX:8.5,RGY:1.5,HEEL:0.8,HROT:0.2,LGX:10.0,LGY:3.0}),
-   K(34,state.E_IO,{})
- ],{apex:3,glove:1,fstep:2,twist:0.014,cancel:22,imp:0.0045,dent:2.5,stop:5,shake:1,axis:0,weight:0.8,sweatHit:3,smear:[2,3],dust:[2]}),
- // HOOK: a sharp load — a slight knee dip, chin tucked to the chest, weight onto the lead leg, glove cocked beside the
- // chin — then the hips fire first and the shoulders whip after them; the arm stays bent at ninety degrees, elbow up and
- // forearm level with the ground at jaw height, the lead heel rises and spins out and the chin stays down through impact
+   K(4,state.E_IN,{ROT:-0.45,HROT:-0.35,LEAN:-0.8,BY:1.4,BX:-0.8,RGX:3.0,RGY:2.0,LGX:12.5,LGY:0.5,HX:-0.3,HY:0.8,HEEL:0.4}),
+   K(7,state.E_IN,{ROT:0.45,HROT:0.65,LEAN:2.4,BX:0.8,BY:1.6,RGX:11.5,RGY:-2.2,HEEL:2.4,LGX:6.5,LGY:-3.5,HX:0.2,HY:1.2,STEP:0.6}),
+   K(10,state.E_SNAP,{ROT:1.25,HROT:1.1,LEAN:4.6,BX:1.8,BY:1.8,RGX:19.6,RGY:-4.2,HEEL:3.6,LGX:5.2,LGY:-4.8,HX:0.4,HY:1.4,STEP:1.0,RGS:0.6}),
+   K(12,state.E_OUT,{ROT:1.3,HROT:1.15,LEAN:4.8,BX:1.9,BY:1.8,RGX:19.8,RGY:-4.2,HEEL:3.8,LGX:5.0,LGY:-4.8,HX:0.4,HY:1.4,STEP:1.0,RGS:0.6}),
+   K(17,state.E_OUT,{ROT:0.5,HROT:0.45,LEAN:2.0,BX:0.7,BY:1.2,RGX:10.5,RGY:-1.5,HEEL:1.8,LGX:8.5,LGY:-2.0,HY:0.8}),
+   K(24,state.E_IO,{ROT:0.1,HROT:0.1,LEAN:0.4,BY:0.4,RGX:6.0,RGY:2.0,HEEL:0.4,LGX:12.5,LGY:1.0}),
+   K(30,state.E_IO,{})
+ ],{apex:3,glove:1,fstep:2,twist:0.016,cancel:19,imp:0.0048,dent:2.7,stop:5,shake:1,axis:0,weight:0.85,fr:3,sweatHit:3,smear:[2,3,4],dust:[2,3]}),
+
+ // HOOK (Lewy sierpowy): zejście na nogach i przeniesienie ciężaru na przednią stopę, a następnie gwałtowny obrót
+ // przedniej pięty (LHEEL:2.4) i kolana do środka (LKN:1.5); łokieć idzie wysoko w poziomie (LFL:-0.65), prawa ręka przy szczęce.
  MOVE('HOOK',[
    K(0,state.E_LIN,{}),
-   K(5,state.E_OUT,{BY:0.9,BX:-0.5,LEAN:0.4,ROT:0.25,HROT:0.1,HX:0.5,HY:1,LGX:8,LGY:-1.5,LFL:-0.2,RGX:4.5,RGY:-0.5,LKN:-0.2,HEEL:0.2}),
-   K(8,state.E_OUT,{BY:1.8,BX:0,LEAN:1,ROT:0.6,HROT:0.3,HX:0.9,HY:1.8,LGX:5,LGY:-2.5,LFL:-0.5,LGS:-0.2,RGX:4.5,RGY:-1.5,LKN:-0.5,HEEL:0.4}),
-   K(12,state.E_IO,{BY:2.3,BX:0.3,LEAN:1.4,ROT:0.7,HROT:-0.15,HX:1,HY:2,LGX:4.5,LGY:-3,LFL:-0.6,LGS:-0.2,RGX:4.5,RGY:-2,LHEEL:0.5,LKN:-0.2,HEEL:0.4}),
-   K(15,state.E_OUT,{BY:1.2,BX:0.6,LEAN:2.6,ROT:-1.5,HROT:-0.95,HX:0.6,HY:1.6,LGX:10.5,LGY:-4.2,LFL:-0.6,LGS:1.4,RGX:4.5,RGY:-2,LHEEL:2,LKN:1.4}),
-   K(20,state.E_OUT,{BY:1.3,BX:0.6,LEAN:2.6,ROT:-1.75,HROT:-1.05,HX:0.4,HY:1.6,LGX:9.5,LGY:-3.6,LFL:-0.6,LGS:1.6,RGX:4.5,RGY:-2,LHEEL:2.1,LKN:1.5}),
-   K(26,state.E_IO,{BY:0.6,LEAN:1,ROT:-0.4,HROT:-0.25,HY:0.6,LGX:10,LGY:-0.5,LFL:-0.2,LGS:0.3,RGX:5,RGY:0,LHEEL:0.5,LKN:0.3}),
-   K(32,state.E_IO,{})
- ],{apex:4,glove:0,fstep:1,twist:-0.07,cancel:22,imp:0.005,dent:3,stop:7,shake:2,axis:0,weight:1,sweatHit:4,smear:[3,4,5],dust:[4]}),
- // UPPERCUT: no squat — a short dip with the rear shoulder dropped and wound back, then the hips and shoulders turn
- // through (slow start, violent end) and the bent arm rips straight up the middle, elbow under the glove, onto the rear toes
+   K(4,state.E_IN,{BY:2.0,BX:-0.4,LEAN:0.8,ROT:0.55,HROT:0.35,HX:0.6,HY:1.4,LGX:6.5,LGY:-1.5,LFL:-0.25,RGX:4.8,RGY:-4.2,LKN:0.2,HEEL:0.5}),
+   K(7,state.E_IN,{BY:2.4,BX:0.2,LEAN:1.4,ROT:0.75,HROT:0.1,HX:0.8,HY:1.8,LGX:5.2,LGY:-3.2,LFL:-0.55,LGS:0.2,RGX:4.5,RGY:-4.8,LHEEL:0.8,LKN:0.5,HEEL:0.6}),
+   K(10,state.E_SNAP,{BY:1.4,BX:0.9,LEAN:2.4,ROT:-1.45,HROT:-0.95,HX:0.4,HY:1.6,LGX:13.2,LGY:-4.6,LFL:-0.7,LGS:1.4,RGX:4.5,RGY:-4.8,LHEEL:2.2,LKN:1.4}),
+   K(13,state.E_OUT,{BY:1.5,BX:0.8,LEAN:2.3,ROT:-1.7,HROT:-1.1,HX:0.2,HY:1.6,LGX:10.5,LGY:-4.0,LFL:-0.65,LGS:1.6,RGX:4.5,RGY:-4.5,LHEEL:2.4,LKN:1.6}),
+   K(19,state.E_OUT,{BY:1.0,BX:0.3,LEAN:1.0,ROT:-0.6,HROT:-0.4,HY:0.8,LGX:9.5,LGY:-1.5,LFL:-0.25,LGS:0.5,RGX:4.8,RGY:-1.5,LHEEL:0.8,LKN:0.5}),
+   K(27,state.E_IO,{})
+ ],{apex:3,glove:0,fstep:1,twist:-0.075,cancel:19,imp:0.0052,dent:3.1,stop:7,shake:2,axis:0,weight:1,fr:3,sweatHit:3,smear:[2,3,4],dust:[3]}),
+
+ // UPPERCUT (Prawy podbródkowy): ugięcie kolan i obniżenie prawego barku, po czym wybicie z nóg (BY: 2.8 -> 0.3, SQ: 1.2)
+ // i wbicie pięści pionowo przez gardę rywala przy pełnej asekuracji lewą ręką (LGY:-5.5).
  MOVE('UPPERCUT',[
    K(0,state.E_LIN,{}),
-   K(5,state.E_IN,{ROT:-0.55,HROT:-0.4,BY:2.2,LEAN:1.2,BX:-0.3,RGX:5,RGY:2.5,HY:1.4,HX:0.4,LGX:6,LGY:-6}),
-   K(9,state.E_IO,{ROT:-0.8,HROT:-0.55,BY:2.8,LEAN:1,BX:-0.5,RGX:5.5,RGY:4,HY:1.8,HX:0.6,LGX:6,LGY:-6.5}),
-   K(13,state.E_IN,{ROT:0.6,HROT:0.5,BY:1.8,LEAN:2.6,BX:1.4,RGX:9,RGY:-2,HEEL:2,HY:0.8,LGX:5,LGY:-6.5}),
-   K(15,state.E_OUT,{ROT:1.5,HROT:1.05,BY:0.6,LEAN:3.6,BX:3,RGX:10.5,RGY:-9.5,HEEL:3.6,HX:1,HY:-0.6,LGX:5,LGY:-6.5}),
-   K(19,state.E_LIN,{ROT:1.6,HROT:1.1,BY:0.4,LEAN:3.7,BX:3.2,RGX:10,RGY:-10.5,HEEL:3.6,HX:1,HY:-0.8,LGX:5,LGY:-6.5}),
-   K(25,state.E_IO,{ROT:0.4,HROT:0.3,BY:1,LEAN:2,BX:0.8,RGX:7,RGY:-5,HEEL:1}),
-   K(31,state.E_IO,{})
- ],{apex:4,glove:1,fstep:1,twist:0.012,cancel:21,imp:0.0035,dent:2.4,stop:6,shake:2,axis:1,lift:2,rise:1,weight:1,sweatHit:4,smear:[3,4],dust:[4]}),
+   K(4,state.E_IN,{ROT:-0.65,HROT:-0.45,BY:2.6,SQ:-0.6,LEAN:1.2,BX:-0.4,RGX:4.8,RGY:3.2,HY:1.6,HX:0.5,LGX:5.5,LGY:-5.0}),
+   K(7,state.E_IN,{ROT:-0.8,HROT:-0.55,BY:3.0,SQ:-0.8,LEAN:1.4,BX:-0.2,RGX:5.8,RGY:4.2,HY:1.8,HX:0.6,LGX:5.2,LGY:-5.5,HEEL:0.8}),
+   K(10,state.E_SNAP,{ROT:0.75,HROT:0.65,BY:1.4,SQ:0.4,LEAN:2.8,BX:1.6,RGX:10.8,RGY:-2.5,HEEL:2.4,HY:0.6,LGX:5.0,LGY:-5.5,RGS:0.5}),
+   K(12,state.E_SNAP,{ROT:1.45,HROT:1.1,BY:0.3,SQ:1.2,LEAN:3.4,BX:2.6,RGX:11.8,RGY:-10.2,HEEL:3.8,HX:0.8,HY:-0.5,LGX:4.8,LGY:-5.2,RGS:0.8}),
+   K(15,state.E_OUT,{ROT:1.55,HROT:1.15,BY:0.2,SQ:1.3,LEAN:3.5,BX:2.8,RGX:11.2,RGY:-11.0,HEEL:3.8,HX:0.8,HY:-0.7,LGX:4.8,LGY:-5.0,RGS:0.7}),
+   K(21,state.E_IO,{ROT:0.45,HROT:0.3,BY:1.0,LEAN:1.6,BX:0.8,RGX:7.5,RGY:-3.5,HEEL:1.2,LGX:9.0,LGY:-1.5}),
+   K(28,state.E_IO,{})
+ ],{apex:4,glove:1,fstep:1,twist:0.014,cancel:19,imp:0.004,dent:2.6,stop:6,shake:2,axis:1,lift:2,rise:1,weight:1,sweatHit:4,smear:[3,4,5],dust:[4]}),
+ // DODGE (Rotacja / Weave pod sierpowym): zejście po łuku litery U – najpierw odchylenie i ugięcie kolan
+ // na tylną nogę, przejście dołem ze zwartą gardą i wyjście w górę na przednią nogę z wkręceniem biodra.
  MOVE('DODGE',[
    K(0,state.E_LIN,{}),
-   K(5,state.E_OUT,{BY:4,LEAN:-1.5,HX:-1,HY:1,LGX:5,LGY:-5,RGX:4,RGY:-4}),
-   K(10,state.E_IO,{BY:6,LEAN:0,HY:1.5,LGX:5,LGY:-5,RGX:4,RGY:-4}),
-   K(15,state.E_IO,{BY:4,LEAN:2,HX:1,HY:1,LGX:6,LGY:-5,RGX:4,RGY:-4}),
-   K(20,state.E_IO,{BY:2,LEAN:1.5}),
-   K(25,state.E_IO,{})
- ],{fstep:-3,cancel:20,sweat:[1],dust:[1]}),
- // SLIP LEFT (outside): head snaps over the lead knee, rear shoulder rolls through, springs back past centre
+   K(4,state.E_OUT,{BY:3.4,BX:-0.8,LEAN:-1.2,ROT:-0.45,HROT:-0.25,HX:-0.6,HY:1.2,LGX:6.8,LGY:-4.2,RGX:4.5,RGY:-3.8,LKN:0.4}),
+   K(9,state.E_IO,{BY:5.4,BX:0.2,LEAN:0.8,ROT:0.15,HROT:0.1,HX:0.4,HY:1.8,LGX:6.2,LGY:-5.0,RGX:4.5,RGY:-4.5,LKN:1.0,HEEL:0.5}),
+   K(14,state.E_OUT,{BY:3.0,BX:1.0,LEAN:2.2,ROT:0.55,HROT:0.35,HX:0.8,HY:1.2,LGX:6.8,LGY:-4.5,RGX:4.5,RGY:-4.0,LKN:0.6,HEEL:1.0}),
+   K(19,state.E_IO,{BY:1.2,BX:0.2,LEAN:0.8,ROT:0.15,HROT:0.1,LGX:10.5,LGY:-1.0}),
+   K(24,state.E_IO,{})
+ ],{fstep:-3,cancel:18,sweat:[1],dust:[1,2],headSmear:[1,2]}),
+
+ // SLIP L (Unik na zewnątrz / Outside Slip): zejście z linii ciosu nad przednie kolano, prawy bark i biodro
+ // wkręcają się do przodu (ładowanie prawej ręki lub lewego sierpa), broda schowana, garda wysoko przy szczęce.
  MOVE('SLIP L',[
    K(0,state.E_LIN,{}),
-   K(4,state.E_OUT,{BY:4,LEAN:4.5,BX:2,HX:2,HY:2,ROT:0.7,HROT:0.3,LGX:5,LGY:-6,RGX:3,RGY:-4}),
-   K(9,state.E_LIN,{BY:4.5,LEAN:5,BX:2.5,HX:2,HY:2,ROT:0.8,HROT:0.3,LGX:5,LGY:-6,RGX:3,RGY:-4}),
-   K(15,state.E_OUT,{BY:0.6,LEAN:0,BX:-0.5,HX:-0.5,ROT:-0.2}),
-   K(22,state.E_IO,{})
- ],{cancel:15,sweat:[1],dust:[1],headSmear:[1,3]}),
- // SLIP RIGHT (inside): head snaps back over the rear knee, lead shoulder rolls in, springs back
+   K(3,state.E_SNAP,{BY:3.4,BX:1.6,LEAN:3.2,ROT:0.9,HROT:0.5,HX:1.4,HY:1.8,LGX:6.5,LGY:-5.2,RGX:4.5,RGY:-4.5,LKN:0.9,HEEL:1.0}),
+   K(8,state.E_OUT,{BY:3.8,BX:1.9,LEAN:3.6,ROT:1.0,HROT:0.55,HX:1.6,HY:2.0,LGX:6.2,LGY:-5.5,RGX:4.5,RGY:-4.8,LKN:1.1,HEEL:1.2}),
+   K(14,state.E_OUT,{BY:0.8,BX:-0.2,LEAN:0.2,ROT:-0.15,HROT:-0.1,HX:-0.2,HY:0.4,LGX:11.0,LGY:-0.5,RGX:4.8,RGY:1.5}),
+   K(20,state.E_IO,{})
+ ],{cancel:13,sweat:[1],dust:[1],headSmear:[1,2]}),
+
+ // SLIP R (Unik do wewnątrz / Inside Slip): przeniesienie ciężaru na ugiętą tylną nogę, lewy bark i biodro
+ // zawijają się do środka (ładowanie prawego prostego / podbródkowego), bez nienaturalnego łamania pleców w tył.
  MOVE('SLIP R',[
    K(0,state.E_LIN,{}),
-   K(4,state.E_OUT,{BY:4,LEAN:-3.5,BX:-2,HX:-2,HY:2,ROT:-0.8,HROT:-0.3,LGX:6,LGY:-5,RGX:3,RGY:-3}),
-   K(9,state.E_LIN,{BY:4.5,LEAN:-4,BX:-2.5,HX:-2,HY:2,ROT:-0.9,HROT:-0.3,LGX:6,LGY:-5,RGX:3,RGY:-3}),
-   K(15,state.E_OUT,{BY:0.6,LEAN:1.8,BX:0.6,HX:0.5,ROT:0.2}),
-   K(22,state.E_IO,{})
- ],{cancel:15,sweat:[1],dust:[1],headSmear:[1,3]}),
+   K(3,state.E_SNAP,{BY:3.4,BX:-1.4,LEAN:-1.6,ROT:-0.9,HROT:-0.5,HX:-1.3,HY:1.5,LGX:7.0,LGY:-4.8,RGX:4.2,RGY:-4.2,LHEEL:0.8,LKN:0.5}),
+   K(8,state.E_OUT,{BY:3.8,BX:-1.8,LEAN:-2.0,ROT:-1.05,HROT:-0.6,HX:-1.6,HY:1.7,LGX:6.8,LGY:-5.2,RGX:4.0,RGY:-4.5,LHEEL:1.0,LKN:0.6}),
+   K(14,state.E_OUT,{BY:0.8,BX:0.4,LEAN:1.0,ROT:0.2,HROT:0.15,HX:0.3,HY:0.4,LGX:11.5,LGY:0,RGX:4.8,RGY:2.0}),
+   K(20,state.E_IO,{})
+ ],{cancel:13,sweat:[1],dust:[1],headSmear:[1,2]}),
  // Feet offsets (STEP/RSTEP) are relative to the body origin, which itself travels with GX,
  // so the values below are (absolute foot position - GX).
  // WALK FORWARD: step-drag — lead foot lifts (knee bent) and reaches, hips sink and follow, rear foot drags up (+7 px)
@@ -303,94 +313,104 @@ state.MOVES.length=17;
 state.S_FIRST = state.MOVES.length;
 
 state.MOVES.push(
- // light straight to the face: chin snaps back, half a step of slide
- MOVE('TRAFIONY',[
-   K(0,state.E_LIN,{}),
-   K(2,state.E_OUT,{HX:-3.2,HY:-1.2,LEAN:-0.2,BX:-0.9,BY:1.4,ROT:-0.45,GX:-0.5,LGX:6,LGY:-6,RGX:3,RGY:-2}),
-   K(6,state.E_OUT,{HX:-1.6,HY:-0.3,LEAN:0.3,BX:-0.6,BY:1.6,ROT:-0.2,GX:-1.1}),
-   K(10,state.E_IO,{HX:-0.6,LEAN:0.7,BY:1.6,GX:-1.5,RSTEP:-0.5}),
-   K(16,state.E_IO,{GX:-1.5})
- ],{walk:-1,cancel:11,sweat:[1],fr:2,headSmear:[1]}),
- // heavy straight: head whips back, shoulders open, a reeling step back
- MOVE('TRAFIONY!',[
-   K(0,state.E_LIN,{}),
-   K(3,state.E_OUT,{HX:-3.6,HY:-1.8,LEAN:-1.7,BX:-1.5,BY:1.2,ROT:-0.65,HROT:-0.3,GX:-1,LGX:4,LGY:-8,RGX:2,RGY:-4}),
-   K(10,state.E_OUT,{HX:-2,HY:-0.5,LEAN:-0.8,BX:-1,BY:2.2,ROT:-0.3,GX:-2.5,STEP:1.5,RSTEP:-1.5,RLIFT:1,LGX:5,LGY:-7,RGX:3,RGY:-3}),
-   K(17,state.E_IO,{HX:-0.5,LEAN:0.5,BY:2,GX:-3.5,STEP:0.5,LLIFT:0.8,LKN:0.5}),
-   K(24,state.E_IO,{GX:-3.5})
- ],{walk:-1,cancel:18,sweat:[1],dust:[2],fr:2,headSmear:[1]}),
- // hook to the head: head knocked down and across, shoulders spun open, lead glove flung low
- MOVE('HAK NA GŁOWĘ',[
-   K(0,state.E_LIN,{}),
-   K(3,state.E_OUT,{HX:-2,HY:3.2,LEAN:-1.3,BX:-1.2,BY:2.2,ROT:1.25,HROT:0.6,GX:-0.7,LGX:3,LGY:-1,RGX:4,RGY:-5,LKN:0.7}),
-   K(10,state.E_OUT,{HX:-1.5,HY:1.5,LEAN:-0.5,BY:3,ROT:0.6,HROT:0.3,GX:-2,RSTEP:-1,LGX:4,LGY:-3,RGX:4,RGY:-4}),
-   K(17,state.E_IO,{HX:-0.5,HY:0.5,LEAN:0.5,BY:2,ROT:0.1,GX:-2.5}),
-   K(24,state.E_IO,{GX:-2.5})
- ],{walk:-1,cancel:18,sweat:[1],fr:2,headSmear:[1]}),
- // uppercut: chin snaps up, body lifts onto the toes, then settles back
- MOVE('PODBRÓDEK',[
-   K(0,state.E_LIN,{}),
-   K(3,state.E_OUT,{HX:-2.4,HY:-3.8,LEAN:-2.8,BX:-1,BY:-0.9,HEEL:1.6,LHEEL:1.1,GX:-0.5,LGX:5,LGY:-9,RGX:3,RGY:-6,SQ:1}),
-   K(10,state.E_OUT,{HX:-2,HY:-1.5,LEAN:-1.5,BY:1.5,GX:-2.5,RSTEP:-1.5,RLIFT:1,LGX:5,LGY:-7,RGX:3,RGY:-3}),
-   K(17,state.E_IO,{HX:-0.5,LEAN:0.3,BY:2.2,GX:-3}),
-   K(24,state.E_IO,{GX:-3})
- ],{walk:-1,cancel:18,sweat:[1],fr:2,headSmear:[1]}),
- // body shot: folds over the punch, elbows collapse onto the ribs
- MOVE('NA KORPUS',[
-   K(0,state.E_LIN,{}),
-   K(3,state.E_OUT,{BY:3.5,LEAN:2.5,BX:-1.5,HX:1,HY:2.5,SQ:-1,ROT:0.3,GX:-0.5,LGX:5,LGY:1,RGX:4,RGY:3,LKN:0.8}),
-   K(12,state.E_IO,{BY:3.5,LEAN:2,BX:-1,HX:0.8,HY:2,SQ:-0.8,GX:-2,RSTEP:-1,LGX:5,LGY:0,RGX:4,RGY:2}),
-   K(19,state.E_IO,{BY:2,LEAN:1.3,HY:1,GX:-2.5,LGX:6,LGY:-3,RGX:4,RGY:0}),
-   K(26,state.E_IO,{GX:-2.5})
- ],{walk:-1,cancel:20}),
- // high guard: both gloves shell the face, chin down (held while blocking)
- MOVE('BLOK',[
-   K(0,state.E_LIN,{}),
-   K(5,state.E_OUT,{LGX:6,LGY:-9,RGX:6,RGY:-7,HX:-0.5,HY:1.5,BY:2,LEAN:0.8,ROT:0.2,LGS:0.3,RGS:0.2}),
-   K(30,state.E_LIN,{LGX:6,LGY:-9,RGX:6,RGY:-7,HX:-0.5,HY:1.5,BY:2,LEAN:0.8,ROT:0.2,LGS:0.3,RGS:0.2}),
-   K(38,state.E_IO,{})
- ],{cancel:6,hold:6}),
- // punch caught on the gloves: guard is driven back into the face, short slide
- MOVE('BLOK!',[
-   K(0,state.E_LIN,{}),
-   K(3,state.E_OUT,{LGX:4,LGY:-9,RGX:4.5,RGY:-7,HX:-1.5,HY:1.5,BY:2.4,LEAN:-0.2,BX:-1,ROT:0.2,GX:-1,LGS:0.3,RGS:0.2}),
-   K(9,state.E_IO,{LGX:5.5,LGY:-9,RGX:5.5,RGY:-7,HX:-0.8,HY:1.5,BY:2.2,LEAN:0.5,GX:-1.5,LGS:0.3,RGS:0.2}),
-   K(14,state.E_IO,{LGX:6,LGY:-9,RGX:6,RGY:-7,HX:-0.5,HY:1.5,BY:2,LEAN:0.8,ROT:0.2,GX:-1.5,LGS:0.3,RGS:0.2})
- ],{walk:-1,cancel:8}),
- // stagger: rubber legs, two stumbling steps back, hands low (wide open)
- MOVE('ZAMROCZONY',[
-   K(0,state.E_LIN,{}),
-   K(4,state.E_OUT,{HX:-2.5,HY:-1,LEAN:-2,BX:-1.5,BY:2,ROT:-0.5,GX:-1,LGX:4,LGY:-1,RGX:3,RGY:2}),
-   K(14,state.E_IO,{HX:1,HY:2,LEAN:1.5,BX:0.5,BY:4,ROT:0.4,GX:-3,STEP:2,RSTEP:-2,LKN:1.5,LGX:4,LGY:1,RGX:3,RGY:3}),
-   K(26,state.E_IO,{HX:-1.5,HY:0.5,LEAN:-1,BX:-1,BY:3,ROT:-0.3,GX:-5,STEP:-1,RLIFT:1.2,LGX:5,LGY:-1,RGX:3,RGY:2}),
-   K(38,state.E_IO,{HX:0.5,HY:1.5,LEAN:1,BY:3,GX:-6,LKN:0.8,LGX:6,LGY:-3,RGX:4,RGY:0}),
-   K(50,state.E_IO,{GX:-6})
- ],{walk:-1,cancel:44,sweat:[1,3],dust:[2,3]}),
- // knockdown: head snaps, knees go, sits down hard on the canvas (held for the count)
- MOVE('NOKDAUN',[
-   K(0,state.E_LIN,{}),
-   K(4,state.E_OUT,{HX:-3,HY:-2,LEAN:-3,BX:-1.5,BY:1.5,ROT:-0.5,GX:-1,LGX:3,LGY:-3,RGX:2,RGY:0}),
-   K(12,state.E_IN,{HX:-1,HY:0,LEAN:-3.5,BX:-3,BY:8,GX:-3,STEP:3,RSTEP:3,LKN:1,LGX:3,LGY:3,RGX:1,RGY:5}),
-   K(18,state.E_OUT,{HX:0,HY:1,LEAN:-4,BX:-4,BY:14,GX:-4,STEP:5,RSTEP:8,ST:10,LGX:4,LGY:6,RGX:2,RGY:8,SQ:-0.5}),
-   K(24,state.E_IO,{HX:0.5,HY:1.5,LEAN:-3.5,BX:-4,BY:13.5,GX:-4,STEP:5,RSTEP:8,ST:10,LGX:5,LGY:5,RGX:3,RGY:7})
- ],{walk:-1,cancel:999,hold:23,sweat:[1],dust:[3],land:[3]}),
- // get up: rolls onto a knee, pushes up, guard comes back
- MOVE('WSTAJE',[
-   K(0,state.E_LIN,{}),
-   K(10,state.E_IO,{HX:1,HY:2,LEAN:2,BX:-2,BY:10,STEP:4,RSTEP:1,LKN:1.5,ST:10,LGX:7,LGY:3,RGX:4,RGY:4}),
-   K(22,state.E_IO,{HX:0.5,HY:1.5,LEAN:2,BX:-0.5,BY:5,STEP:1.5,RSTEP:-0.5,LKN:0.8,LGX:6,LGY:-2,RGX:4,RGY:1}),
-   K(32,state.E_IO,{BY:2,LEAN:1.2,LGX:6,LGY:-4,RGX:4,RGY:-1}),
-   K(40,state.E_IO,{})
- ],{walk:-1,cancel:40}),
- // KO: head snaps, legs fold, slams flat onto the back, arms splayed (held)
- MOVE('KO',[
-   K(0,state.E_LIN,{}),
-   K(4,state.E_OUT,{HX:-3,HY:-2.5,LEAN:-3.5,BX:-1.5,BY:1,ROT:-0.6,GX:-1,LGX:2,LGY:-6,RGX:1,RGY:-3}),
-   K(14,state.E_IN,{HX:-2,HY:0,LEAN:-5,BX:-3,BY:9,GX:-4,STEP:4,RSTEP:4,LGX:1,LGY:-2,RGX:0,RGY:0}),
-   K(22,state.E_OUT,{HX:-6,HY:8,LEAN:-9,BX:-4,BY:15,SQ:-7,GX:-5,STEP:9,RSTEP:9,ST:8,LGX:-6,LGY:-3,RGX:2,RGY:1}),
-   K(28,state.E_OUT,{HX:-7,HY:9,LEAN:-10,BX:-4,BY:15.5,SQ:-8.5,GX:-5,STEP:10,RSTEP:10,ST:8,LGX:-9,LGY:0,RGX:5,RGY:3}),
-   K(36,state.E_IO,{HX:-7,HY:9,LEAN:-10,BX:-4,BY:15.5,SQ:-8.5,GX:-5,STEP:10,RSTEP:10,ST:8,LGX:-9,LGY:0,RGX:5,RGY:3})
- ],{walk:-1,cancel:9999,hold:35,sweat:[1],dust:[3],land:[3]})
+  // S_HITJ (trafiony prostym): ostry odskok głowy w tył, lekka praca kolan i szybkie zebranie gardy
+  MOVE('TRAFIONY',[
+    K(0,state.E_LIN,{}),
+    K(2,state.E_SNAP,{HX:-2.5,HY:-0.9,LEAN:-0.8,BX:-0.8,BY:1.4,ROT:-0.45,HROT:-0.2,GX:-0.6,LGX:7.2,LGY:-4.8,RGX:4.2,RGY:-3.5}),
+    K(6,state.E_OUT,{HX:-1.4,HY:-0.3,LEAN:-0.2,BX:-0.5,BY:1.8,ROT:-0.25,GX:-1.2,RSTEP:-0.5,LGX:8.0,LGY:-3.5,RGX:4.5,RGY:-2.0}),
+    K(11,state.E_IO,{HX:-0.4,LEAN:0.4,BY:1.2,GX:-1.5,LGX:11.0,LGY:-0.5,RGX:4.8,RGY:1.5}),
+    K(16,state.E_IO,{GX:-1.5})
+  ],{walk:-1,cancel:11,sweat:[1],fr:2,headSmear:[1]}),
+
+  // S_HIT (mocny prosty): głowa i barki odrzucone, wyraźny krok wstecz tylną nogą dla złapania równowagi
+  MOVE('TRAFIONY!',[
+    K(0,state.E_LIN,{}),
+    K(2,state.E_SNAP,{HX:-2.9,HY:-1.3,LEAN:-1.8,BX:-1.4,BY:1.5,ROT:-0.7,HROT:-0.35,GX:-1.0,LGX:6.0,LGY:-5.5,RGX:3.5,RGY:-4.2,LHEEL:0.6}),
+    K(8,state.E_OUT,{HX:-1.8,HY:-0.5,LEAN:-1.0,BX:-1.0,BY:2.4,ROT:-0.4,HROT:-0.2,GX:-2.5,STEP:1.2,RSTEP:-1.8,RLIFT:1.0,LGX:6.8,LGY:-4.5,RGX:4.0,RGY:-3.2}),
+    K(15,state.E_IO,{HX:-0.4,HY:0.4,LEAN:0.4,BY:1.8,GX:-3.5,STEP:0.4,LLIFT:0.6,LKN:0.5,LGX:9.5,LGY:-1.5,RGX:4.6,RGY:0.5}),
+    K(22,state.E_IO,{GX:-3.5})
+  ],{walk:-1,cancel:16,sweat:[1],dust:[2],fr:2,headSmear:[1]}),
+
+  // S_HOOKED (trafiony sierpowym): głowa i obręcz barkowa przekręcone z impetem ciosu, ugięcie kolan
+  MOVE('HAK NA GŁOWĘ',[
+    K(0,state.E_LIN,{}),
+    K(2,state.E_SNAP,{HX:-1.8,HY:2.1,LEAN:-1.2,BX:-1.1,BY:2.2,ROT:1.25,HROT:0.65,GX:-0.8,LGX:5.0,LGY:-1.5,RGX:4.5,RGY:-4.8,LKN:0.8,HEEL:0.8}),
+    K(9,state.E_OUT,{HX:-1.2,HY:1.2,LEAN:-0.5,BX:-0.6,BY:2.8,ROT:0.65,HROT:0.35,GX:-2.0,RSTEP:-1.2,LGX:6.2,LGY:-2.8,RGX:4.5,RGY:-4.0,LKN:0.5}),
+    K(16,state.E_IO,{HX:-0.3,HY:0.4,LEAN:0.4,BY:1.6,ROT:0.15,GX:-2.5,LGX:10.0,LGY:-0.5,RGX:4.8,RGY:1.0}),
+    K(22,state.E_IO,{GX:-2.5})
+  ],{walk:-1,cancel:16,sweat:[1],fr:2,headSmear:[1]}),
+
+  // S_UPPED (trafiony podbródkowym): podbicie brody i klatki piersiowej w górę na palcach, po czym ciężkie osadzenie na nogach
+  MOVE('PODBRÓDEK',[
+    K(0,state.E_LIN,{}),
+    K(2,state.E_SNAP,{HX:-2.2,HY:-2.6,LEAN:-2.4,BX:-1.0,BY:-0.6,SQ:0.8,ROT:-0.35,HEEL:1.8,LHEEL:1.2,GX:-0.6,LGX:6.2,LGY:-6.2,RGX:3.8,RGY:-5.0}),
+    K(9,state.E_OUT,{HX:-1.5,HY:-1.1,LEAN:-1.4,BX:-0.8,BY:1.8,SQ:0.2,GX:-2.4,RSTEP:-1.5,RLIFT:1.0,LGX:6.5,LGY:-5.0,RGX:4.0,RGY:-3.5}),
+    K(16,state.E_IO,{HX:-0.4,HY:0.3,LEAN:0.3,BY:2.0,GX:-3.0,LGX:9.5,LGY:-1.5,RGX:4.6,RGY:0.5}),
+    K(22,state.E_IO,{GX:-3.0})
+  ],{walk:-1,cancel:16,sweat:[1],fr:2,headSmear:[1]}),
+
+  // S_BODY (cios na korpus / wątrobę): nagłe złamanie w pasie, łokcie schodzą na żebra, głowa opada za gardę
+  MOVE('NA KORPUS',[
+    K(0,state.E_LIN,{}),
+    K(2,state.E_SNAP,{BY:3.6,LEAN:2.8,BX:-1.6,HX:1.1,HY:2.2,SQ:-1.2,ROT:0.35,HROT:0.2,GX:-0.6,LGX:5.8,LGY:0.5,RGX:4.2,RGY:2.2,LFL:0.4,RFL:0.3,LKN:0.9}),
+    K(10,state.E_IO,{BY:3.8,LEAN:2.4,BX:-1.2,HX:0.9,HY:1.8,SQ:-1.0,ROT:0.25,GX:-2.0,RSTEP:-1.0,LGX:6.0,LGY:-0.5,RGX:4.2,RGY:1.5,LFL:0.3,LKN:0.6}),
+    K(18,state.E_IO,{BY:1.8,LEAN:1.0,HY:0.8,GX:-2.5,LGX:9.0,LGY:-2.0,RGX:4.5,RGY:0.5}),
+    K(24,state.E_IO,{GX:-2.5})
+  ],{walk:-1,cancel:18}),
+
+  // S_BLOCK (wysoka, zwarta garda): przednia ręka chroni łuk brwiowy, tylna asekuruje szczękę, łokcie wąsko
+  MOVE('BLOK',[
+    K(0,state.E_LIN,{}),
+    K(4,state.E_OUT,{LGX:7.4,LGY:-6.4,RGX:4.8,RGY:-5.4,LFL:0.35,RFL:0.3,HX:-0.4,HY:1.4,BY:1.8,LEAN:0.9,ROT:0.25,HROT:0.15,LGS:0.25,RGS:0.2}),
+    K(30,state.E_LIN,{LGX:7.4,LGY:-6.4,RGX:4.8,RGY:-5.4,LFL:0.35,RFL:0.3,HX:-0.4,HY:1.4,BY:1.8,LEAN:0.9,ROT:0.25,HROT:0.15,LGS:0.25,RGS:0.2}),
+    K(38,state.E_IO,{})
+  ],{cancel:5,hold:5}),
+
+  // S_BLOCKHIT (cios przyjęty na gardę): twarde wbicie przedramion i sprężyste zamortyzowanie na kolanach
+  MOVE('BLOK!',[
+    K(0,state.E_LIN,{}),
+    K(2,state.E_SNAP,{LGX:5.6,LGY:-6.2,RGX:3.8,RGY:-5.2,LFL:0.45,RFL:0.4,HX:-1.1,HY:1.6,BY:2.6,LEAN:-0.3,BX:-1.0,ROT:0.3,GX:-1.0,LGS:0.3,RGS:0.25,LKN:0.5}),
+    K(8,state.E_OUT,{LGX:6.8,LGY:-6.4,RGX:4.5,RGY:-5.4,LFL:0.35,RFL:0.3,HX:-0.6,HY:1.5,BY:2.1,LEAN:0.5,GX:-1.5,LGS:0.25,RGS:0.2}),
+    K(13,state.E_IO,{LGX:7.4,LGY:-6.4,RGX:4.8,RGY:-5.4,LFL:0.35,RFL:0.3,HX:-0.4,HY:1.4,BY:1.8,LEAN:0.9,ROT:0.25,GX:-1.5,LGS:0.25,RGS:0.2})
+  ],{walk:-1,cancel:7}),
+
+  // S_STAGGER (zamroczony / "na miękkich nogach")
+  MOVE('ZAMROCZONY',[
+    K(0,state.E_LIN,{}),
+    K(4,state.E_OUT,{HX:-2.2,HY:-0.8,LEAN:-1.8,BX:-1.4,BY:2.2,ROT:-0.45,GX:-1.2,LGX:5.5,LGY:-1.5,RGX:3.5,RGY:1.5}),
+    K(14,state.E_IO,{HX:0.8,HY:1.8,LEAN:1.4,BX:0.4,BY:3.8,ROT:0.35,GX:-3.2,STEP:1.8,RSTEP:-2.0,LKN:1.2,LGX:5.0,LGY:0.5,RGX:3.5,RGY:2.5}),
+    K(26,state.E_IO,{HX:-1.2,HY:0.6,LEAN:-0.8,BX:-0.8,BY:3.0,ROT:-0.25,GX:-5.0,STEP:-0.8,RLIFT:1.0,LGX:5.8,LGY:-1.0,RGX:3.8,RGY:1.5}),
+    K(38,state.E_IO,{HX:0.4,HY:1.2,LEAN:0.8,BY:2.6,GX:-6.0,LKN:0.6,LGX:7.5,LGY:-2.5,RGX:4.2,RGY:0}),
+    K(50,state.E_IO,{GX:-6.0})
+  ],{walk:-1,cancel:44,sweat:[1,3],dust:[2,3]}),
+
+  // S_KD (nokdaun): ugięcie nóg i opadnięcie na jedno kolano / przysiad podparcia
+  MOVE('NOKDAUN',[
+    K(0,state.E_LIN,{}),
+    K(3,state.E_SNAP,{HX:-2.6,HY:-1.6,LEAN:-2.6,BX:-1.5,BY:1.6,ROT:-0.5,GX:-1.0,LGX:4.5,LGY:-3.0,RGX:2.8,RGY:-0.5}),
+    K(11,state.E_IN,{HX:-0.8,HY:0.4,LEAN:-2.8,BX:-2.8,BY:8.0,GX:-3.0,STEP:3.0,RSTEP:3.0,LKN:1.2,LGX:4.0,LGY:2.5,RGX:2.0,RGY:4.5}),
+    K(18,state.E_OUT,{HX:0.4,HY:1.4,LEAN:-3.2,BX:-3.8,BY:13.5,GX:-4.0,STEP:5.0,RSTEP:7.5,ST:10,LGX:4.5,LGY:5.5,RGX:2.5,RGY:7.5,SQ:-0.6}),
+    K(24,state.E_IO,{HX:0.6,HY:1.6,LEAN:-3.0,BX:-3.8,BY:13.2,GX:-4.0,STEP:5.0,RSTEP:7.5,ST:10,LGX:5.0,LGY:5.0,RGX:3.0,RGY:7.0,SQ:-0.5})
+  ],{walk:-1,cancel:999,hold:23,sweat:[1],dust:[3],land:[3]}),
+
+  // S_GETUP (wstawanie z desek)
+  MOVE('WSTAJE',[
+    K(0,state.E_LIN,{}),
+    K(10,state.E_IO,{HX:0.8,HY:1.8,LEAN:2.0,BX:-1.8,BY:9.5,STEP:3.8,RSTEP:1.0,LKN:1.4,ST:12,LGX:7.0,LGY:2.5,RGX:4.2,RGY:3.5}),
+    K(22,state.E_IO,{HX:0.4,HY:1.2,LEAN:1.8,BX:-0.4,BY:4.5,STEP:1.5,RSTEP:-0.5,LKN:0.8,ST:16,LGX:7.5,LGY:-2.0,RGX:4.5,RGY:0.5}),
+    K(32,state.E_IO,{BY:1.8,LEAN:0.8,LGX:10.5,LGY:-1.0,RGX:4.8,RGY:1.5}),
+    K(40,state.E_IO,{})
+  ],{walk:-1,cancel:40}),
+
+  // S_KO (ciężki nokaut – upadek na plecy)
+  MOVE('KO',[
+    K(0,state.E_LIN,{}),
+    K(3,state.E_SNAP,{HX:-2.8,HY:-2.0,LEAN:-3.2,BX:-1.5,BY:1.2,ROT:-0.6,GX:-1.0,LGX:3.5,LGY:-5.0,RGX:2.0,RGY:-2.5}),
+    K(13,state.E_IN,{HX:-1.8,HY:0.2,LEAN:-5.0,BX:-3.0,BY:9.0,GX:-4.0,STEP:4.0,RSTEP:4.0,LGX:2.0,LGY:-1.5,RGX:1.0,RGY:0.5}),
+    K(21,state.E_OUT,{HX:-5.5,HY:7.5,LEAN:-9.0,BX:-4.0,BY:15.0,SQ:-7.0,GX:-5.0,STEP:9.0,RSTEP:9.0,ST:8,LGX:-5.5,LGY:-2.5,RGX:2.5,RGY:1.5}),
+    K(28,state.E_OUT,{HX:-6.5,HY:8.5,LEAN:-10.0,BX:-4.0,BY:15.5,SQ:-8.5,GX:-5.0,STEP:10.0,RSTEP:10.0,ST:8,LGX:-8.5,LGY:0.5,RGX:5.0,RGY:3.0}),
+    K(36,state.E_IO,{HX:-6.5,HY:8.5,LEAN:-10.0,BX:-4.0,BY:15.5,SQ:-8.5,GX:-5.0,STEP:10.0,RSTEP:10.0,ST:8,LGX:-8.5,LGY:0.5,RGX:5.0,RGY:3.0})
+  ],{walk:-1,cancel:9999,hold:35,sweat:[1],dust:[3],land:[3]})
 );
 
 state.S_WIN = state.MOVES.length;
@@ -498,17 +518,17 @@ state.MOVES.push(MOVE('ZGIĘTY',[
 state.M_PARRY=state.MOVES.length;
 state.MOVES.push(MOVE('PAROWANIE',[
   K(0,state.E_LIN,{}),
-  K(3,state.E_OUT,{LGX:9,LGY:-8,LGS:0.6,ROT:0.3,HX:-0.5,BY:1.5}),
-  K(7,state.E_OUT,{LGX:8,LGY:-12,LGS:0.9,ROT:0.4,HX:-0.5,BY:1.5}),
+  K(2,state.E_SNAP,{LGX:10.5,LGY:-4.2,LFL:0.2,LGS:0.5,ROT:0.35,HROT:0.15,LEAN:0.4,HX:-0.4,HY:0.8,BY:1.2,RGX:4.8,RGY:-4.5}),
+  K(6,state.E_OUT,{LGX:8.8,LGY:-2.2,LFL:0.3,LGS:0.6,ROT:0.45,HROT:0.2,LEAN:0.6,HX:-0.4,HY:1.0,BY:1.4,RGX:4.8,RGY:-4.5}),
   K(12,state.E_IO,{})
-],{cancel:9}));
+],{cancel:8}));
 state.S_PARRIED=state.MOVES.length;
 state.MOVES.push(MOVE('ODBITY',[
   K(0,state.E_LIN,{}),
-  K(4,state.E_OUT,{ROT:-0.8,HROT:-0.4,LEAN:-0.5,HX:-1,LGX:9,LGY:-13,LGS:-0.6,RGX:3,RGY:0}),
-  K(18,state.E_LIN,{ROT:-0.7,HROT:-0.3,LEAN:-0.3,HX:-1,LGX:8,LGY:-12,LGS:-0.5,RGX:3,RGY:0}),
-  K(30,state.E_IO,{})
-],{cancel:28}));
+  K(3,state.E_SNAP,{ROT:-0.75,HROT:-0.35,LEAN:-0.6,HX:-0.8,HY:0.6,BY:1.4,LGX:8.5,LGY:-6.5,LGS:-0.4,RGX:3.8,RGY:-1.5}),
+  K(16,state.E_OUT,{ROT:-0.55,HROT:-0.25,LEAN:-0.3,HX:-0.6,HY:0.4,BY:1.2,LGX:8.0,LGY:-5.5,LGS:-0.3,RGX:4.2,RGY:-0.5}),
+  K(28,state.E_IO,{})
+],{cancel:24}));
 state.S_OVERREACH=state.MOVES.length;
 state.MOVES.push(MOVE('PRZELOT',[
   K(0,state.E_LIN,{}),
@@ -548,9 +568,9 @@ state.MOVES.push(MOVE('W KLINCZU',[
 ],{walk:-1,hold:6,cancel:48}));
 state.S_SHELL=state.MOVES.length;
 state.MOVES.push(MOVE('SKORUPA',[
-  K(0,state.E_LIN,{LGX:6,LGY:-9,RGX:6,RGY:-7,HX:-0.5,HY:1.5,BY:2,LEAN:0.8,ROT:0.2,LGS:0.3,RGS:0.2}),
-  K(6,state.E_OUT,{LGX:4.5,LGY:-10,RGX:4.5,RGY:-8.5,HX:-1,HY:2.8,BY:3.2,LEAN:1.6,ROT:0.1,LGS:0.5,RGS:0.4,SQ:-0.6}),
-  K(30,state.E_LIN,{LGX:4.5,LGY:-10,RGX:4.5,RGY:-8.5,HX:-1,HY:2.8,BY:3.2,LEAN:1.6,ROT:0.1,LGS:0.5,RGS:0.4,SQ:-0.6}),
+  K(0,state.E_LIN,{LGX:7.4,LGY:-6.4,RGX:4.8,RGY:-5.4,LFL:0.35,RFL:0.3,HX:-0.4,HY:1.4,BY:1.8,LEAN:0.9,ROT:0.25,LGS:0.25,RGS:0.2}),
+  K(5,state.E_OUT,{LGX:5.8,LGY:-6.8,RGX:4.0,RGY:-5.8,LFL:0.5,RFL:0.45,HX:-0.8,HY:2.4,BY:3.2,LEAN:1.8,ROT:0.15,LGS:0.4,RGS:0.35,SQ:-0.6}),
+  K(30,state.E_LIN,{LGX:5.8,LGY:-6.8,RGX:4.0,RGY:-5.8,LFL:0.5,RFL:0.45,HX:-0.8,HY:2.4,BY:3.2,LEAN:1.8,ROT:0.15,LGS:0.4,RGS:0.35,SQ:-0.6}),
   K(38,state.E_IO,{})
 ],{cancel:6,hold:6}));
 // charging a power punch: the first (loading) key of the punch, held until release

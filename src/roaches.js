@@ -14,7 +14,7 @@ import { state as session, beginSession, sessionMetric, sessionAddTime, sessionO
 import { DRILLS } from './training-data.js';
 import { KINDS, HIT_PAIN, PAIN_FADE, PAIN_REST, SURFACE, roachContact, missCost, killPoints } from './roach-rules.js';
 import { buildRoachWall, roachWallTick, renderRoachWall, surfaceAt, chipWall, bloodWall, wallDust, wallGoo, CRACKS, NAME_HOLE, WALL_Y1, FIST_FROM } from './roach-scene.js';
-import { vnoise } from './newgate-fight.js';
+import { vnoise } from './noise.js';
 
 /** Ticks of the punch going out, the stop at the wall (hit / miss), the way back. */
 const OUT_T=7, STOP_HIT=4, STOP_MISS=6, BACK_T=10, BUFFER_T=4;

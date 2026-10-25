@@ -260,7 +260,6 @@ export const DAILY_TASKS = /** @type {Record<string,{text:string,drill:string,gr
   'pompki-b':{text:'Minuta pompek na gazetach, na ocenę co najmniej B.',drill:'pushup',grade:'B'},
   'cien-b':{text:'Dziesięć kombinacji z cieniem, na ocenę co najmniej B.',drill:'shadow',grade:'B'},
   'norma-100':{text:'W rzeźni wyrób normę. Sto procent, nie mniej.',drill:'work',norma:100},
-  'kierat-ostatni':{text:'Zamiast rzeźni idź na kierat i zejdź z koła ostatni. Niech inni siadają na ławce przed tobą.',drill:'kierat',won:true},
 });
 const GRADES=['D','C','B','A','S'];
 

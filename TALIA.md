@@ -1,3 +1,5 @@
+> **2026-10-25:** dokument opisuje usunięty silnik kart; zostaje jako historia projektu zestawu skilli i rywali.
+
 # Talia, ruchy i ich rozwój — projekt do akceptacji
 
 > **2026-10-17:** talię zastąpił zestaw do 6 skilli (zapis v9 `loadout`, zakładka Skille). Ruchy obronne (Unik, Odskok, Zwód, Parowanie, Mijanka, Garda, Skorupa, Przeczekanie, Odepchnięcie) przestały być ruchami — obrona to reakcje Q/E, patrz `KARCIANKA.md`. Poniżej historia projektu talii; ścieżki ulepszeń ataków nadal są aktualne jako plan.

@@ -32,19 +32,6 @@
     <footer><label>Stamina <progress id="shadowStamina" max="90" value="90"></progress></label><div><button data-shadow="DF">Doskok</button><button data-shadow="DB">Odskok</button><button data-shadow="P">Pivot</button><button id="shadowRestart" hidden>Jeszcze raz</button><button id="shadowExit">Zakończ trening</button></div></footer>
     <p id="shadowSummary" hidden></p>
   </section>
-  <section id="cardHud" hidden aria-label="Walka na skille">
-    <div class="kh-vit kh-me"><b class="kh-name">Ty</b><span id="khHp0" class="kh-hp"><i></i><i></i><em></em></span><span id="khStats" class="kh-stats"></span></div>
-    <div class="kh-top"><div class="kh-vit kh-who"><b id="khRivalName" class="kh-name"></b><span id="khHp1" class="kh-hp"><i></i><i></i><em></em></span><span id="khRivalInfo" class="kh-stats"></span></div></div>
-    <div id="khMenu" class="kh-menu" aria-label="Skille"></div>
-    <div class="kh-bottom">
-      <div id="khTimeline" class="kh-timeline" aria-label="Wymiana"></div>
-      <div class="kh-side"><div id="khEnergy" class="kh-stats"></div>
-        <div class="kh-act"><button id="khZone" type="button" hidden>Strefa <kbd>Z</kbd></button><button id="khUndo" type="button">Cofnij <kbd>⌫</kbd></button></div></div>
-      <p id="khLog" class="kh-log" role="status" aria-live="polite"></p>
-    </div>
-    <div id="khReact" class="kh-react" hidden><button id="khDodge" type="button"><kbd>Q</kbd> Unik</button><button id="khParry" type="button"><kbd>E</kbd> Parowanie</button></div>
-    <div id="khQte" class="kh-qte" hidden></div>
-  </section>
   <div id="npcSay" class="npcsay" hidden></div>
   <div id="dlg" class="ov" hidden><canvas id="dlgPic"></canvas><div class="dband"><div class="dsay"><div class="dhead"><span class="dname">PROFESOR</span><span class="dsub">Współwięzień z Wardu</span></div><div class="dtext" id="dlgText"></div></div><div class="dbox"><div class="dopts" id="dlgOpts"></div><div class="dhint">↑↓ wybierz · E dalej · Esc wyjdź</div></div></div></div>
   <div id="storyCard" class="ov" hidden><div class="card story"><div class="story-kicker" id="storyKicker"></div><h1 id="storyTitle"></h1><div class="story-stamp" id="storyStamp" hidden></div><div class="story-body" id="storyBody"></div><div id="storyChoices" class="story-choices"></div></div></div>
@@ -69,12 +56,11 @@
         <button type="button" data-dev-scene="laznia">Łaźnia</button>
         <button type="button" data-dev-scene="work">Rzeźnia</button>
         <button type="button" data-dev-scene="arm">Siłowanie na rękę</button>
-        <button type="button" data-dev-scene="spar">Bójka kartami</button>
+        <button type="button" data-dev-scene="spar">Bójka (izometryczna)</button>
         <button type="button" data-dev-scene="shadow">Trening: Cień</button>
         <button type="button" data-dev-scene="pushups">Trening: Pompki</button>
         <button type="button" data-dev-scene="pullups">Trening: Drążek</button>
         <button type="button" data-dev-scene="roaches">Trening: Karaluchy</button>
-        <button type="button" data-dev-scene="kierat">Kierat</button>
         <button type="button" data-dev-scene="crank">Żelazna korba</button>
       </div>
     </div>
@@ -93,12 +79,6 @@
     <p>Rzeźnia · chłodnia 2.</p>
     <div class="stats" id="workStats"></div>
     <div class="modes"><button id="wkReturn"><b>Wróć do Wardu</b><small>Enter</small></button></div>
-  </div></div>
-  <div id="wheelIntro" class="ov" hidden><div class="card brief">
-    <h1 id="wiTitle">KIERAT</h1>
-    <p id="wiLead"></p>
-    <div class="stats" id="wiRows"></div>
-    <div class="modes"><button id="wiGo"><b>Wejdź na koło</b><small>Enter · ← / →</small></button><button id="wiBack"><b>Wróć</b><small>Esc</small></button></div>
   </div></div>
 </div>
 <dialog id="charSheet" aria-labelledby="csTitle">

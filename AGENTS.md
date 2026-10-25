@@ -39,4 +39,4 @@ Przeczytaj `README.md`, `ARCHITECTURE.md` i rzeczywisty przepływ zmienianej mec
 ## Grafika z obrazu-wzoru
 
 - Skill `painted-pixel-assets` leży w `.claude/skills/painted-pixel-assets/` (kopia projektowa). Przed użyciem przeczytaj `SKILL.md` i `references/roadwork.md`.
-- Postaci walczące rysuje kod (`drawBoxer()` na szkielecie), więc skin zawodnika to nowa funkcja rysująca według PNG-wzorca (przykład: `art/skins/`), a nie nałożony sprite.
+- Postaci walczące rysuje kod (`drawBoxer()` na szkielecie), więc skin zawodnika to nowa funkcja rysująca według PNG-wzorca (wzorce PNG trzymaj lokalnie w `art/`, poza repozytorium), a nie nałożony sprite.

@@ -82,7 +82,7 @@ export function doneToday(key){
 export function beginSession(id,hooks,stage){
   if(state.S&&state.S.phase!=='summary') sessionLeave();   // switching drills scores the old one as aborted
   if(state.summaryOpen&&input.overEl){ input.overEl.hidden=true; state.summaryOpen=false; }
-  const T=state.trial, alt=T?.def.alt?.drill===id, trial=T&&(T.def.drill===id||alt)?(alt?{...T,def:{...T.def,...T.def.alt}}:T):null; if(trial) state.trial=null;   /* the endurance trial can also be taken on the wheel */
+  const T=state.trial, trial=T&&T.def.drill===id?T:null; if(trial) state.trial=null;
   const d=DRILLS[id], s=trial?trial.def.stage:Math.min(d.stages.length,stage||stageFor(id));
   resetSessXP();
   state.S={def:d, stage:s, p:d.stages[s-1], m:{}, round:1, phase:'run', t:d.roundSec?d.roundSec[s-1]*60:0, hooks:trial?{...hooks,again:undefined}:hooks, fail:'', trial};
