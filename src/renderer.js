@@ -12,6 +12,7 @@ import { renderRoaches } from './roaches.js';
 import { crankFrame, renderCrank } from './crank.js';
 import { renderIsoFight } from './iso-fight.js';
 import { renderThamesPort } from './thames-port.js';
+import { collodionFrame } from './collodion.js';
 
 // Runtime values owned by renderer; initialized explicitly by main.js.
 export const state = {};
@@ -128,12 +129,12 @@ function present(face,blit=true){
   if(!blit) return;
   const hub=boxingState.gstate==='hub'||boxingState.gstate==='menu', f=hub?Math.max(gymState.hubFade,gymState.fadeInT/14):0;   // the room fade belongs to the hub only (a minigame can start mid-fade)
   if(f>0){ const k=Math.max(0,Math.min(256,(256*(1-f))|0)); for(let i=0;i<appearanceState.W*appearanceState.H;i++){ const c=state.FB_MAIN[i]; state.FB_MAIN[i]=(0xff000000|((((c>>16)&255)*k>>8)<<16)|((((c>>8)&255)*k>>8)<<8)|((c&255)*k>>8))>>>0; } }
-  state.octx.putImageData(state.img,0,0);
   state.sctx.fillStyle='#000'; state.sctx.fillRect(0,0,state.screen.width,state.screen.height);
-  if(boxingState.gstate==='crank'){
-    const v=CRANK_VIEW;
-    state.sctx.drawImage(state.off,v.x,v.y,v.w,v.h,rx+(v.x+boxingState.shX)*rs,ry+(v.y+boxingState.shY)*rs,v.w*rs,v.h*rs);
-  }else state.sctx.drawImage(state.off,rx+boxingState.shX*rs,ry+boxingState.shY*rs,appearanceState.W*rs,appearanceState.H*rs);
+  const v=boxingState.gstate==='crank'?CRANK_VIEW:{x:0,y:0,w:appearanceState.W,h:appearanceState.H}, dx=rx+(v.x+boxingState.shX)*rs, dy=ry+(v.y+boxingState.shY)*rs;
+  const print=collodionFrame(state.img,[v.x,v.y,v.w,v.h],Math.round(v.w*rs),Math.round(v.h*rs));   // the wet-plate look, when it is on
+  if(print){ state.sctx.drawImage(print,dx,dy); return; }
+  state.octx.putImageData(state.img,0,0);
+  state.sctx.drawImage(state.off,v.x,v.y,v.w,v.h,dx,dy,v.w*rs,v.h*rs);
 }
 
 export function render(){

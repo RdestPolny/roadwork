@@ -37,6 +37,7 @@ import { initialize as initializeWard } from './ward.js';
 import { initialize as initializeExerciseYard } from './exercise-yard.js';
 import { initialize as initializeNoise } from './noise.js';
 import { initialize as initializeWardWall } from './ward-wall.js';
+import { initialize as initializeCollodion } from './collodion.js';
 
 // ponytail: retain the legacy startup order during migration; independent module APIs can remove cycles as each mechanic changes.
 // Import evaluation never starts gameplay.
@@ -57,6 +58,7 @@ initializeWork();
 initializeNavigation();
 initializeSparring();
 initializeOptions();
+initializeCollodion();
 initializeAudio();
 initializeInput();
 initializeProgression();
