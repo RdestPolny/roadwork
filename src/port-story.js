@@ -4,7 +4,8 @@
    it asks this module for the player's pose, the shot and the line, and draws the cast among its props. */
 import { rgb, setRamp, state as appearanceState } from './appearance.js';
 import { state as rendererState } from './renderer.js';
-import { figureHD, withCellOutfit, isoX, isoY, quad, shadeC } from './gym.js';
+import { state as gymState, figureHD, withCellOutfit, isoX, isoY, quad, shadeC } from './gym.js';
+import { h2 } from './boxing.js';
 import { mix } from './cast.js';
 import { toiletJoints, drawToiletStream } from './npcs.js';
 import { C, contact, toWorld, spot, thin, stroke, rod, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, portFightOutfit } from './thames-port.js';
@@ -12,15 +13,15 @@ import { C, contact, toWorld, spot, thin, stroke, rod, smoke, cyl, roundLit, beh
 /** Where the brawl starts: the player and the drunk where the scene before it leaves them. */
 export const PORT_BRAWL={hero:[15.75,5.95],drunk:[17.35,5]};
 /** The story so far: kind is null in free roam, then 'before', 'fight', 'after' and 'end' once the player is taken away; tick counts the current scene. */
-export const state={kind:null,tick:0,stand0:1,rip0:null,hero0:null,fallen:null};
+export const state={kind:null,tick:0,stand0:1,hero0:null,fallen:null};
 /** Free roam, as when the port opens. */
-export function resetStory(){ Object.assign(state,{kind:null,tick:0,stand0:1,rip0:null,hero0:null,fallen:null}); }
+export function resetStory(){ Object.assign(state,{kind:null,tick:0,stand0:1,hero0:null,fallen:null}); }
 /** A scene is playing and the player has no control. */
 export function storyPlaying(){ return state.kind==='before'||state.kind==='after'; }
-/** The story has begun: the docker stops work to watch and the stranger keeps to the shadows. */
+/** The story has begun: the docker stops work to watch. */
 export function storyBegun(){ return state.kind!==null; }
 /** Start the scene before the brawl at tick t, when the second sack is in. */
-export function beginBefore(t){ const [i,j,a]=ripperLoop(t); Object.assign(state,{kind:'before',tick:0,stand0:whisperStand(t),rip0:{i,j,a}}); }
+export function beginBefore(t){ Object.assign(state,{kind:'before',tick:0,stand0:whisperStand(t)}); }
 /** Start the scene after the brawl at the fighters' final positions. */
 export function beginAfter(hero,fallen){ Object.assign(state,{kind:'after',tick:0,hero0:[hero.i,hero.j],fallen:[fallen.i,fallen.j]}); }
 
@@ -182,20 +183,47 @@ function whisperPose(t,stand){
   Jp.pel=[0,0,6.7]; Jp.chest=[.7,0,12.3]; Jp.head=[1,0,15.6+nod*.4];
   return {W,Jw,P,Jp};
 }
-/** The woman in her dark dress and long skirt, chestnut hair pinned up; tilt lets a falling or lying body carry its face. */
-function womanFig(P,J,tilt=false){
+/** Her clothes: a dark bodice, a full wine-coloured skirt over a crinoline and an ochre wool shawl. */
+const DRESS={top:['#1d181c','#342a31','#4f414b'],skirt:['#22121a','#43202c','#683444'],shawl:['#4a3b20','#776339','#a38c55']};
+/** The woman: her figure, the skirt belling out from the waist and the shawl round her shoulders, hair pinned up; tilt lets a
+ * falling or lying body carry its face, blood (0..1) soaks the front of her dress from the wound. */
+function womanFig(P,J,tilt=false,blood=0){
   const A=appearanceState;
   withCellOutfit(()=>{
-    setRamp(A.R_HSH,['#2b2520','#473b31','#655441'],false); setRamp(A.R_HSHF,['#2b2520','#473b31','#655441'],true);
-    setRamp(A.R_HPT,['#211818','#382826','#523c36'],false); setRamp(A.R_HPTF,['#211818','#382826','#523c36'],true);
+    setRamp(A.R_HSH,DRESS.top,false); setRamp(A.R_HSHF,DRESS.top,true); setRamp(A.R_HPT,DRESS.skirt,false); setRamp(A.R_HPTF,DRESS.skirt,true);
+    setRamp(A.R_HBELT,DRESS.shawl,false);
     /* the hair ramp is put back afterwards */
     const hair=A.PAL.slice(A.R_HAIR*3,A.R_HAIR*3+3); setRamp(A.R_HAIR,['#241812','#4a3020','#6e4a2e'],false);
     try{ figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'bun'},{noShadow:true,tilt}); }
     finally{ A.PAL.set(hair,A.R_HAIR*3); }
-    /* the long skirt from her hips to the hem round her feet, lying flat along her legs when she is down */
-    const L=J(-1).foot, R=J(1).foot, hem=[(L[0]+R[0])/2,0,Math.max(.4,(L[2]+R[2])/2-.5)], up=Math.max(0,Math.min(1,(J.pel[2]-1.4)/5));
-    rod(toWorld(P,hem[0]+.2,0,hem[2]),toWorld(P,J.pel[0]+.2,0,J.pel[2]+.6),lerp(4.6,9,up),lerp(4.2,6,up),A.R_HPT);
+    skirt(P,J); shawl(P,J,A.R_HBELT);
   });
+  if(blood>0){ const w=toWorld(P,J.chest[0]+1.4,J.chest[1],lerp(J.pel[2],J.chest[2],.35)), x=isoX(w[0],w[1]), y=isoY(...w);
+    spot(x,y,2.4+2.6*blood,2.6+4*blood,.85,rgb('#3a0807')); spot(x-.5,y+1+2*blood,1.5+1.5*blood,2+3*blood,.7,rgb('#5e0f0b')); }
+}
+/** Blend three colours by u (0 dark .. 1 light). */
+const grade=(c,u)=>{ u=Math.max(0,Math.min(1,u)); return u<.5?mix(c[0],c[1],u*2):mix(c[1],c[2],(u-.5)*2); };
+/** The skirt as a bell of hoops stacked from the hem up to the waist, so each hoop's front hides the ones below it: lit from the lamps
+ * on the left, soft folds down it, darker at the hem; when she lies it spreads flat along her legs. Outline first, then the cloth. */
+function skirt(P,J){
+  const c=gymState.propCamera, kx=Math.hypot(c.ix,c.jx)/7.5, ky=Math.hypot(c.iy,c.jy)/7.5, cols=DRESS.skirt.map(rgb), fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H;
+  const L=J(-1).foot, R=J(1).foot, up=Math.max(0,Math.min(1,(J.pel[2]-1.4)/5));
+  const top=toWorld(P,lerp(J.pel[0],J.chest[0],.42),lerp(J.pel[1],J.chest[1],.42),lerp(J.pel[2],J.chest[2],.42));
+  const hem=toWorld(P,(L[0]+R[0])/2+.4*up,(L[1]+R[1])/2*.3,Math.max(.3,Math.min(L[2],R[2])-.6));
+  const x0=isoX(hem[0],hem[1]), y0=isoY(...hem), x1=isoX(top[0],top[1]), y1=isoY(...top), n=Math.max(4,Math.ceil(Math.hypot(x1-x0,y1-y0))), rh=lerp(3.9,5.4,up);
+  for(let pass=0;pass<2;pass++) for(let k=0;k<=n;k++){
+    const u=k/n, t=1-u, r=lerp(2.3,rh,Math.pow(t,.8)), cx=lerp(x0,x1,u), cy=lerp(y0,y1,u), rx=r*kx+(pass?0:1), ry=r*ky*lerp(.75,1,up)+(pass?0:1);
+    for(let y=Math.max(0,Math.floor(cy-ry));y<=Math.min(H-1,Math.ceil(cy+ry));y++){ const v=(y+.5-cy)/ry;
+      for(let x=Math.max(0,Math.floor(cx-rx));x<=Math.min(W-1,Math.ceil(cx+rx));x++){ const s=(x+.5-cx)/rx; if(s*s+v*v>1) continue;
+        fb[y*W+x]=pass?grade(cols,(roundLit(s)-.5)/.75*(.86+.14*Math.cos(s*7.5+t*2.2))*(t>.93?.75:1)-.12*t):appearanceState.C_OUT; } }
+  }
+}
+/** A wool shawl round her shoulders, its ends crossed over her chest and its point down her back when she turns away. */
+function shawl(P,J,ramp){
+  const Q=J.chest, SL=J(-1).sh, SR=J(1).sh, w=a=>toWorld(P,...a);
+  if(P.fi+P.fj<0) rod(w([Q[0]-.5,Q[1],Q[2]+.2]),w([Q[0]-1.3,Q[1],Q[2]-4.4]),3.4,.8,ramp);
+  rod(w([SL[0]-.3,SL[1]*.9,SL[2]+.2]),w([SR[0]-.3,SR[1]*.9,SR[2]+.2]),2.3,2.3,ramp);
+  for(const S of [SL,SR]) rod(w([S[0]+.1,S[1]*.85,S[2]-.1]),w([Q[0]+1.5,Q[1]-Math.sign(S[1])*.5,Q[2]-2.7]),1.9,1.2,ramp);
 }
 /** The constable in his navy tunic and helmet with its brass star. */
 function copFig(P,J){
@@ -221,19 +249,17 @@ function whisperDraw(t,stand,turn=0,wave=0){
 
 /* ---------- the masked stranger ---------- */
 
-/** His round of the quay in free roam. */
-const RIPPER_PATH=[[13,8.5],[17,9],[20,8.5],[22,6.5],[18,5.5],[14,6.5],[13,8.5]];
-/** Where he is on his round at tick t: [i, j, heading]. */
-const ripperLoop=t=>along(RIPPER_PATH,(t*.012)%pathLen(RIPPER_PATH));
-/** In the dark between the tarpaulin and the wall, where he waits once the story begins; his way along the wall to the woman. */
+/** He is first seen once the drunk is being taken away: in the dark between the tarpaulin and the wall; his way along the wall to the woman. */
 const LURK=[25.15,.8], CREEP=[[25.15,.8],[21.3,.72],[17.85,.95]];
-/** Hunch any joints into his stoop: shoulders forward and down, head thrust out. */
-function hunch(B,t){
+/** Hunch any joints into his stoop: shoulders forward and down, head thrust out; cock tips the head over to one side. */
+function hunch(B,t,cock=0){
   const J=s=>{ const a=B(s); return {...a,sh:[a.sh[0]+1.3,a.sh[1],a.sh[2]-.5],el:[a.el[0]+.8,a.el[1],a.el[2]],hd:[a.hd[0]+.5,a.hd[1],a.hd[2]]}; };
-  J.pel=B.pel; J.chest=[B.chest[0]+1.5,B.chest[1],B.chest[2]-.7]; J.head=[B.head[0]+1.9,B.head[1],B.head[2]-1.1+Math.sin(t*.04)*.12]; return J;
+  J.pel=B.pel; J.chest=[B.chest[0]+1.5,B.chest[1],B.chest[2]-.7]; J.head=[B.head[0]+1.9,B.head[1]+cock*1.1,B.head[2]-1.1-cock*.5+(cock?0:Math.sin(t*.04)*.12)]; return J;
 }
-/** The stranger in a long coat and top hat, a canvas hood over his face; the knife in his far hand. */
-function ripperFig(P,J){
+/** A head that holds dead still, then now and then jerks a little: an animal listening. */
+const twitch=n=>h2(Math.floor(n/9),77)>232?((h2(Math.floor(n/9),78)&1)?.5:-.5):0;
+/** The stranger in a long coat and top hat, a canvas hood over his face; the knife in his far hand, red once it has been used. */
+function ripperFig(P,J,bloody=false){
   const A=appearanceState;
   contact(P.i-.2,P.j-.2,P.i+.2,P.j+.2,0,.45);
   withCellOutfit(()=>{
@@ -247,8 +273,11 @@ function ripperFig(P,J){
     const h=J.head, hat=w(h[0],h[1],h[2]+1.1);
     cyl(hat[0],hat[1],.25,hat[2],hat[2]+.25,(z,s)=>shadeC(rgb('#1a1b1c'),roundLit(s)),()=>rgb('#292a2a'));
     cyl(hat[0],hat[1],.16,hat[2]+.2,hat[2]+2.5,(z,s)=>shadeC(rgb('#292a2c'),roundLit(s)),()=>rgb('#373739'));
-    const hand=J(-1).hd; stroke(...w(hand[0],hand[1],hand[2]),...w(hand[0]+.15,hand[1],hand[2]-1),rgb('#493a31'));
-    stroke(...w(hand[0]+.15,hand[1],hand[2]-1),...w(hand[0]+.45,hand[1],hand[2]-3.1),rgb('#a6aba9'));
+    /* the knife points the way the forearm does */
+    const hand=J(-1).hd, el=J(-1).el, d=[hand[0]-el[0],hand[1]-el[1],hand[2]-el[2]], l=Math.hypot(...d)||1, tip=[hand[0]+d[0]/l*2.6,hand[1]+d[1]/l*2.6,hand[2]+d[2]/l*2.6];
+    stroke(...w(...hand),...w(hand[0]+d[0]/l*.6,hand[1]+d[1]/l*.6,hand[2]+d[2]/l*.6),rgb('#493a31'));
+    stroke(...w(hand[0]+d[0]/l*.6,hand[1]+d[1]/l*.6,hand[2]+d[2]/l*.6),...w(...tip),bloody?rgb('#7a1712'):rgb('#a6aba9'));
+    if(bloody) thin(...w(...tip),...w(tip[0]-d[0]/l*.8,tip[1]-d[1]/l*.8,tip[2]-d[2]/l*.8),rgb('#b02a1c'));
   });
 }
 /** Draw fn faded to alpha a (0 gone .. 1 solid) over what is already in the picture. */
@@ -258,10 +287,18 @@ function ghost(fn,a){
   const fb=rendererState.fb; if(fade.buf.length!==fb.length) fade.buf=new Uint32Array(fb.length); fade.buf.set(fb); fn();
   for(let k=0;k<fb.length;k++) if(fb[k]!==fade.buf[k]) fb[k]=mix(fade.buf[k],fb[k],a);
 }
-/** His stab: the far hand drives the knife forward three times while the near one holds her by the shoulder. */
-function stabJ(B,n,a){
-  const J=s=>{ const o=B(s); if(s<0){ const k=Math.max(0,Math.sin((n-a)*.12)); o.el=[3,-2,9]; o.hd=[3.6+3.4*k,-1,8.6]; } else { o.hd=[4.8,s*1.2,11.6]; o.el=elbow(o.sh,o.hd,s); } return o; };
-  J.pel=B.pel; J.chest=B.chest; J.head=B.head; return J;
+/** The ticks the knife goes in, and the cut across her throat after them. */
+const STABS=[893,908,921,944], SLASH=968;
+/** How hard the knife is going in at tick n (0..1), and how far the throat cut has swept. */
+const stabAt=n=>Math.max(...STABS.map(a=>pulse(n,a-6,15))), slashAt=n=>span(n,SLASH-6,SLASH+6);
+/** His attack: the near hand round her throat, the far hand driving the knife in under her ribs, then the cut across her throat. */
+function stabJ(B,n){
+  const k=stabAt(n), cut=n>=SLASH-14&&n<SLASH+14, sw=slashAt(n);
+  const J=s=>{ const o=B(s);
+    if(s<0){ o.hd=cut?[lerp(3.2,4.6,pulse(n,SLASH-14,28)),lerp(-2.6,1.8,sw),lerp(13.2,13.8,sw)]:[3+1.9*k,-.7,9.3-.5*k]; o.el=cut?[2.4,-2.9,11.6]:[2.2-.4*k,-2.5,9.6]; }
+    else { o.hd=[5,s*.4,13.4]; o.el=elbow(o.sh,o.hd,s); }
+    return o; };
+  J.pel=B.pel; J.chest=[B.chest[0]+.6*k,B.chest[1],B.chest[2]]; J.head=B.head; return J;
 }
 
 /* ---------- the scene before the brawl ---------- */
@@ -299,7 +336,7 @@ function beforeCast(n,t){
   /* the constable turns from the woman, waves the player off over his shoulder and turns back */
   const stand=lerp(state.stand0,1,span(n,0,120)), cop=whisperPose(t,stand).P, back=toward(cop,hero), w=span(n,1155,1180)-span(n,1270,1300);
   return {hero,drunk:{P:D,J:DJ,pee,sick},puddle:Math.max(0,Math.min(1,(n-722)/66)),
-    whisper:{stand,turn:turnBy(heading(cop),back)*.72*w,wave:n>=1172&&n<1268},cop:{i:cop.i,j:cop.j},ripper:ripperBefore(n,t)};
+    whisper:{stand,turn:turnBy(heading(cop),back)*.72*w,wave:n>=1172&&n<1268},cop:{i:cop.i,j:cop.j}};
 }
 /** The player's position in the scene before the brawl, without his pose. */
 function heroAt(n){
@@ -318,12 +355,6 @@ function heroBefore(n,t,D){
   if(n>=1010&&n<1070) return {...at(i,j,a),pose:body({walk:true,g:-span(n,1010,1070)*1.0,hand}),moving:true};
   return {...at(i,j,a),pose:body({breath:Math.sin(t*.05)*.1,hand})};
 }
-/** The stranger in the scene before the brawl: he fades from his round into the dark and is next seen waiting by the wall. */
-function ripperBefore(n,t){
-  if(n<45){ const R=state.rip0; return {P:at(R.i,R.j,R.a),J:hunch(body({breath:Math.sin(t*.05)*.08}),t),a:1-n/45}; }
-  return n>=420?{P:at(LURK[0],LURK[1],Math.PI),J:hunch(body({breath:Math.sin(t*.05)*.08}),t),a:Math.min(1,(n-420)/60)}:null;
-}
-
 /* ---------- the scene after the brawl ---------- */
 
 /** The van's side door, the constable's way there with the drunk and his run back to the woman. */
@@ -331,9 +362,10 @@ const DRAG_VIA=[15,7.05], DOOR_STOP=[7.75,7.15], DOOR_IN=[8.3,6.5], COP_BACK=[[8
 /** The woman runs from the nook by the crates out onto the open setts before the gate (HER), where the stranger catches her (RIP_AT);
  * she falls there, the player kneels beside her (KNEEL) and the stranger runs back behind the crates into the dark. */
 const HER=[15.85,2.6], RIP_AT=[16.5,2], KNEEL=[15.6,1.9], WOMAN_RUN=[[16.9,1],[16.2,1.9],HER];
-const CHASE=[[17.85,.95],[17.2,1.25],RIP_AT], FLEE=[RIP_AT,[17.3,1.05],[21.3,.72],[25.15,.8],[27.2,.8]];
-/** Where she falls: face down, her head towards him. */
-const herBody=()=>at(...HER,toward(HER,RIP_AT));
+const CHASE=[[17.85,.95],[17.2,1.25],RIP_AT], FLEE=[[16.72,1.8],[17.3,1.05],[21.3,.72],[25.15,.8],[27.2,.8]];
+/** Where he holds her, pulled in from where she turned, and where she falls: face down, her head towards him. */
+const HELD=[HER[0]+(RIP_AT[0]-HER[0])*.12,HER[1]+(RIP_AT[1]-HER[1])*.12];
+const herBody=()=>at(...HELD,toward(HER,RIP_AT));
 /** The constable's drag: from the fallen man, out to the lane in front of the cab rank, along it to the van. */
 function dragPath(F){
   let u=[DRAG_VIA[0]-F[0],DRAG_VIA[1]-F[1]], l=Math.hypot(...u); if(l<1){ u=[DOOR_STOP[0]-F[0],DOOR_STOP[1]-F[1]]; l=Math.hypot(...u); }
@@ -365,24 +397,29 @@ function afterCast(n,t){
       else { const H=afterHeroAt(n); P=at(...COP_BACK[COP_BACK.length-1],toward(COP_BACK[COP_BACK.length-1],H)); PJ=body({breath:Math.sin(t*.12)*.3,hand:n>=1100&&n<1240?s=>s>0?[4.4,s*1.5,13.6]:null:null}); } }
   }
   const woman=womanAfter(n,t), ripper=ripperAfter(n,t), hero=heroAfter(n,t,P);
-  return {hero,cop:{P,J:PJ},drunk:DP&&{P:DP,J:DJ,inVan},woman,ripper,puddle:1,blood:Math.max(0,Math.min(1,(n-985)/200))};
+  return {hero,cop:{P,J:PJ},drunk:DP&&{P:DP,J:DJ,inVan},woman,ripper,puddle:1,pool:Math.max(0,Math.min(1,(n-1030)/260))};
 }
 /** The player's place after the brawl, for the constable to face. */
-function afterHeroAt(n){ const W=heroRun(); return n<RUN_AT?state.hero0:along(W,Math.min(pathLen(W),(n-RUN_AT)*.055)); }
+function afterHeroAt(n){ const W=heroRun(); return n<RUN_AT?state.hero0:along(W,Math.min(pathLen(W),(n-RUN_AT)*RUN_V)); }
 /** The player's run from the brawl round her feet to the far side of her, starting on her cry. */
-const heroRun=()=>[state.hero0,[14.9,3],KNEEL], RUN_AT=895;
+const heroRun=()=>[state.hero0,[14.9,3],KNEEL], RUN_AT=955, RUN_V=.05;
 /** The player after the brawl: gets his breath, watches the constable, runs to the woman's cry, kneels by her, rises with his hands up. */
 function heroAfter(n,t,cop){
-  const H=state.hero0, W=heroRun(), RL=pathLen(W), d=(n-RUN_AT)*.055;
+  const H=state.hero0, W=heroRun(), RL=pathLen(W), d=(n-RUN_AT)*RUN_V;
   if(n<RUN_AT){ const aim=n<120?state.fallen:[cop.i,cop.j], a=n<800?toward(H,aim):turnTo(toward(H,[cop.i,cop.j]),toward(H,HER),(n-800)/25);
     return {...at(...H,a),pose:body({breath:Math.sin(t*(n<300?.16:.07))*(n<300?.35:.12)})}; }
   if(d<RL){ const [i,j,a]=along(W,d); return {...at(i,j,a),pose:runJoints(d/1.05),moving:true}; }
-  const arrive=RUN_AT+RL/.055, aRun=toward(W[1],KNEEL), aHer=toward(KNEEL,toWorld(herBody(),2.6,0,0)), aCop=toward(KNEEL,COP_BACK[COP_BACK.length-1]);
+  const arrive=RUN_AT+RL/RUN_V, aRun=toward(W[1],KNEEL), aHer=toward(KNEEL,toWorld(herBody(),2.6,0,0)), aCop=toward(KNEEL,COP_BACK[COP_BACK.length-1]);
   if(n<1150) return {...at(...KNEEL,turnTo(aRun,aHer,(n-arrive)/15)),pose:kneelJ(span(n,Math.max(arrive+20,990),Math.max(arrive+60,1030)),t)};
   return {...at(...KNEEL,turnTo(aHer,aCop,(n-1150)/30)),pose:lerpJ(kneelJ(1,t),body({breath:Math.sin(t*.1)*.15,hand:n>=1170?handsUp:null}),span(n,1150,1185))};
 }
+/** Down on both knees, hands pressed to the wound, bowed over. */
+function kneelW(){
+  const J=s=>{ const sh=[1.1,s*2.3,10.4], hd=[2.2,s*.7,7.4]; return {hip:[0,s*1.05,4.4],knee:[2.3,s*1.15,.9],foot:[-1.7,s*1.2,.6],sh,el:elbow(sh,hd,s),hd}; };
+  J.pel=[0,0,4.1]; J.chest=[1.2,0,9.7]; J.head=[2.5,0,12.4]; return J;
+}
 /** The woman after the brawl: alone against the wall she turns round and watches the constable; she sees the stranger, runs out
- * screaming, turns on him when he corners her, is stabbed and falls. */
+ * screaming and turns at bay; he drags her in by the throat, stabs her four times and cuts her throat; she sinks to her knees and falls. */
 function womanAfter(n,t){
   const {W:W0,Jw}=whisperPose(t,1), aWall=-Math.PI/2, aVan=toward(W0,DOOR_STOP), aRip=toward(HER,RIP_AT);
   if(n<160) return {P:W0,J:Jw};
@@ -392,23 +429,70 @@ function womanAfter(n,t){
   if(n<805) return {P:at(lerp(16.9,16.75,span(n,780,800)),1,turnTo(aVan,0,(n-780)/12)),J:stand};
   const RL=pathLen(WOMAN_RUN), d=RL*Math.min(1,(n-805)/45);
   if(n<850){ const [i,j,a]=along(WOMAN_RUN,d); return {P:at(i,j,a),J:runJoints(d/.9)}; }
-  if(n<880) return {P:at(...HER,turnTo(toward(WOMAN_RUN[1],HER),aRip,(n-850)/18)),J:stand};
-  const hit=Math.max(0,Math.sin((n-880)*.12)), jolt=s=>{ const o=stand(s); o.hd=[2.6,s*.5,10.4]; o.el=elbow(o.sh,o.hd,s); return o; };
-  jolt.pel=[-.3*hit,0,6.6-.3*hit]; jolt.chest=[-.6*hit,0,12.2-.4*hit]; jolt.head=[-.4*hit,0,15.6-.6*hit];
-  if(n<960) return {P:herBody(),J:jolt};
-  return {P:herBody(),J:lerpJ(jolt,lyingJoints(),span(n,960,1010)),tilt:true};
+  const fend=body({breath:Math.sin(t*.25)*.3,lean:-.5,hand:s=>[2.6,s*1.5,13.6]});
+  if(n<870) return {P:at(...HER,turnTo(toward(WOMAN_RUN[1],HER),aRip,(n-850)/14)),J:fend};
+  const pull=span(n,870,882), P=at(lerp(HER[0],HELD[0],pull),lerp(HER[1],HELD[1],pull),aRip);
+  /* held up by the throat, her hands at his arm and the knife; each stab doubles her over, the throat cut throws her head back */
+  const k=stabAt(n), sag=span(n,885,985)*.8, back=pulse(n,SLASH-4,24);
+  const held=s=>{ const o=fend(s); o.hd=s<0?[2.9,-.5,9.6]:[3.6,s*.9,12.6]; o.el=elbow(o.sh,o.hd,s); o.hip=[o.hip[0]-.4*k,o.hip[1],o.hip[2]-1.3*sag]; o.knee=[o.knee[0]+1.2*sag,o.knee[1],o.knee[2]]; return o; };
+  held.pel=[-.4*k-.3*sag,0,6.6-1.3*sag]; held.chest=[.4+1.3*k,0,12.2-.9*k-1.2*sag]; held.head=[.6+1.7*k-1.2*back,0,15.6-.9*k-1.2*sag+.4*back];
+  if(n<870+15) return {P,J:lerpJ(fend,held,pull),blood:0};
+  const blood=span(n,893,990);
+  if(n<985) return {P,J:held,blood};
+  if(n<1012) return {P,J:lerpJ(held,kneelW(),span(n,985,1012)),blood};
+  return {P,J:lerpJ(kneelW(),lyingJoints(),span(n,1012,1045)),tilt:true,blood};
 }
-/** The stranger after the brawl: waits, creeps along the wall behind the crates, stalks the woman out into the open, stabs her
- * and runs back behind the crates into the dark. */
+/** The stranger after the brawl: he forms out of the dark by the wall; creeps along it behind the crates in quick bursts, freezing
+ * mid-step with his head cocked; stalks the woman with long, even strides; kills her, stands over her a moment, snaps his head round
+ * at the player and scuttles back behind the crates into the dark, blood dripping from the knife. */
 function ripperAfter(n,t){
-  const still=hunch(body({breath:Math.sin(t*.05)*.08}),t), aHer=toward(RIP_AT,HER);
-  if(n<470) return {P:at(...LURK,Math.PI),J:still,a:1};
-  if(n<780){ const W=pathLen(CREEP), d=W*(n-470)/310, [i,j,a]=along(CREEP,d); return {P:at(i,j,a),J:hunch(walkJoints(d/.55,false,1),t),a:1}; }
-  if(n<805) return {P:at(...CREEP[CREEP.length-1],turnTo(Math.PI,toward(CREEP[2],RIP_AT),(n-780)/20)),J:still,a:1};
-  if(n<870){ const W=pathLen(CHASE), d=W*(n-805)/65, [i,j,a]=along(CHASE,d); return {P:at(i,j,a),J:hunch(walkJoints(d/.55,false,1),t),a:1}; }
-  if(n<990){ const back=span(n,960,990)*.3, P=at(RIP_AT[0]+back*.75,RIP_AT[1]-back*.65,aHer); return {P,J:n>=880&&n<960?stabJ(still,n,880):still,a:1}; }
-  const W=pathLen(FLEE), d=(n-990)*.06; if(d>=W) return null;
-  const [i,j,a]=along(FLEE,d); return {P:at(i,j,a),J:hunch(runJoints(d/1.05),t),a:1-span(n,1040,1110)};
+  const frozen=(cock=0)=>hunch(body(),t,cock), aHer=toward(RIP_AT,HER);
+  /* the camera comes to the empty dark first; he forms out of it */
+  if(n<450) return null;
+  if(n<560) return {P:at(...LURK,Math.PI),J:frozen(.8+twitch(n)),a:span(n,500,560)};
+  if(n<780){ const W=pathLen(CREEP), b=Math.floor((n-560)/44), m=(n-560)%44, d=W*(b+ease(Math.min(1,m/27)))/5, [i,j,a]=along(CREEP,d);
+    return {P:at(i,j,a),J:hunch(walkJoints(d/.5,false,1),t,m<27?0:Math.min(1,(m-27)/4)+twitch(n)*.5),a:1}; }
+  if(n<805) return {P:at(...CREEP[CREEP.length-1],turnTo(Math.PI,toward(CREEP[2],HER),(n-780)/5)),J:frozen(n<798?.9+twitch(n):0),a:1};
+  if(n<870){ const W=pathLen(CHASE), d=W*(n-805)/65, [i,j,a]=along(CHASE,d); return {P:at(i,j,a),J:hunch(walkJoints(d/.85,false,1),t),a:1}; }
+  const grab=s=>[lerp(2.5,5,span(n,866,880)),s*.4,13.4];
+  if(n<885) return {P:at(...RIP_AT,aHer),J:hunch(body({hand:s=>s>0?grab(s):[1.6,s*2.6,9.4]}),t),a:1,bloody:false};
+  if(n<985) return {P:at(...RIP_AT,aHer),J:stabJ(hunch(body(),t),n),a:1,bloody:n>=893};
+  const off=span(n,985,1000), P0=[lerp(RIP_AT[0],FLEE[0][0],off),lerp(RIP_AT[1],FLEE[0][1],off)];
+  if(n<1026){ const look=n<1020?aHer:turnTo(aHer,toward(P0,KNEEL),(n-1020)/5), J=hunch(body({bend:n<1020?.35:0}),t,n<1020?.9:0);
+    return {P:at(...P0,look),J,a:1,bloody:true}; }
+  const W=pathLen(FLEE), d=(n-1026)*.065; if(d>=W) return null;
+  const [i,j,a]=along(FLEE,d); return {P:at(i,j,a),J:hunch(runJoints(d/.9),t),a:1-span(n,1080,1140),bloody:true};
+}
+
+/* ---------- blood ---------- */
+
+/** Gravity on a drop of blood, in height units a tick². */
+const DROP_G=.03;
+/** Drops thrown at tick a from world point p towards angle dir (spread wide): those in the air go to fly as [i,j,z], those down to land as [i,j,size]. */
+function spatter(n,a,p,dir,count,spread,seed,fly,land){
+  if(n<a) return;
+  for(let q=0;q<count;q++){
+    const r1=h2(q*5+seed,seed)/255, r2=h2(q*11+seed*3,seed+7)/255, r3=h2(q*3+seed*7,seed+13)/255;
+    const ang=dir+(r1-.5)*spread, sp=.006+.02*r2, vz=.12+.3*r3, tl=(vz+Math.sqrt(vz*vz+2*DROP_G*p[2]))/DROP_G, dt=Math.min(n-a,tl);
+    const q3=[p[0]+Math.cos(ang)*sp*dt,p[1]+Math.sin(ang)*sp*dt,Math.max(0,p[2]+vz*dt-DROP_G*dt*dt/2)];
+    if(n-a>=tl) land.push([q3[0],q3[1],r2>.6?2:1]); else fly.push(q3);
+  }
+}
+/** Every drop of the murder at tick n: from the stab wounds, the cut throat and, as he runs, off the end of the knife. */
+function bloodAt(n){
+  const fly=[], land=[], her=herBody(), a=heading(her), wound=toWorld(her,1.5,0,9.4), throat=toWorld(her,1.1,0,13.6);
+  STABS.forEach((s,k)=>spatter(n,s,wound,a+(k%2?.5:-.5),8,1.9,31+k,fly,land));
+  spatter(n,SLASH,throat,a+Math.PI/2,12,1.2,71,fly,land); spatter(n,SLASH,throat,a,8,1,73,fly,land);
+  for(let td=1030;td<Math.min(n,1110);td+=8){ const R=ripperAfter(td,0); if(R){ const h=toWorld(R.P,...R.J(-1).hd); land.push([h[0],h[1],1]); } }
+  for(let td=990;td<Math.min(n,1040);td+=7) land.push([her.i+((td*7)%5-2)*.05,her.j+((td*3)%5-2)*.05,2]);
+  return {fly,land};
+}
+/** The blood on the setts: the spreading pool round her and every drop that has come down. */
+function bloodGround(n,pool){
+  const W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb, set=(x,y,c)=>{ if(x>=0&&y>=0&&x<W&&y<H) fb[y*W+x]=c; };
+  if(pool>0){ const b=toWorld(herBody(),2.4,0,0), x=isoX(b[0],b[1]), y=isoY(b[0],b[1],0);
+    spot(x,y,15*pool,6*pool,.9,rgb('#2e0706')); spot(x+3*pool,y+1,9*pool,3.6*pool,.85,rgb('#4a0b08')); spot(x-6*pool,y-1,6*pool,2.4*pool,.8,rgb('#3a0807')); spot(x-2*pool,y-1,4*pool,1.2*pool,.3,C.lamp); }
+  for(const [i,j,sz] of bloodAt(n).land){ const x=Math.round(isoX(i,j)), y=Math.round(isoY(i,j,0)), c=rgb(sz>1?'#4d0b09':'#6a120d'); set(x,y,c); if(sz>1){ set(x+1,y,c); set(x,y+1,rgb('#3a0807')); } }
 }
 
 /* ---------- what the port asks for ---------- */
@@ -419,10 +503,10 @@ const castNow=t=>state.kind==='before'?beforeCast(state.tick,t):afterCast(state.
 const headOf=(P,J)=>[P.i,P.j,(P.z0||0)+J.head[2]+4.5];
 /** Lines spoken in each scene: from tick, to tick, who and what. */
 const LINES={before:[[790,880,'hero','Hej! Nie rzygaj przy workach!'],[900,1010,'drunk','Zaraz ci wypierdolę!'],[1030,1150,'hero','Policjancie! Pomocy!'],[1160,1285,'cop','Odwal się, jestem zajęty!']],
-  after:[[805,878,'woman','Pomocy!'],[885,965,'hero','Trzymaj się!'],[1095,1245,'cop','Coś ty jej zrobił?! Jesteś aresztowany!']]};
+  after:[[805,878,'woman','Pomocy!'],[915,995,'hero','Trzymaj się!'],[1095,1245,'cop','Coś ty jej zrobił?! Jesteś aresztowany!']]};
 /** Camera shots: from tick, who is in the picture (repeat a name to weight it) and the zoom. */
 const SHOTS={before:[[0,'drunk',1.8],[140,'drunk',1.55],[580,'drunk',2],[785,'hero hero drunk',1.7],[890,'drunk',1.9],[1020,'hero cop',1.35],[1155,'cop',1.9],[1280,'hero drunk',1.8]],
-  after:[[0,'hero drunk',1.7],[80,'cop drunk',1.55],[300,'cop drunk',1.45],[470,'ripper',1.8],[600,'cop drunk',1.85],[800,'woman ripper',1.9],[880,'hero woman',1.3],[965,'woman hero',1.75],[1090,'cop hero',1.7]]};
+  after:[[0,'hero drunk',1.7],[80,'cop drunk',1.55],[300,'cop drunk',1.45],[450,'ripper',1.8],[600,'cop drunk',1.85],[800,'woman ripper',1.9],[900,'woman woman ripper hero',1.45],[985,'woman ripper',1.9],[1025,'woman hero',1.75],[1090,'cop hero',1.7]]};
 /** Where each named cast member stands now, for the camera and the bubbles. */
 function places(c){
   const p={hero:[c.hero.i,c.hero.j,(c.hero.z0||0)+c.hero.pose.head[2]+4.5]};
@@ -442,7 +526,7 @@ export function storyShot(t){
 export function storyLine(t){
   if(!storyPlaying()) return null;
   const n=state.tick, L=LINES[state.kind].find(l=>n>=l[0]&&n<l[1]); if(!L) return null;
-  return {text:L[3],shown:Math.min(L[3].length,Math.ceil((n-L[0])*1.5)),at:places(castNow(t))[L[2]]};
+  return {text:L[3],shown:Math.min(L[3].length,Math.ceil((n-L[0]+1)*1.5)),at:places(castNow(t))[L[2]]};
 }
 /** The words over the black at the end of the story. */
 export function storyCaption(){ return state.kind==='after'&&state.tick>=1300?'Kilka godzin później…':''; }
@@ -458,12 +542,11 @@ export function storyCast(t){
   if(!k){
     out.push([17.6,()=>{ const P=at(8.8,8.8,Math.PI/2), J=toiletJoints(); J.head=[J.head[0],J.head[1],J.head[2]+.08*Math.sin(t*.025)]; drunkFig(P,J); pee(P,t); }]);
     out.push([19.6,()=>whisperDraw(t,whisperStand(t))]);
-    const [i,j,a]=ripperLoop(t); out.push([i+j,()=>ripperFig(at(i,j,a),hunch(walkJoints(frac(t*.012),false,1),t))]);
     return out;
   }
   if(k==='end') return [[21,()=>puddle(puddleAt(),1)]];
   if(k==='fight'){
-    out.push([21,()=>puddle(puddleAt(),1)],[19.6,()=>whisperDraw(t,1)],[LURK[0]+LURK[1],()=>ripperFig(at(...LURK,Math.PI),hunch(body({breath:Math.sin(t*.05)*.08}),t))]);
+    out.push([21,()=>puddle(puddleAt(),1)],[19.6,()=>whisperDraw(t,1)]);
     return out;
   }
   const c=castNow(t);
@@ -471,13 +554,15 @@ export function storyCast(t){
   if(c.drunk){ const {P,J}=c.drunk;
     if(c.drunk.inVan) out.push([P.i+P.j,()=>behindFront(()=>drunkFig(P,J),doorHole,.35+.6*c.drunk.inVan,5.9)]);
     else out.push([P.i+P.j,()=>{ drunkFig(P,J); if(c.drunk.pee) pee(P,t); if(c.drunk.sick) spew(P,J,t); }]); }
-  if(c.ripper){ const {P,J,a}=c.ripper; out.push([P.i+P.j,()=>ghost(()=>ripperFig(P,J),a)]); }
+  if(c.ripper){ const {P,J,a,bloody}=c.ripper; out.push([P.i+P.j,()=>ghost(()=>ripperFig(P,J,bloody),a)]); }
   if(k==='before') out.push([19.6,()=>whisperDraw(t,c.whisper.stand,c.whisper.turn,c.whisper.wave)]);
   else {
     const {P,J}=c.cop; out.push([P.i+P.j,()=>{ contact(P.i-.22,P.j-.22,P.i+.22,P.j+.22,0,.4); copFig(P,J); breath(P,J,t+120,17); }]);
-    const Wm=c.woman; out.push([Wm.P.i+Wm.P.j+(Wm.tilt?.6:0),()=>{
-      if(c.blood>0){ const b=toWorld(Wm.P,2.6,0,0), x=isoX(b[0],b[1]), y=isoY(b[0],b[1],0), r=c.blood; spot(x,y,9*r,3.6*r,.8,rgb('#3d0c0a')); spot(x+2,y,5*r,2*r,.6,rgb('#5a1410')); }
-      contact(Wm.P.i-.3,Wm.P.j-.25,Wm.P.i+.3,Wm.P.j+.25,0,.6); womanFig(Wm.P,Wm.J,!!Wm.tilt); if(!Wm.tilt) breath(Wm.P,Wm.J,t,11); }]);
+    const Wm=c.woman, n=state.tick; out.push([Wm.P.i+Wm.P.j+(Wm.tilt?.6:0),()=>{
+      contact(Wm.P.i-.3,Wm.P.j-.25,Wm.P.i+.3,Wm.P.j+.25,0,.6); womanFig(Wm.P,Wm.J,!!Wm.tilt,Wm.blood||0); if(!Wm.tilt) breath(Wm.P,Wm.J,t,11); }]);
+    /* the blood: on the setts under everyone, and the drops still in the air in front of her */
+    if(n>=STABS[0]){ out.push([-1,()=>bloodGround(n,c.pool)],[HELD[0]+HELD[1]+.9,()=>{ const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, red=rgb('#a01a12');
+      for(const [i,j,z] of bloodAt(n).fly){ const x=Math.round(isoX(i,j)), y=Math.round(isoY(i,j,z)); if(x>=0&&y>=0&&x<W&&y<H) fb[y*W+x]=red; } }]); }
   }
   return out;
 }
