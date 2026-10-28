@@ -1,12 +1,13 @@
 import { wardBed, wardBlanket, wardFlies, WARD_SEATS, WARD_EX, WARD_WASH } from './ward.js';
 import { exerciseLayout, buildExerciseYard, ringPos, RING_C, WALK_R, WALK_SP } from './exercise-yard.js';
-import { figureHD, state as gymState, itemW, itemH, isoLine, quad, ipAdd, bodyPt, itemRect } from './gym.js';
+import { figureHD, state as gymState, itemW, itemH, isoLine, isoX, isoY, quad, ipAdd, bodyPt, itemRect } from './gym.js';
 import { rgb, state as appearanceState, setRamp } from './appearance.js';
 import { state as roomsState, floorAt, drawCellItem } from './rooms.js';
 import { pset, taper, shadowEll, state as rendererState } from './renderer.js';
 import { state as progressionState } from './progression.js';
-import { h2 } from './boxing.js';
+import { h2, state as boxingState } from './boxing.js';
 import { LOOK } from './data.js';
+import { createWardSparFighter, updateWardSparFighter, drawWardSparFighter, startWardSparKnockdown, tickWardSparKnockdown, drawWardSparKnockdown, WARD_SPAR_SPEED } from './iso-fight.js';
 
 // Runtime values owned by npcs; initialized explicitly by main.js.
 export const state = {};
@@ -126,7 +127,7 @@ function cnBedOf(C){                   // where he lies (centre, facing = head),
 
 export function cnNight(){ const h=progressionState.save.sim.min/60; return h<6||h>=22; } function cnBlk(i,j){
   if(i<0.35||j<0.35||i>roomsState.CELL_W-0.35||j>roomsState.CELL_H-0.35) return true;
-  for(const it of gymState.cellList){ if(!gymState.GYM_TYPES[it.t].block) continue; const r=itemRect(it); if(i>r[0]-0.2&&i<r[2]+0.2&&j>r[1]-0.2&&j<r[3]+0.2) return true; }
+  for(const it of gymState.cellList){ if(!gymState.GYM_TYPES[it.t].block||it.t==='cwheel') continue; const r=itemRect(it); if(i>r[0]-0.2&&i<r[2]+0.2&&j>r[1]-0.2&&j<r[3]+0.2) return true; }
   return false; } function cnGridBuild(){ state.cnGW=Math.ceil(roomsState.CELL_W/state.CN_G); state.cnGH=Math.ceil(roomsState.CELL_H/state.CN_G); state.cnGrid=new Uint8Array(state.cnGW*state.cnGH); state.cnPrev=new Int32Array(state.cnGW*state.cnGH);
   for(let b=0;b<state.cnGH;b++) for(let a=0;a<state.cnGW;a++) state.cnGrid[b*state.cnGW+a]=cnBlk((a+0.5)*state.CN_G,(b+0.5)*state.CN_G)?1:0; } function cnLOS(i0,j0,i1,j1){ const d=Math.hypot(i1-i0,j1-j0), n=Math.max(1,Math.ceil(d/0.1)); for(let k=1;k<n;k++){ const t=k/n; if(cnBlk(i0+(i1-i0)*t,j0+(j1-j0)*t)) return false; } return true; } function cnNode(i,j){ let best=-1, bd=1e9; for(let b=0;b<state.cnGH;b++) for(let a=0;a<state.cnGW;a++) if(!state.cnGrid[b*state.cnGW+a]){ const d=Math.hypot((a+0.5)*state.CN_G-i,(b+0.5)*state.CN_G-j); if(d<bd){ bd=d; best=b*state.cnGW+a; } } return best; } function cnPath(C,gi,gj){
   if(!state.cnGrid) cnGridBuild();
@@ -154,7 +155,25 @@ export function cnNight(){ const h=progressionState.save.sim.min/60; return h<6|
 } // ---- routine ----
 function cnFree(C,key){ return !state.CN.some(o=>o!==C&&o.res===key); } function cnPlan(C){
   const P=C.plan, R=Math.random;
+  if(C.name==='Harry'){
+    const seat=WARD_SEATS[1]; C.res='stool1'; P.push({k:'go',i:seat.a[0],j:seat.a[1]},{k:'sit',s:seat,d:900+(R()*1100|0)});
+    return;
+  }
   if(cnNight()){ const B=cnBedOf(C); if(B){ C.res='bed'; P.push({k:'go',i:B.app[0],j:B.app[1]},{k:'sleep',night:true,d:999999}); return; } }
+  if(C.name==='Jack'){
+    const stage=C.routine||0;
+    if(stage<4){
+      const E=WARD_EX.map((s,k)=>[s,k]).filter(e=>cnFree(C,'ex'+e[1]));
+      if(E.length){ const e=E[R()*E.length|0]; C.res='ex'+e[1]; P.push({k:'go',i:e[0].p[0],j:e[0].p[1]},{k:stage%2?'squat':'pushup',f:e[0].f,d:900}); return; }
+    } else if(stage===4&&cnFree(C,'toilet')){ C.res='toilet'; P.push({k:'go',i:1.9,j:4.95},{k:'toilet',f:[-0.68,0.73],d:420}); return;
+    } else if(stage===5&&cnFree(C,'sink')){ C.res='sink'; P.push({k:'go',i:WARD_WASH.p[0],j:WARD_WASH.p[1]},{k:'wash',f:WARD_WASH.f,d:480}); return;
+    } else if(stage===6){ const B=cnBedOf(C); if(B){ C.res='bed'; P.push({k:'go',i:B.app[0],j:B.app[1]},{k:'sleep',d:900}); return; } }
+    P.push({k:'idle',d:120}); return;
+  }
+  if(C.name==='Reuben'||C.name==='Walter'){
+    const reuben=C.name==='Reuben';
+    P.push({k:'go',i:reuben?9.9:11.2,j:6.2},{k:'spar',f:reuben?[1,0]:[-1,0],d:999999}); return;
+  }
   for(let n=0;n<8;n++){
     const r=R();
     if(r<0.3){ const S=WARD_SEATS.map((s,k)=>[s,k]).filter(e=>cnFree(C,'stool'+e[1])); if(!S.length) continue; const e=S[R()*S.length|0];
@@ -175,16 +194,50 @@ function cnFree(C,key){ return !state.CN.some(o=>o!==C&&o.res===key); } function
   if(S.f) npcFace(C,S.f[0],S.f[1],0.2);
   switch(S.k){
     case 'sit': C.act='sit'; C.i=S.s.c[0]; C.j=S.s.c[1]; C.fi=S.s.f[0]; C.fj=S.s.f[1];
+      if(C.name==='Harry'&&state.PROF.visit?.kind==='harry'&&state.PROF.visit.arrived) npcFace(C,state.PROF.i-C.i,state.PROF.j-C.j,1);
       C.after=gymState.cellList.find(x=>(x.t==='bunk'||x.t==='bunk2')&&S.s.c[0]>=x.i&&S.s.c[0]<x.i+itemW(x)&&S.s.c[1]<x.j+itemH(x))||null; break;   /* sitting on the edge of the guard-bed */
     case 'sleep': { const B=cnBedOf(C); if(!B){ C.step=null; return; } C.act='lie'; C.i=B.at[0]; C.j=B.at[1]; C.fi=B.face[0]; C.fj=B.face[1]; C.after=B.it;
       if(S.night&&!cnNight()&&C.t>200) S.d=0; break; }
     case 'squat': C.act='squat'; break;
     case 'pushup': C.act='pushup'; { const T=70, k=C.t%T; C.up=0.5+0.5*Math.cos(2*Math.PI*k/T); } break;
+    case 'spar': {
+      C.act='guard'; const partner=state.CN.find(o=>o.name===(C.name==='Reuben'?'Walter':'Reuben'));
+      if(partner?.step?.k!=='spar'){ C.act='rest'; C.pk=null; break; }
+      if(S.knockout){
+        const elapsed=boxingState.tick-S.knockout.at;
+        C.pk=null; C.act=elapsed<420?(S.knockout.victim?'sparDown':'sparHelp'):'rest';
+        if(S.knockout.victim&&elapsed<420) tickWardSparKnockdown(S.fighter,C,elapsed);
+        if(elapsed>=600) delete S.knockout;
+        break;
+      }
+      const t=Math.floor(boxingState.tick*WARD_SPAR_SPEED), turn=Math.floor(t/30), pt=t%30, kinds=['jab','cross','hook','upper'];
+      const shared=C.name==='Reuben'?S:partner.step;
+      if(!shared.exchange||shared.exchange.turn!==turn){
+        const E=shared.exchange;
+        if(!E||E.left===0){ const r=Math.random(); shared.exchange={turn,attacker:E?.attacker==='Reuben'?'Walter':'Reuben',left:r<0.5?1:r<0.8?2:3,kind:E?.kind??-1,used:[]}; }
+        else E.turn=turn;
+        const next=shared.exchange, choices=kinds.map((_,i)=>i).filter(i=>i!==next.kind&&!next.used.includes(i)); next.kind=choices[Math.floor(Math.random()*choices.length)]; next.used.push(next.kind); next.left--;
+      }
+      const active=shared.exchange.attacker===C.name;
+      const kind=kinds[shared.exchange.kind];
+      C.pk=active&&pt<state.PUNCH_T[kind]?kind:null; C.pside=kind==='jab'||kind==='hook'?1:-1; C.pt=pt;
+      if(active&&pt===7&&S.hitTurn!==turn){ S.hitTurn=turn; if(!partner.sparDodge&&Math.random()<0.05){ S.knockout={at:boxingState.tick,victim:false}; partner.step.knockout={at:boxingState.tick,victim:true}; if(!partner.step.fighter) partner.step.fighter=createWardSparFighter(partner); startWardSparKnockdown(partner.step.fighter,kinds.indexOf(kind)); C.pk=null; C.act='sparHelp'; break; } }
+      const together=partner?.step?.k==='spar';
+      if(!S.moveUntil||t>=S.moveUntil){ S.moveUntil=t+30+Math.floor(Math.random()*55); S.dir=Math.random()<0.5?-1:1; }
+      const di=together?S.dir*0.018*WARD_SPAR_SPEED:0, lo=C.name==='Reuben'?9.3:10.45, hi=C.name==='Reuben'?10.25:11.5;
+      const oldI=C.i, ni=Math.max(lo,Math.min(hi,C.i+di));
+      if(together&&Math.abs(ni-partner.i)>0.82&&Math.hypot(ni-gymState.hubP.i,C.j-gymState.hubP.j)>0.5&&!cnBlk(ni,C.j)) C.i=ni;
+      C.moving=Math.abs(C.i-oldI)>1e-5; C.sparMove=C.moving?S.dir*C.fi:0; C.ph=t*0.13;
+      C.sparDodge=!!together&&!active&&turn%3===1&&pt<16;
+      if(!S.fighter) S.fighter=createWardSparFighter(C);
+      updateWardSparFighter(S.fighter,C,partner);
+      break; }
     case 'wash': C.act='wash'; break;
+    case 'toilet': C.act='toilet'; C.fi=S.f[0]; C.fj=S.f[1]; break;
     default: C.act=(S.rest=S.rest===undefined?Math.random()<0.5:S.rest)?'rest':'idle';
   }
-  if(C.t>=S.d){ cnLeave(C); C.up=1; C.step=null; C.res=''; }
-  else if(!S.night&&S.k!=='sleep'&&cnNight()&&C.t>60){ cnLeave(C); C.step=null; C.plan=[]; C.res=''; }   // lights out: go to bed
+  if(C.t>=S.d){ if(C.name==='Jack'&&!S.night&&S.k!=='idle') C.routine=((C.routine||0)+1)%7; cnLeave(C); C.up=1; C.step=null; C.res=''; }
+  else if(C.name!=='Harry'&&!S.night&&S.k!=='sleep'&&cnNight()&&C.t>60){ cnLeave(C); C.step=null; C.plan=[]; C.res=''; }   // lights out: go to bed
 }
 
 export function cnTick(){
@@ -224,7 +277,7 @@ export function finishPrisonFight(index,won,yard){
   C.moving=false;
   if(yard){ C.fightRest=won?420:180; C.wait=0; C.pass=0; if(C.kind!=='sit') C.act='rest'; return; }
   C.plan=[]; C.after=null; C.res=won?'bed':''; C.path=null; C.t=0;
-  C.step=won?{k:'sleep',d:1600}:{k:'idle',rest:true,d:420};
+  C.step=C.name==='Harry'?null:won?{k:'sleep',d:1600}:{k:'idle',rest:true,d:420};
 }
 
 /** Profesor's pose: in the wheelchair by day, in the lower bunk at night. */
@@ -240,8 +293,27 @@ function profTick(){
   const P=state.PROF; P.t++;
   const chair=gymState.cellList.find(x=>x.t==='cwheel'), bunk=gymState.cellList.find(x=>x.t==='bunk2');
   const B=cnNight()&&bunk&&progressionState.save.phase==='prison'?cnBedOf(P):null;
-  if(B){ P.act='lie'; P.after=B.it; P.i=B.at[0]; P.j=B.at[1]; P.fi=B.face[0]; P.fj=B.face[1]; }
-  else if(chair){ P.act='sit'; P.after=chair; P.i=chair.i+itemW(chair)/2; P.j=chair.j+itemH(chair)/2-0.05; P.fi=-0.6; P.fj=0.8; }
+  if(B){ P.act='lie'; P.after=B.it; P.i=B.at[0]; P.j=B.at[1]; P.fi=B.face[0]; P.fj=B.face[1]; P.visit=null; P.path=null; return; }
+  if(!chair) return;
+  if(P.act==='lie'){ P.i=chair.i+itemW(chair)/2; P.j=chair.j+itemH(chair)/2-0.05; P.t=0; }
+  P.act='sit'; P.after=chair; P.moving=false;
+  if(!P.visit&&P.t>500){
+    const jack=state.CN.find(c=>c.name==='Jack'), harry=state.CN.find(c=>c.name==='Harry');
+    const choices=[{kind:'spar',i:9.4,j:5.0,target:state.CN.find(c=>c.name==='Reuben')}];
+    if(jack&&(jack.act==='pushup'||jack.act==='squat')){
+      const spots=[[jack.i+1.1,jack.j],[jack.i-1.1,jack.j],[jack.i,jack.j+1.1],[jack.i,jack.j-1.1]].filter(([i,j])=>!cnBlk(i,j)&&i>0.7&&i<11.3&&j>2.9&&j<6.3);
+      if(spots.length) choices.push({kind:'jack',i:spots[0][0],j:spots[0][1],target:jack});
+    }
+    if(harry?.act==='sit') choices.push({kind:'harry',i:harry.i,j:3.8,target:harry});
+    P.visit=choices[Math.floor(Math.random()*choices.length)]; P.path=null; P.t=0;
+  }
+  if(P.visit){
+    const V=P.visit;
+    if(V.kind==='jack'&&V.target.act!=='pushup'&&V.target.act!=='squat'){ P.visit=null; P.path=null; P.t=0; }
+    else if(!V.arrived){ if(cnWalk(P,V.i,V.j,0.012)){ V.arrived=true; P.t=0; } }
+    else { if(V.target) npcFace(P,V.target.i-P.i,V.target.j-P.j,0.15); if(P.t>600){ P.visit=null; P.t=0; } }
+  }
+  chair.i=P.i-itemW(chair)/2; chair.j=P.j-itemH(chair)/2+0.05;
 }
 
 export function cnRect(C){ return C.act==='pushup'?crewRect(C):[C.i-0.2,C.j-0.2,C.i+0.2,C.j+0.2]; } // ---- drawing ----
@@ -287,14 +359,68 @@ function cnSkel(C,J,lie,base){        // J(s) -> {hip,knee,foot,sh,el,hd}; J.pel
   isoLine(i0,j0,z1,i1,j0,z1,roomsState.CLC.mS); isoLine(i0,j0,z1,i0,j1,z1,roomsState.CLC.mS);
 }
 
+/** Draw the shared animated stream between two screen positions. */
+export function drawToiletStream(x0,y0,x1,y1,t){
+  const pressure=0.5+0.5*Math.sin(t*0.08), arc=0.5+2.1*pressure;
+  for(let k=0;k<=24;k++){
+    const q=k/24, x=Math.round(x0+(x1-x0)*q), y=Math.round(y0+(y1-y0)*q-arc*Math.sin(Math.PI*q));
+    if(pressure>0.3||(k+Math.floor(t/3))%5!==0) pset(x,y,rgb('#cec4a1'));
+    if(pressure>0.55) pset(x+1,y,rgb('#afa383'));
+  }
+  for(let k=0;k<3;k++){
+    const age=(t+k*7)%21; if(age>10) continue;
+    const side=k%2?1:-1, x=Math.round(x1+side*(1+age*0.32)), y=Math.round(y1-age*0.55+age*age*0.035);
+    pset(x,y,rgb('#cec4a1'));
+  }
+}
+/** Draw the stream behind Śmierdziel and above the tub. */
+export function cnToiletStream(){
+  const C=state.CN.find(c=>c.step&&c.act==='toilet'&&!c.away), tub=gymState.cellList.find(it=>it.t==='cwc');
+  if(!C||!tub) return;
+  gymState.ipC=C; bodyPt(2,0,7.2); const x0=gymState.bpX, y0=gymState.bpY;
+  const i=tub.i+itemW(tub)/2, j=tub.j+itemH(tub)/2;
+  drawToiletStream(x0,y0,isoX(i,j),isoY(i,j,4.0),C.t);
+  gymState.ipC=gymState.hubP;
+}
+/** Shared standing pose for the toilet routine. */
+export function toiletJoints(){
+  const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.2,s*2.7,12.2],el:[0.8,s*2.6,9.6],hd:[1.7,s*0.7,7.7]});
+  J.pel=[0,0,6.6]; J.chest=[0.2,0,12.0]; J.head=[0.5,0,15.3]; return J;
+}
+
 export function cnDraw(C){
   const t=C.t;
   switch(C.act){
     case 'pushup': drawCrewPushup(C); return;
+    case 'cheer': {
+      const wave=Math.sin(C.t*0.12);
+      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.3,s*2.7,12.2],el:[0.8,s*3.8,14.0+wave*0.5],hd:[1.0,s*3.4,16.0+wave]});
+      J.pel=[0,0,6.6]; J.chest=[0.3,0,12.0]; J.head=[0.4,0,15.5];
+      cnSkel(C,J,false); return; }
+
+    case 'grab': {
+      const wave=Math.sin(C.t*0.35)*0.3;
+      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.3,s*2.7,12.2],el:[2.4,s*3.4,11.5+wave],hd:[5.0,s*1.8,11.0+wave]});
+      J.pel=[0,0,6.6]; J.chest=[0.3,0,12.0]; J.head=[0.4,0,15.5];
+      cnSkel(C,J,false); return; }
+
+    case 'guard': {
+      if(C.step?.k==='spar'&&C.step.fighter) drawWardSparFighter(C.step.fighter); else drawIsoNPC(C);
+      const partner=state.CN.find(o=>o.name===(C.name==='Reuben'?'Walter':'Reuben'));
+      if(C.step?.k==='spar'&&partner?.step?.k==='spar'&&partner.pk){
+        const hit=partner.pt-Math.floor(state.PUNCH_T[partner.pk]/2);
+        if(hit>=0&&hit<7){
+          gymState.ipC=C;
+          for(let k=0;k<4;k++){ bodyPt(-0.3-hit*0.32,(k-1.5)*(0.7+hit*0.22),15.2+hit*0.32-hit*hit*0.045); pset(Math.round(gymState.bpX),Math.round(gymState.bpY),rgb(k%2?'#b5c4c4':'#d8dfd6')); }
+          gymState.ipC=gymState.hubP;
+        }
+      }
+      return; }
     case 'walk': case 'idle': case 'rest': case 'loose': case 'behind': drawIsoNPC(C); return;
     case 'sit': {
       const eat=(!C.yard||C.smoke)&&(t%260)<60, bob=0.15*Math.sin(t*0.05);
       const J=s=>{ const R=s===1&&eat;
+        if(C===state.PROF&&C.moving){ const push=Math.sin(C.ph); return {hip:[0.3,s*1.2,5.9],knee:[2.7,s*1.35,6.1],foot:[2.8,s*1.45,0.9],sh:[0.3,s*2.7,11.2+bob],el:[0.2+push*1.1,s*3.4,8.8],hd:[0.1+push*2.2,s*3.1,6.8+Math.cos(C.ph)*0.8]}; }
         if(C.tub) return {hip:[0.3,s*1.2,5.9],knee:[2.6,s*1.3,6.6],foot:[4.4,s*1.35,5.9],sh:[0.3,s*2.7,11.2+bob],el:[1.0,s*3.1,9.2+bob],hd:[1.6,s*3.2,9.1]};   /* in the tub: legs out in the water, hands on the rim */
         return {hip:[0.3,s*1.2,5.9],knee:[2.7,s*1.35,6.1],foot:[2.8,s*1.45,0.9],sh:[0.3,s*2.7,11.2+bob],
           el:R?[1.5,s*3.0,10.4]:(C.yard?[1.3,s*3.1,8.6]:[1.4,s*3.2,8.7]), hd:R?[1.7,s*0.9,13.4]:(C.yard?[2.5,s*2.0,6.9]:[2.9,s*2.3,8.2])}; };
@@ -311,6 +437,11 @@ export function cnDraw(C){
       cnSkel(C,J,false);
       if(gymState.ISO_K>1) wardFlies(C.i,C.j,10,4);
       return; }
+    case 'sparDown': drawWardSparKnockdown(C.step.fighter,boxingState.tick-C.step.knockout.at); return;
+    case 'sparHelp': {
+      const w=Math.sin(t*0.14)*0.5;
+      const J=s=>({hip:[-1,s*1.2,4.2],knee:[1.5,s*1.4,2.5],foot:[0.5,s*1.4,0.9],sh:[2,s*2.7,8],el:[3.5,s*2.5,5+w],hd:[5,s*1.2,3+w]});
+      J.pel=[-1,0,3.8]; J.chest=[2,0,7.8]; J.head=[3,0,10]; cnSkel(C,J,false); return; }
     case 'lie': {
       const br=0.2*Math.sin(t*0.03);
       const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.25,3.8],foot:[0,s*1.3,0.9],sh:[0.1,s*2.7,12.4+br],el:[-0.1,s*3.4,9.9],hd:[0.3,s*3.3,7.7]});
@@ -322,13 +453,19 @@ export function cnDraw(C){
         sh:[0.1+0.9*d,s*2.7,12.4-3.0*d],el:[0.3+0.9*d,s*4.1,14.8-3.0*d],hd:[-0.6+0.9*d,s*1.3,15.9-3.0*d]});   // hands behind the head
       J.pel=[-1.5*d,0,6.6-3.1*d]; J.chest=[0.4+0.9*d,0,12.2-3.0*d]; J.head=[0.45+1.1*d,0,15.6-3.0*d];
       cnSkel(C,J,false); return; }
+    case 'toilet': {
+      cnSkel(C,toiletJoints(),false);
+      return; }
     case 'wash': {
-      const sp=(t%190)<46, w=0.35*Math.sin(t*0.32);
-      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.8,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.9,s*2.6,12.0],
-        el:sp?[2.0,s*2.9,11.4]:[2.1,s*3.0,10.3], hd:sp?[2.2,s*0.9,14.2]:[2.9+w*s,s*1.4,9.9+Math.abs(w)]});
-      J.pel=[0,0,6.6]; J.chest=[0.9,0,12.0]; J.head=sp?[1.4,0,14.8]:[1.6,0,14.6];
-      cnSkel(C,J,false);
-      if(!sp&&(t%9)<3){ bodyPt(3.0,(t%2?1:-1)*0.8,10.8); pset(Math.round(gymState.bpX),Math.round(gymState.bpY),rgb('#bcd4e8')); gymState.ipC=gymState.hubP; }   // splashes
+      const phase=t%84, splash=phase>=32&&phase<52, lift=splash?1:0, bend=1.8+0.35*Math.sin(t*0.075);
+      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.8,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[bend,s*2.6,11.2],
+        el:[bend+1.2,s*2.8,9.2+lift*2.0],hd:[bend+2.5-lift*0.5,s*1.0,6.0+lift*7.0]});
+      J.pel=[0,0,6.6]; J.chest=[bend,0,11.0]; J.head=[bend+1.1,0,13.4]; cnSkel(C,J,false);
+      if(splash){
+        gymState.ipC=C;
+        for(let k=0;k<10;k++){ const d=(phase-32+k*3)%20; bodyPt(bend+1.4+Math.sin(k*2.4)*2.0,(k%5-2)*0.8,13.4+Math.sin(d*0.16)*2.1-d*0.1); pset(Math.round(gymState.bpX),Math.round(gymState.bpY),rgb(k%2?'#bcd4e8':'#829da7')); }
+        gymState.ipC=gymState.hubP;
+      }
       return; }
   }
   drawIsoNPC(C);
@@ -340,9 +477,7 @@ export function ynEnter(){
   const W=walkers(), L=Math.PI*2*WALK_R;
   W.forEach((C,k)=>{ C.t=(Math.random()*400)|0; C.wait=0; C.pass=0; C.fightRest=0; C.after=null; C.kind='walk';
     C.s=L*k/W.length; const p=ringPos(C.s); C.i=p[0]; C.j=p[1]; C.fi=p[2]; C.fj=p[3]; C.act='walk'; C.hood=true; });
-  Object.assign(state.GUARD,{i:RING_C[0]+0.15,j:RING_C[1]+0.15,fi:0.7071,fj:0.7071,act:'behind',moving:false});     // one turnkey in the middle,
-  Object.assign(state.GUARD2,{i:1.25,j:3.2,fi:1,fj:0.25,act:'behind',moving:false});                                 // one by the gate
-  state.YND=[...W,state.GUARD,state.GUARD2];
+  state.YND=[...W];
 }
 
 export function ynTick(){
@@ -394,6 +529,8 @@ state.CN = [
   {name:'Harry',rb:66,bed:{t:'bunk',lv:0},sk:['#8a5a3a','#c68a5e','#eab48a'],hair:['#6a6e7a','#a8acb8','#e0e4ec'],hd:{style:'bald',stubble:true,chops:true,irons:true,scarf:0xff2a3a6a}},   // hd: the 2× look
   {name:'Zeke',rb:76,bed:{t:'bunk2',lv:0},sk:['#b87a5e','#e8b08a','#ffd8b8'],hair:['#2a160c','#4a2a16','#704424'],hd:{style:'flatcap',cap:84,irons:true}},
   {name:'Reuben',rb:86,bed:{t:'bunk2',lv:1},sk:['#7a3f2b','#b86b45','#e59c6b'],hair:['#110b0b','#1e1414','#3b2b2b'],hd:{style:'shaved',mustache:true,chops:true,irons:true,scarf:0xff22306e}},
+  {name:'Jack',rb:226,bed:{t:'bunk2',lv:2},sk:LOOK.skin.find(o=>o.id==='s1').ramp,hair:LOOK.hair.find(o=>o.id==='h2').ramp,hd:{style:'short',irons:true}},
+  {name:'Walter',rb:236,bed:{t:'bunk2',lv:3},sk:LOOK.skin.find(o=>o.id==='s2').ramp,hair:LOOK.hair.find(o=>o.id==='h1').ramp,hd:{style:'buzz',stubble:true,irons:true}},
 ];
 
 for(const C of state.CN){
@@ -443,10 +580,6 @@ state.YN = [];
 /** Two more hooded walkers on the ring (not yard opponents, so nobody picks a fight with them). */
 state.YARD_EXTRA = [176,186].map((rb,k)=>{ crewRamps(rb,{sk:k?['#7a4a32','#ad7452','#d69c78']:['#a07258','#d6a684','#f4c8a6'],tr:state.CN_PANT,tt:state.CN_PANT,top:state.CN_TOP,gl:state.HOOD,hair:k?['#1a1210','#2e221c','#4a382c']:['#5a4028','#8a6440','#b08a5c']});
   return {rb,yard:true,sleeves:true,wraps:false,gloves:false,pants:true,i:6,j:4,fi:0,fj:-1,z0:0,ph:0,moving:false,act:'idle',t:0,step:{k:'yard'},after:null,pk:null,pt:0,up:1,hd:{style:k?'shaved':'short',stubble:!!k}}; });
-crewRamps(206,{sk:['#9a6a50','#c8967a','#e8b898'],tr:['#16181e','#22252e','#30343e'],tt:['#16181e','#22252e','#30343e'],top:['#181c28','#262c3c','#384054'],gl:['#101218','#1c1f28','#2c303a'],hair:['#3a3026','#5a4a3a','#7a6a56']});   /* a turnkey: dark blue coat, peaked cap */
-state.GUARD = {rb:206,yard:false,sleeves:true,wraps:false,gloves:false,pants:true,i:0.8,j:1.0,fi:0.7071,fj:0.7071,z0:0,ph:0,moving:false,act:'behind',t:0,step:{k:'guard'},after:null,pk:null,pt:0,up:1,hd:{style:'cap',cap:214,belt:true,baton:true,mustache:true}};
-/** The second turnkey on the yard, by the gate (same uniform as the first). */
-state.GUARD2 = {...state.GUARD,step:{k:'guard'},hd:{style:'cap',cap:214,belt:true,baton:true,chops:true}};
 /** Everyone drawn on the yard (ynEnter rebuilds it with the turnkeys). */
 state.YND = [...state.YN, ...state.YARD_EXTRA];
 

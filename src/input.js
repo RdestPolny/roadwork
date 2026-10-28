@@ -10,6 +10,7 @@ import { holdPushup, pushupInfo } from './pushups.js';
 import { holdPullup, pullupInfo } from './pullups.js';
 import { roachKey, roachKeysOff, roachStrike, roachInfo } from './roaches.js';
 import { crankKey, crankKeysOff, crankInfo } from './crank.js';
+import { thamesKey, clearThamesInput } from './thames-port.js';
 import { simUI } from './simulation.js';
 import { state as gymState, clearHubInput } from './gym.js';
 import { statShort, setDevMode } from './progression.js';
@@ -29,13 +30,13 @@ import { state as appearanceState } from './appearance.js';
 import { state as menuState } from './menu.js';
 import { state as dialogState } from './dialog.js';
 import { update } from './runtime.js';
-import { isoFightKey, isoFightRelease, isoFightInfo, CONTROLS as ISO_CONTROLS } from './iso-fight.js';
+import { isoFightKey, isoFightRelease, isoFightPointer, isoFightPointerLeave, isoFightInfo, CONTROLS as ISO_CONTROLS } from './iso-fight.js';
 
 export const state = {};
 
 /** Release held gameplay controls before opening or closing a modal. */
 export function clearHeldInput(){
-  crankKeysOff();isoFightRelease();
+  crankKeysOff();isoFightRelease();clearThamesInput();
   clearHubInput(); releaseWalk(); state.bodyHeld=false; holdPullup(false); holdPushup(false); roachKeysOff(); resetDirectionTap();
 }
 
@@ -90,6 +91,11 @@ function setPrompt(title,sub,key='E'){
   state.promptEl.hidden=!title; if(!title) return;
   state.promptKeyEl.textContent=key; state.promptTitleEl.textContent=title; state.promptSubEl.textContent=sub||'';
 }
+/** Show the port's nearby sack interaction using the usual action prompt. */
+export function setPortSackPrompt(show,x,y){
+  setPrompt(show?'PODNIEŚ WOREK':'');
+  if(show){ state.promptEl.style.setProperty('--port-x',`${x}px`); state.promptEl.style.setProperty('--port-y',`${y}px`); }
+}
 
 /** Upper case without diacritics, to match "PODCIAGANIE" with "podciąganie". @param {string} t */
 const plain=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -115,6 +121,7 @@ export function setInfo(){
     state.nextEl.textContent=roomsState.hubAct?'Esc / E — przerwij':'strzałki / WASD — chodzenie · E — użyj · Esc — pauza · P — karta · '+statShort();
     return;
   }
+  if(boxingState.gstate==='port'){ state.infoEl.textContent='PORT NAD TAMIZĄ · NOC'; state.nextEl.textContent='strzałki / WASD — ruch · E — podnieś / odłóż worek · Esc — powrót'; return; }
   if(boxingState.gstate==='work'){ state.infoEl.textContent='RZEŹNIA · półtusza '+Math.min(workState.WK.n+(workState.WK.phase==='end'?0:1),workState.WK_N)+'/'+workState.WK_N+(workState.WK.drops?' · upuszczone: '+workState.WK.drops:''); state.nextEl.textContent=workHint()+(workState.WK.phase==='end'?'':' · Esc — koniec zmiany'); return; }
   if(boxingState.gstate==='arm'){ const A=armState.A; state.infoEl.textContent='SIŁOWANIE NA RĘKĘ'+(A?' · '+A.name+(A.stake==='porcja'?' · o porcję':A.stake==='miejsce'?' · o miejsce':' · dla sportu'):''); state.nextEl.textContent=A&&A.result?'Enter — wróć do Wardu':'Spacja / E — pchnij w rytm kółka · przytrzymaj S / ↓ — zaprzyj się, gdy rywal czerwienieje · Esc — poddaj się'; return; }
   if(boxingState.gstate==='spar'){
@@ -212,6 +219,7 @@ addEventListener('keydown',e=>{
   if(charSheetKey(e)||prisonKey(e)||skillTreeKey(e)||sysKey(e)||dlgKey(e)) return;
   if(!optionsState.optsEl.hidden){ if(e.code==='Escape'||e.code==='KeyO'){ e.preventDefault(); optsToggle(false); } e.stopImmediatePropagation(); return; }
   if(e.code==='KeyO'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT'){ e.preventDefault(); optsToggle(true); return; }
+  if(boxingState.gstate==='port'){ if(thamesKey(e.code,true,e.repeat)){ e.preventDefault(); return; } if(!e.repeat&&e.code==='Escape'){ e.preventDefault(); exitToHub(); } return; }
   if(e.repeat)return;
   if(sessionKey(e)) return;
   if(boxingState.gstate==='work'){ workKey(e); return; }
@@ -248,7 +256,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyM'){audioState.soundOn=!audioState.soundOn;state.sndEl.checked=audioState.soundOn;}
 });
 
-addEventListener('keyup',e=>{ if(charSheetOpen()||skillTreeKey(e)) return; if(boxingState.gstate==='arm'){ armKey(e,false); return; } if(boxingState.gstate==='isofight'){ isoFightKey(e,false); return; } if(e.code==='Space'||e.code==='KeyE'){ holdPullup(false); holdPushup(false); } if(boxingState.gstate==='roach') roachKey(e.code,false); if(boxingState.gstate==='crank') crankKey(e,false); if(boxingState.gstate==='hub'||boxingState.gstate==='menu') hubKey(e,false); const k=state.KEYMAP[e.code], mv=k===animationState.M_SLIPL?k:screenMove(k); /* releasing Q must not pick the next slip side */ if(mv===animationState.walkHeld)releaseWalk(); if(e.code==='ArrowDown')state.bodyHeld=false; });
+addEventListener('keyup',e=>{ if(boxingState.gstate==='port'){ thamesKey(e.code,false); return; } if(charSheetOpen()||skillTreeKey(e)) return; if(boxingState.gstate==='arm'){ armKey(e,false); return; } if(boxingState.gstate==='isofight'){ isoFightKey(e,false); return; } if(e.code==='Space'||e.code==='KeyE'){ holdPullup(false); holdPushup(false); } if(boxingState.gstate==='roach') roachKey(e.code,false); if(boxingState.gstate==='crank') crankKey(e,false); if(boxingState.gstate==='hub'||boxingState.gstate==='menu') hubKey(e,false); const k=state.KEYMAP[e.code], mv=k===animationState.M_SLIPL?k:screenMove(k); /* releasing Q must not pick the next slip side */ if(mv===animationState.walkHeld)releaseWalk(); if(e.code==='ArrowDown')state.bodyHeld=false; });
 
 addEventListener('blur',clearHeldInput);
 
@@ -278,6 +286,8 @@ document.getElementById('toMenu').addEventListener('click',exitToHub);
 document.getElementById('menuBtn').addEventListener('click',exitToHub);
 document.querySelectorAll('#panel [data-arm]').forEach(b=>{ const a=b.dataset.arm; if(a==='brace'){ b.addEventListener('pointerdown',()=>armButton('brace')); b.addEventListener('pointerup',()=>armButton('braceOff')); b.addEventListener('pointerleave',()=>armButton('braceOff')); } else b.addEventListener('click',()=>armButton(/** @type {any} */ (a))); });
 
+rendererState.stage.addEventListener('pointermove',e=>{ if(boxingState.gstate==='isofight') isoFightPointer(e); });
+rendererState.stage.addEventListener('pointerleave',()=>{ if(boxingState.gstate==='isofight') isoFightPointerLeave(); });
 rendererState.stage.addEventListener('pointerdown',()=>{initAudio();window.focus();});
 
 state.sndEl=document.getElementById('snd');

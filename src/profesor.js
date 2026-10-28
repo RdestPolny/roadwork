@@ -13,11 +13,11 @@ import { state as rendererState, pset } from './renderer.js';
 import { drawText, state as boxingState } from './boxing.js';
 import { rgb, state as appearanceState } from './appearance.js';
 import { makeFig, pose, drawFig, saveJoints, restoreJoints } from './cast.js';
-import { showCards, listMatch, startListFight, myRank } from './prison.js';
+import { showCards, listMatch, startListFight } from './prison.js';
 import { state as gymState, stationOf } from './gym.js';
 import { isPrison, prisonSave, prisonGate } from './prison.js';
 import { state as sparringState } from './sparring.js';
-import { NOTES, NOTE_BONUS, TASK_BONUS, DAILY_TASKS, dailyTask, taskDone, isWorkDay, LISTA, listEntry, cienStage, MEMORIES, RESPEKT_RANKS, lessonText } from './prison-data.js';
+import { NOTES, NOTE_BONUS, TASK_BONUS, DAILY_TASKS, dailyTask, taskDone, isWorkDay, LISTA, listEntry, cienStage, MEMORIES, lessonText } from './prison-data.js';
 
 // Runtime values owned by profesor; initialized explicitly by main.js.
 export const state = {};
@@ -29,7 +29,7 @@ const TALK = ['Nogi. Wszystko zaczyna się od nóg — ręka tylko kończy to, c
   'Najpierw kondycja. Technika nic ci nie da, jak zgaśniesz w drugiej minucie.',
   'Gazety pod pompki zmieniaj co tydzień. Te z sześćdziesiątego trzeciego już ledwo żyją.',
   'Tutaj nikt nie liczy punktów. Liczy się, kto wstaje ostatni.',
-  'Klucznicy widzą więcej, niż mówią. Bij się tam, gdzie patrzą w drugą stronę.'];
+  'Nie daj się zamknąć pod ścianą. Zostaw sobie miejsce na unik.'];
 const NIGHT = ['Nie śpisz? Ja też nie. Fotel się nie męczy, to i ja nie.',
   'W czterdziestym szóstym biłem się pod Moulsey Hurst. Tłum aż po rzekę. Potem… potem kiedyś ci opowiem.',
   'Każde nazwisko z mojej listy coś mi zabrało. Ale to nie jest rozmowa na teraz. Śpij.',
@@ -67,7 +67,7 @@ function profOptions(){
   }
   if(night()&&P.profesor.spotkany){
     const m=pendingMemory(); if(m) out.unshift(['Co cię z nim łączy?','Wspomnienie: '+MEMORIES[m].title,()=>memoryCard(m)]);
-    const e=listEntry(P.lista.rozdzial); if(e&&e.opp==='cell:2'){ const ok=listMatch('cell',2).entry; out.push(['Obudź Reubena.','Lista #7 · bójka w celi, wieczorem'+(ok?'':' — '+RESPEKT_RANKS[e.need].name+' najpierw'),()=>{ if(!ok){ dlgLineSay('Nie dziś. Najpierw zostań kimś.'); return; } dlgClose(); const it=gymState.gymItems.find(/** @param {any} x */ x=>x.t==='cwheel'); startListFight(it?stationOf(it):null); }]); }
+    const e=listEntry(P.lista.rozdzial); if(e&&e.opp==='cell:2'){ const ok=listMatch('cell',2).entry; out.push(['Obudź Reubena.','Lista #7 · bójka w celi, wieczorem'+(ok?'':' — nie teraz'),()=>{ if(!ok){ dlgLineSay('Nie dziś. Najpierw zostań kimś.'); return; } dlgClose(); const it=gymState.gymItems.find(/** @param {any} x */ x=>x.t==='cwheel'); startListFight(it?stationOf(it):null); }]); }
   }
   out.push(['Na razie.','Zakończ rozmowę',()=>dlgClose()]);
   return out;
@@ -90,7 +90,7 @@ function listTalk(){
   const P=prisonSave(), e=listEntry(P.lista.rozdzial);
   if(!e){ dlgLineSay('Lista zamknięta. Teraz już wiesz wszystko, co ja. Prawie wszystko.'); return; }
   const done=LISTA.filter(L=>P.lista.wygrane[String(L.n)]).map(L=>'#'+L.n+(P.lista.lekcje[String(L.n)]?' ✓':'')).join(' ');
-  const need=myRank()<e.need?' Ale najpierw musisz być kimś — '+RESPEKT_RANKS[e.need].name+'.':'';
+  const need='';
   const warn=P.ambulatorium.zdarzenie&&e.n>=9?' I uważaj na rękawy. Ludzie Szefa nie biją się czysto.':'';
   dlgLineSay('Następny: '+e.name+'. Gdzie: '+e.where+'. Chcę zobaczyć: '+lessonText(e,true)+'.'+need+warn+(done?' (Za tobą: '+done+')':''));
 }

@@ -24,10 +24,10 @@ export async function checkHealers(page, port){
   assert.ok(stink.some(t => /złamany nos/.test(t)) && !stink.some(t => /żebro/.test(t)), 'the ointment is for the face, not for bones: ' + stink);
   await pick('złamany nos');
   assert.deepEqual(await state(), { inj: ['rib'], fajki: 3, konto: 10 });
-  await page.evaluate(() => window.__boxer.goRoom('yard'));
-  await page.evaluate(() => window.__boxer.step(60));
-  const guard = await near('klucznik');
-  assert.ok(guard?.some(t => /żebro/.test(t)), 'the turnkey takes you to the surgeon for any injury: ' + guard);
+  await near('smierdziel');
+  await pick('Do felczera');
+  const surgeon = await page.locator('#storyChoices').textContent();
+  assert.match(surgeon,/żebro/, 'Śmierdziel provides access to the surgeon');
   await pick('żebro');
   assert.deepEqual(await state(), { inj: [], fajki: 3, konto: 7 });
   await page.screenshot({ path: 'artifacts/healers.png' });

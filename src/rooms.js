@@ -426,11 +426,11 @@ export function cellOptions(st){
     case 'cpull': return [[()=>'Podciąganie na kracie okna · stopień '+ROMAN[stageFor('pullup')-1]+' · minuta · 1 akcja',startPullups,false,'go'],stageOption('pullup')];
     case 'croach': return [[()=>'Karaluchy na ścianie · stopień '+ROMAN[stageFor('roach')-1]+' · ogarek łoju · 1 akcja',startRoaches,false,'go'],stageOption('roach')];
     case 'cshadow': return [[()=>'Walka z cieniem · stopień '+ROMAN[stageFor('shadow')-1]+' · 10 kombinacji · 1 akcja',()=>startShadowboxing(st),false,'go'],stageOption('shadow')];
-    case 'cpush': return [[()=>'Pompki na gazetach · stopień '+ROMAN[stageFor('pushup')-1]+' · minuta · 1 akcja',()=>{ pushupsState.puVenue='cell'; startPushup(); },false,'go'],stageOption('pushup')];
+    case 'cpush': return [[()=>'Pompki · stopień '+ROMAN[stageFor('pushup')-1]+' · minuta · 1 akcja',()=>{ pushupsState.puVenue='cell'; startPushup(); },false,'go'],stageOption('pushup')];
     case 'ccom': return isPrison()?lockerOptions(st,startActivity):[];
     case 'cwash': { const soap=isPrison()&&useSoap(false), H=soap?40:20, done=isPrison()&&state.washKey===s.day*3+s.faza;   /* a quick wash at the butt: no action, once a phase */
-      return [['Umyj się przy beczce z wodą · +'+H+' higieny · bez akcji'+(soap?' (mydło)':' (woda na przydział)')+(done?' — już się myłeś':''),()=>{ if(soap) useSoap(true); if(isPrison()) state.washKey=s.day*3+s.faza; startActivity(st,{kind:'wash',label:'mycie w misce',min:0,pose:0,at:[it.i+itemW(it)+0.5,it.j+0.3],face:[-1,0],order:'before',pop:state.T_WYSPANY+4,after:()=>simNudge('h',H)}); },s.h>=90||done,'act']]; }
-    case 'bunk': return bunkOptions(st,startActivity,PALLET_Z-0.25);
+      return [['Umyj się przy beczce z wodą · +'+H+' higieny · bez akcji'+(soap?' (mydło)':' (woda na przydział)')+(done?' — już się myłeś':''),()=>{ if(soap) useSoap(true); if(isPrison()) state.washKey=s.day*3+s.faza; startActivity(st,{kind:'wash',label:'mycie w misce',min:0,pose:0,at:[it.i-0.5,it.j+0.3],face:[1,0],order:'before',pop:state.T_WYSPANY+4,after:()=>simNudge('h',H)}); },s.h>=90||done,'act']]; }
+    case 'bunk': return [...bunkOptions(st,startActivity,PALLET_Z-0.25),...(isPrison()?lockerOptions(st,startActivity):[])];
   }
   return [];
 }

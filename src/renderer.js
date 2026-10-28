@@ -6,11 +6,12 @@ import { state as progressionState } from './progression.js';
 import { state as boxingState, drawParticles, drawBoxer, drawPopups } from './boxing.js';
 import { renderSpar } from './sparring.js';
 import { renderWork } from './work.js';
-import { state as pushupsState, drawPushupMeter } from './pushups.js';
+import { state as pushupsState, drawPushupMeter, drawPushupAtmos, drawPushupBody } from './pushups.js';
 import { renderPullup } from './pullups.js';
 import { renderRoaches } from './roaches.js';
 import { crankFrame, renderCrank } from './crank.js';
 import { renderIsoFight } from './iso-fight.js';
+import { renderThamesPort } from './thames-port.js';
 
 // Runtime values owned by renderer; initialized explicitly by main.js.
 export const state = {};
@@ -45,6 +46,10 @@ export function screenToView(px,py){ return [(px-state.vx)/state.vs,(py-state.vy
 /** Select a drawing buffer and return the previous one for scoped offscreen rendering. */
 export function setFramebuffer(buffer){ const previous=state.fb; state.fb=buffer; return previous; }
 
+/** Aim the cel shading of tapered shapes at a light (a screen-space direction towards it); returns the previous direction.
+ * @param {number} lx @param {number} ly @returns {[number,number]} */
+export function setLightVec(lx,ly){ const prev=/** @type {[number,number]} */ ([state.LX,state.LY]); state.LX=lx; state.LY=ly; return prev; }
+
 export function pset(x,y,c){ if(x<0||y<0||x>=appearanceState.W||y>=appearanceState.H) return; state.fb[y*appearanceState.W+x]=c; }
 
 export function line(x0,y0,x1,y1,c1,c2){
@@ -76,7 +81,8 @@ export function taper(x0,y0,r0,x1,y1,r1,pass,rp,rp2,z1,z2,rp3,bl){
       if(pass===0){state.fb[i]=(state.softOutline&&isSkinPx(state.fb[i]))?appearanceState.PAL[appearanceState.R_SKIN*3]:appearanceState.C_OUT;continue;}
       const ramp=tr<z1?rp2:(tr<z2?rp3:rp);
       const k=(ex*state.LX+ey*state.LY)/(r>0.5?r:0.5);
-      state.fb[i]=appearanceState.PAL[ramp*3+(k>0.34?2:(k<-0.4?0:1))];
+      const side=(Math.abs(state.LX)-0.42)*0.10, hi=0.34-side, sh=-0.4+side;   // light from further aside narrows the cel bands; unchanged at the default light
+      state.fb[i]=appearanceState.PAL[ramp*3+(k>hi?2:(k<sh?0:1))];
     }
   }
 }
@@ -131,19 +137,22 @@ function present(face,blit=true){
 }
 
 export function render(){
+  if(boxingState.gstate==='port'){ withHD(()=>{ renderThamesPort(); present(false); }); return; }
   if(boxingState.gstate==='crank'){ crankFrame(); withHD(()=>{ renderCrank(); present(false); }); return; }
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ if(hubHD()) withHD(()=>{ renderHub(); present(false); }); else { renderHub(); present(false); } return; }
   if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); }); return; }
-  if(boxingState.gstate==='spar'){ renderSpar(); drawProfShadow(); present(false); return; }
+  if(boxingState.gstate==='spar'){ renderSpar(); zoomBlit(1.2,72,49); drawProfShadow(); present(false); return; }
   if(boxingState.gstate==='pullup'){ renderPullup(); present(false); return; }
   if(boxingState.gstate==='roach'){ renderRoaches(); present(false); return; }
   if(boxingState.gstate==='work'){ renderWork(); present(false); return; }
   if(boxingState.gstate==='arm'){ renderArm(); withHD(()=>{ renderArmHD(); present(false); }); return; }   // arm wrestling: a close-up in the 2× frame
   if(boxingState.gstate!=='pushup') return;   // push-ups on the cell floor: the last side-view mode
-  state.fb.set(pushupsState.bgPU);
+  state.fb.set(Math.sin(boxingState.tick*0.035)>0.2?pushupsState.bgPUBreath:pushupsState.bgPU);
+  drawPushupAtmos();
   drawParticles(true);
-  drawBoxer();
+  drawPushupBody();
   drawParticles(false);
+  zoomBlit(1.2,72,49);
   drawPushupMeter();
   drawPopups();
   present(true);

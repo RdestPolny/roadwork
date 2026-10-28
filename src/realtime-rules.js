@@ -4,13 +4,15 @@
 export const TUNING=Object.freeze({
   repeatReset:2.4, repeatStep:.45,
   comboWindow:1.1, comboStep:.15,
-  regen:10.5, regenDelayJab:.45, regenDelayPower:.65, whiffDelay:.3, whiffCost:3,
+  regen:12.5, regenDelayJab:.45, regenDelayPower:.65, whiffDelay:.3, whiffCost:3,
   guardDrain:7, guardAbsorbCost:1.15, blockChip:.15,
   guardPerfect:.14, guardRearm:.3, parryCost:12, parryCounterDuration:.6, parryCounterPower:1.35,
   slipCost:8, slipCooldown:.65, slipActive:.35, slipPerfect:.18, slipVulnerable:.65,
+  evadeReset:1.8, evadeStep:.45, evadeFwdCos:.75, evadeNearMiss:.35, evadeJamRatio:.68, evadeDashPerfect:.24,
+  slowMoDuration:2, slowMoScale:.35,
   counterDuration:.9, counterPower:1.55, failedSlipPower:1.35,
   lowStaThreshold:25, lowStaCostMult:1.3, staCapWear:.04, staCapFloor:.4,
-  bodyHpMult:.75, bodyStaDrain:1.4, bodyCapDrain:.25
+  bodyHpMult:.5, bodyStaDrain:1.8, bodyCapDrain:.25
 });
 
 /** Stamina required by jab, cross, hook and uppercut before repeat and combo penalties. */
@@ -26,18 +28,19 @@ export function createCombatant({hpMax=125,staCap=100,pow=1,regen=1,hunger=0}={}
   hpMax=Math.max(1,hpMax);staCap=Math.max(0,staCap);
   return {hp:hpMax,hpMax,sta:staCap,staCap,staCapInitial:staCap,pow:Math.max(0,pow),regen:Math.max(0,regen),hunger:Math.max(0,hunger),
     guarding:false,guardSince:-Infinity,guardReadyAt:-Infinity,
-    slipSince:-Infinity,slipReadyAt:-Infinity,counterUntil:-Infinity,counterMult:/** @type {number} */(TUNING.counterPower),punchCounter:false,
+    slipSince:-Infinity,slipReadyAt:-Infinity,evadeFatigue:0,evadeKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */('slip'),counterUntil:-Infinity,counterMult:/** @type {number} */(TUNING.counterPower),punchCounter:false,
     regenReadyAt:-Infinity,lastActionAt:-Infinity,comboCount:0,
     punchLast:[-Infinity,-Infinity,-Infinity,-Infinity],punchRepeats:[0,0,0,0]};
 }
 /** @typedef {ReturnType<typeof createCombatant>} Combatant */
 
 /**
- * Advance resource recovery or held guard drain, pausing recovery right after throwing a punch.
+ * Advance resource recovery, evade fatigue decay or held guard drain, pausing recovery right after throwing a punch.
  * @param {Combatant} f @param {number} dt @param {number} now
  */
 export function tickCombatant(f,dt,now){
   if(!Number.isFinite(dt)||dt<=0||!Number.isFinite(now))return;
+  if(f.evadeFatigue>0&&now>=f.slipSince+TUNING.evadeReset)f.evadeFatigue=0;
   if(f.guarding){
     f.sta=Math.max(0,f.sta-dt*TUNING.guardDrain);
     return;
@@ -60,11 +63,11 @@ export function punchCost(f,pid,now){
 
 /**
  * Spend stamina, wear down staCap slightly, pause breath recovery and commit repeat/combo history.
- * @param {Combatant} f @param {number} pid @param {number} now
+ * @param {Combatant} f @param {number} pid @param {number} now @param {boolean} [allowExhausted=false]
  */
-export function beginPunch(f,pid,now){
+export function beginPunch(f,pid,now,allowExhausted=false){
   const cost=punchCost(f,pid,now);
-  if(f.hp<=0||!Number.isFinite(now)||!Number.isFinite(cost)||f.sta<cost)return false;
+  if(f.hp<=0||!Number.isFinite(now)||!Number.isFinite(cost)||(!allowExhausted&&f.sta<cost))return false;
   f.sta=Math.max(0,f.sta-cost);
   const floor=(f.staCapInitial||100)*TUNING.staCapFloor;
   f.staCap=Math.max(floor,f.staCap-cost*TUNING.staCapWear);
@@ -102,12 +105,38 @@ export function setGuard(f,held,now){
 }
 
 /**
- * Start a slip when its stamina cost and cooldown permit it.
+ * Quote the next evade or slip cost without changing history; it grows with every evade made before evadeReset runs out.
  * @param {Combatant} f @param {number} now
  */
-export function beginSlip(f,now){
-  if(f.hp<=0||!Number.isFinite(now)||now<f.slipReadyAt||f.sta<TUNING.slipCost)return false;
-  f.sta=Math.max(0,f.sta-TUNING.slipCost);
+export function evadeCost(f,now){
+  if(!Number.isFinite(now))return Infinity;
+  const repeats=now>=f.slipSince+TUNING.evadeReset?0:f.evadeFatigue;
+  return TUNING.slipCost*(1+TUNING.evadeStep*repeats);
+}
+
+/**
+ * Map a room movement vector (di, dj) onto the axis from the fighter to the opponent (ui, uj): towards (in), away (back) or to a side.
+ * @param {number} di @param {number} dj @param {number} ui @param {number} uj
+ * @returns {{kind:'in'|'back'|'left'|'right',fwd:number,side:number,slipDir:1|-1,di:number,dj:number}}
+ */
+export function classifyEvade(di,dj,ui,uj){
+  const l=Math.hypot(di,dj)||1, u=Math.hypot(ui,uj)||1, nx=di/l, ny=dj/l, ux=ui/u, uy=uj/u;
+  const fwd=nx*ux+ny*uy, side=-nx*uy+ny*ux;
+  /** @type {'in'|'back'|'left'|'right'} */
+  const kind=fwd>=TUNING.evadeFwdCos?'in':fwd<=-TUNING.evadeFwdCos?'back':(side<0?'left':'right');
+  return {kind,fwd,side,slipDir:side<0?-1:1,di:nx,dj:ny};
+}
+
+/**
+ * Start a slip or a directional evade when its stamina cost and cooldown permit it; a failed try leaves the fatigue untouched.
+ * @param {Combatant} f @param {number} now @param {'slip'|'in'|'back'|'left'|'right'} [kind]
+ */
+export function beginSlip(f,now,kind='slip'){
+  const cost=evadeCost(f,now);
+  if(f.hp<=0||!Number.isFinite(now)||now<f.slipReadyAt||!Number.isFinite(cost)||f.sta<cost)return false;
+  const repeats=now>=f.slipSince+TUNING.evadeReset?0:f.evadeFatigue;
+  f.sta=Math.max(0,f.sta-cost);
+  f.evadeFatigue=repeats+1;f.evadeKind=kind;
   f.slipSince=now;f.slipReadyAt=now+TUNING.slipCooldown;
   f.regenReadyAt=Math.max(f.regenReadyAt,now+.25);
   setGuard(f,false,now);
@@ -115,12 +144,27 @@ export function beginSlip(f,now){
 }
 
 /**
+ * A punch that ends just out of range while the defender is in a sideways or backwards evade missed by a hair: a perfect evade.
+ * @param {Combatant} attacker @param {Combatant} defender @param {{gap:number,range:number,now:number}} ctx
+ */
+export function resolveNearMiss(attacker,defender,{gap,range,now}){
+  if(!Number.isFinite(gap)||!Number.isFinite(range)||!Number.isFinite(now))return false;
+  const age=now-defender.slipSince, kind=defender.evadeKind;
+  if(!(kind==='back'||kind==='left'||kind==='right')||!(gap>range&&gap<=range+TUNING.evadeNearMiss)||!(age>=0&&age<=TUNING.slipActive))return false;
+  defender.evadeFatigue=0;
+  defender.counterUntil=now+TUNING.counterDuration;defender.counterMult=TUNING.counterPower;
+  defender.slipSince=-Infinity;
+  return true;
+}
+
+/**
  * Resolve contact once. Body shots sap stamina and ceiling; held blocks take minor chip damage; parries open a short counter window.
+ * A perfect slip, or a dash in that gets under the punch (gap and range given), also resets the defender's evade fatigue.
  * @param {Combatant} attacker @param {Combatant} defender
- * @param {{pid:number,low?:boolean,now:number}} blow
+ * @param {{pid:number,low?:boolean,now:number,gap?:number,range?:number}} blow
  * @returns {{kind:'hit'|'block'|'parry'|'slip',damage:number,counter:boolean,failedSlip:boolean}}
  */
-export function resolvePunch(attacker,defender,{pid,low=false,now}){
+export function resolvePunch(attacker,defender,{pid,low=false,now,gap,range}){
   const counter=attacker.punchCounter;
   const cMult=counter?(attacker.counterMult||TUNING.counterPower):1;
   attacker.punchCounter=false;
@@ -128,7 +172,9 @@ export function resolvePunch(attacker,defender,{pid,low=false,now}){
   if(!Number.isInteger(pid)||pid<0||pid>=PUNCH_DAMAGE.length)return {kind:'hit',damage:0,counter,failedSlip:false};
 
   const slipAge=now-defender.slipSince;
-  if(slipAge>=0&&slipAge<=TUNING.slipPerfect){
+  const jammed=defender.evadeKind==='in'&&slipAge>=0&&slipAge<=TUNING.evadeDashPerfect&&gap!==undefined&&range!==undefined&&gap<=range*TUNING.evadeJamRatio;
+  if((slipAge>=0&&slipAge<=TUNING.slipPerfect)||jammed){
+    defender.evadeFatigue=0;
     defender.counterUntil=now+TUNING.counterDuration;
     defender.counterMult=TUNING.counterPower;
     return {kind:'slip',damage:0,counter,failedSlip:false};
@@ -168,5 +214,6 @@ export function resolvePunch(attacker,defender,{pid,low=false,now}){
 
   damage=Math.min(defender.hp,damage);
   defender.hp=Math.max(0,defender.hp-damage);
+  if(kind==='hit'&&damage>0)attacker.evadeFatigue=0;   // landing a punch resets the attacker's evade fatigue
   return {kind,damage,counter,failedSlip};
 }

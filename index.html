@@ -15,6 +15,7 @@
 <div id="levelToast" role="status" aria-live="polite" hidden></div>
 <div id="stage">
   <canvas id="screen"></canvas>
+  <div id="portStory" class="port-story" role="status" aria-live="polite"></div>
   <div id="simCard" class="simcard" role="status" aria-live="polite" aria-atomic="true"></div>
   <div id="needsHud" class="needs-hud" role="status" aria-live="polite" aria-atomic="true" aria-label="Stan postaci"></div>
   <div id="fightPlate" class="fight-plate" hidden><small id="fpKicker"></small><b id="fpName"></b><span id="fpRisk"></span></div>
@@ -41,7 +42,6 @@
     <p>Dźwięk i ustawienia gry. Zmiany działają od razu.</p>
     <h2>DŹWIĘK</h2>
     <label><input id="snd" type="checkbox" checked> dźwięk (klawisz M)</label>
-    <label><input id="optCardAuto" type="checkbox"> walka: obrona i momenty bez wyczucia czasu (auto)</label>
     <h2 class="debug-only">OBRAZ</h2>
     <label class="debug-only"><input id="dbg" type="checkbox"> szkielet (klawisz G)</label>
     <h2>TRYB DEVELOPERSKI</h2>
@@ -50,11 +50,13 @@
     </div>
     <div id="devScenesBox" hidden style="display:none; flex-direction:column; gap:6px; margin:8px 0; padding:8px; background:rgba(0,0,0,0.35); border:1px solid var(--linia);">
       <div style="font-size:12px; color:var(--szary); margin-bottom:4px;">Wybierz scenę do przetestowania:</div>
+      <div class="port-debug-hint">Port nad Tamizą jest dostępny po <a href="?debug=1">uruchomieniu gry z debugowaniem</a>.</div>
       <div class="obtns" style="margin:0; gap:6px;">
         <button type="button" data-dev-scene="cell">Cela (Ward)</button>
         <button type="button" data-dev-scene="yard">Spacerniak</button>
         <button type="button" data-dev-scene="laznia">Łaźnia</button>
         <button type="button" data-dev-scene="work">Rzeźnia</button>
+        <button class="debug-only" type="button" data-dev-scene="port">Port nad Tamizą</button>
         <button type="button" data-dev-scene="arm">Siłowanie na rękę</button>
         <button type="button" data-dev-scene="spar">Bójka (izometryczna)</button>
         <button type="button" data-dev-scene="shadow">Trening: Cień</button>

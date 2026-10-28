@@ -16,7 +16,7 @@ export function startCrank(o={}){
   title.textContent='Żelazna korba';lead.textContent='Ładowanie szopy…';rows.innerHTML='';go.hidden=true;back.textContent='Wróć do Wardu';board.hidden=false;
   loadCrankScene().then(()=>{
     if(!state.on||id!==state.loadId)return;
-    state.phase='intro';lead.textContent='Ta maszyna niczego nie napędza. Klucznik żąda tylko kolejnych obrotów.';
+    state.phase='intro';lead.textContent='Ta maszyna niczego nie napędza. Liczą się tylko kolejne obroty.';
     rows.innerHTML='<p>Pracujesz przez <b>30 sekund</b>. Norma: <b>'+TARGET+' pełnych obrotów</b>.</p><p><kbd>Spacja</kbd> — trzymaj, gdy uchwyt idzie prawym łukiem w górę, od godziny <b>6 przez 3 do 12</b>. Puść na lewym łuku w dół, od <b>12 przez 9 do 6</b>. Równy rytm rozpędza korbę. Przy niewłaściwym chwycie korba czeka — popraw Spację, aby kontynuować. Na 12 i 6 korba czeka na zmianę chwytu.</p><p>Możesz też trzymać i puszczać przycisk pod sceną. <kbd>F10</kbd> — pauza; <kbd>Esc</kbd> — przerwij pracę.</p>';
     go.hidden=false;go.textContent='Chwyć korbę';go.focus();setInfo();syncHUD();
   }).catch(()=>{if(state.on&&id===state.loadId){state.phase='error';lead.textContent='Nie udało się wczytać tła. Wróć i spróbuj ponownie.';}});
@@ -57,7 +57,7 @@ function finish(aborted=false){
   const result={turns:c.turns,best:c.best,accuracy,won,aborted};
   const rewards=state.o.onEnd?.(result)||[];
   title.textContent=aborted?'Puściłeś korbę przed dzwonkiem':won?'Norma wykręcona':'Żelazo nie ustąpiło';
-  lead.textContent=aborted?'Klucznik zapisuje przerwaną pracę.':won?'Klucznik stawia kreskę. Maszyna nadal niczego nie napędza.':'Klucznik zapisuje wynik poniżej normy. Jutro znów ta sama korba.';
+  lead.textContent=aborted?'Praca została przerwana.':won?'Norma wykonana. Maszyna nadal niczego nie napędza.':'Wynik poniżej normy. Jutro znów ta sama korba.';
   rows.innerHTML='<div class="cr-summary">'+[['Pełne obroty',c.turns+' / '+TARGET],['Rytm',accuracy+'%'],['Najlepsza seria',c.best],...rewards].map(([k,v])=>'<span>'+k+'</span><b>'+v+'</b>').join('')+'</div>';
   go.hidden=true;back.textContent='Wróć do Wardu';board.hidden=false;back.focus();tone('sine',300,won?720:180,.2,.08);syncHUD();
 }

@@ -19,6 +19,14 @@
         "scripts/serve.mjs"
       ],
       "port": 5191
+    },
+    {
+      "name": "sumo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "../Sumo/scripts/serve.mjs"
+      ],
+      "port": 5180
     }
   ]
 }

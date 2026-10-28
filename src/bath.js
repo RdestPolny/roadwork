@@ -32,7 +32,8 @@ const GUT_J0 = 2.5, GUT_J1 = 2.78, DRAIN = [9.72,2.64];
 /** The vault: the walls rise to the springing, above it the brick barrel; on the end wall (i = 0) the arch itself. */
 const SPRING_Z = 13.2;
 /** Gas sconces: [i, j, z]. */
-const LAMPS = [[0.12,4.55,11.8],[SHOWERS[0]+STALL_W/2,0.12,12.2],[SHOWERS[3]+STALL_W/2,0.12,12.2]];
+/** The three gas lamps [i, j, height]; the fighters are lit from the nearest. */
+export const LAMPS = [[0.12,4.55,11.8],[SHOWERS[0]+STALL_W/2,0.12,12.2],[SHOWERS[3]+STALL_W/2,0.12,12.2]];
 /** The turnkey's podium. */
 const POD = {i:0.15,j:2.7,w:1.35,h:1.6,z:3.0};
 
@@ -82,7 +83,7 @@ function wallCol(a,z,x,y,right){
 }
 
 /** The floor: worn wet flags, soap scum, the gutter and its drain, black along the walls. @param {number} x @param {number} y */
-function floorCol(x,y){
+export function floorCol(x,y){
   const a=(x-gymState.HUB_OX)/6, b=(y-gymState.HUB_OY)/3, i=(a+b)/2, j=(b-a)/2;
   if(i<0||j<0||i>BATH_W||j>BATH_H) return 0;
   const row=Math.floor(j/1.2), off=h2(row,9)/255*1.4, si=(i+off)/1.7, fi=si-Math.floor(si), fj=j/1.2-row, n=h2(Math.floor(si)*3+row*13,row);
@@ -201,15 +202,13 @@ export function bathEnter(){
     if(bi>=0&&B[bi]){ const b=B[bi]; Object.assign(Cn,{act:'sit',i:b.i+itemW(b)/2,j:b.j+itemH(b)/2,fi:0,fj:-1,after:b}); return; }   // facing the tubs
     Object.assign(Cn,{act:'rest',i:2.4,j:4.6,fi:0.3,fj:-1});                                     // waiting for a tub
   });
-  Object.assign(npcsState.GUARD,{i:POD.i+POD.w/2,j:POD.j+POD.h/2,fi:0.92,fj:-0.4,z0:POD.z,act:'behind',moving:false,after:pod});   // watching the stalls
-  state.crowd=[...npcsState.YN,npcsState.GUARD];
+  state.crowd=[...npcsState.YN];
 }
 /** Leaving the bath: clothes and places as they were. */
 export function bathLeave(){
   if(!state.saved) return;
   const P=appearanceState.PAL;
   npcsState.YN.forEach((Cn,k)=>{ const S=state.saved[k]; P.set(S.pal,Cn.rb*3); Object.assign(Cn,{sleeves:S.C.sleeves,pants:S.C.pants,bath:false,tub:false,z0:0,yard:true,act:'idle',after:null,smoke:S.C.smoke}); });
-  Object.assign(npcsState.GUARD,{z0:0,after:null});
   state.saved=null;
 }
 
@@ -287,7 +286,7 @@ export function bathOptions(st){
       const here=()=>({...st,look:[Cn.i,Cn.j,15],spot:[gymState.hubP.i,gymState.hubP.j]});
       const go=()=>{ prisonFightStart('laznia',k); startSpar(k,'laznia',here()); };
       const why=prisonGate();
-      return [['Bójka w łaźni: '+O.title+' '+'★'.repeat(oppStars(O))+' · do KO · 1 akcja · para kryje (klucznik 20%)'+listTag('laznia',k)+(why?' — '+why:''),go,!!why],...prisonFightExtras(true,k,go,here)]; }
+      return [['Bójka w łaźni: '+O.title+' '+'★'.repeat(oppStars(O))+' · do KO · 1 akcja'+listTag('laznia',k)+(why?' — '+why:''),go,!!why],...prisonFightExtras(true,k,go,here)]; }
   }
   return null;
 }

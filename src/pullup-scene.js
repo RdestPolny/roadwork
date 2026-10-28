@@ -14,16 +14,16 @@ import { vnoise, fbm } from './noise.js';
 
 const CX = 72;
 /** The cross bar's middle row; the hands close on it at CX ± GRIP.x. */
-export const BAR_Y = 40;
-export const GRIP = {x:32.5,y:BAR_Y};
-/** Shoulder joint to elbow, elbow to the middle of the fist. */
-export const ARM = {upper:22,fore:21};
+export const BAR_Y = 22;
+export const GRIP = {x:21,y:BAR_Y};
+/** Reference hang: 42 px grip span, 37 px drop to shoulders, 13 px head width; the forearms stay below the grips. */
+export const ARM = {upper:20,fore:18};
 /** The grille's opening, the reveal's mouth on the room side, the vanishing point of the reveal. */
 export const OPEN = {x0:26,x1:118,y0:9,y1:71};
 const INNER = {x0:12,x1:132,y0:-2,y1:79}, VP = {x:72,y:44};
 /** Left edges of the five square bars (5 px), spaced like the iso grille: the first and last stand against the jambs. */
 const BARS = [0,1,2,3,4].map(k=>OPEN.x0+21.6*k);
-const SY_TOP = BAR_Y+5;
+const SY_TOP = BAR_Y+4.0;
 const DOME = {x:57,y:34};
 /** Surfaces of the background, per pixel. */
 const K_WALL=0, K_JAMB_L=1, K_JAMB_R=2, K_SOFFIT=3, K_SILL=4, K_BAR=5, K_SKY=6;
@@ -65,31 +65,39 @@ function surface(x,y){
 /** @param {number} px @param {number} py */
 function onBar(px,py){ return Math.abs(py-BAR_Y-0.5)<2.5||BARS.some(b=>px>=b&&px<b+5); }
 
-/** Old brick under peeling limewash, soot from the vault, the slot's rust and water running down under the sill.
+const BAYER16=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+const RUST_DUST=rgb('#5a3822');
+
+/** Old brick under peeling limewash, soot from the vault, the slot's rust and water running down under the sill; the lamp's falloff is dithered.
  * @param {number} x @param {number} y */
 function wallCol(x,y){
-  const yy=y+40, course=(yy/5)|0, off=(course&1)*6.5, bx=Math.floor((x+off)/13), mort=yy%5===0||Math.floor(x+off)%13===0;
-  const id=h2(bx+3,course*5+1), brick=[rgb('#5e3a2c'),rgb('#6b4332'),rgb('#553328'),rgb('#714a36')][id&3];
-  let c=mort?rgb('#3c3530'):mulc(brick,0.9+((id>>2)&15)/15*0.2);
-  const lime=vnoise(x*0.07+2,y*0.09)*0.7+vnoise(x*0.21,y*0.23+4)*0.3;
-  if(lime>0.47) c=mixc(rgb('#a29d8c'),rgb('#8c8778'),vnoise(x*0.3,y*0.3)); else if(lime>0.45) c=mixc(c,rgb('#3a332c'),0.5);   // the limewash and the lip where it flaked off
-  c=mixc(c,rgb('#14110e'),Math.max(0,Math.min(0.75,0.18+0.4*vnoise(x*0.05+9,y*0.04)+(y<20?(20-y)*0.02:0))));
-  if(x>=OPEN.x0-4&&x<OPEN.x1+4&&y>=INNER.y1){ const run=4+16*vnoise(x*0.33,7.1); if(y-INNER.y1<run) c=mixc(c,(x&7)<3?rgb('#4a2a16'):rgb('#1c2418'),0.5*(1-(y-INNER.y1)/run)); }
-  if(y>86) c=mixc(c,rgb('#1f241c'),Math.min(0.5,(y-86)*0.06));
-  return mulc(c,1.08-x/144*0.3);                                                                // the lamp is on the left
+  const yy=y+40, course=(yy/5)|0, ry=yy%5, off=(course&1)*6.5, ux=x+off, bx=Math.floor(ux/13), rx=Math.floor(ux)%13;
+  const mort=ry===0||rx===0, id=h2(bx+3,course*5+1);
+  const brick=[rgb('#5e3a2c'),rgb('#6b4332'),rgb('#553328'),rgb('#714a36')][id&3];
+  let c=mort?rgb('#342e29'):mulc(brick,(ry===1?1.08:ry===4?0.84:0.94)+((id>>2)&15)/15*0.16);   // the brick's top edge catches the light, its bottom is in shade
+  const lime=fbm(x*0.07+2,y*0.09)*0.72+vnoise(x*0.23,y*0.25+4)*0.28;
+  if(lime>0.47){ c=mixc(rgb('#a49e8c'),rgb('#888272'),vnoise(x*0.28,y*0.28)); if(ry===0&&((x+y)&1)) c=mulc(c,0.9); }   // the courses show under the limewash
+  else if(lime>0.445) c=mixc(c,rgb('#dcd6c4'),0.35);   // a pale chip at the edge of the lime
+  else if(lime>0.425) c=mixc(c,rgb('#2a231e'),0.55);   // the shadow under the chip
+  c=mixc(c,rgb('#120f0c'),Math.max(0,Math.min(0.78,0.18+0.42*vnoise(x*0.05+9,y*0.04)+(y<22?(22-y)*0.022:0))));
+  if(x>=OPEN.x0-4&&x<OPEN.x1+4&&y>=INNER.y1){ const run=5+18*vnoise(x*0.33,7.1); if(y-INNER.y1<run) c=mixc(c,(x&7)<3?rgb('#4c2a16'):rgb('#1b2317'),0.55*(1-(y-INNER.y1)/run)); }
+  if(y>86) c=mixc(c,rgb('#1c221a'),Math.min(0.55,(y-86)*0.06));
+  return mulc(c,1.10-x/144*0.32+(BAYER16[(y&3)*4+(x&3)]-7.5)/255*0.5);                          // the lamp is on the left
 }
-/** Dressed stone of the reveal: blocks along it, two stones deep. @param {number} k @param {number} t @param {number} v @param {number} x @param {number} y */
+/** Dressed stone of the reveal: blocks along it, two stones deep, iron cramps where the bar is let into the jambs. @param {number} k @param {number} t @param {number} v @param {number} x @param {number} y */
 function revealCol(k,t,v,x,y){
-  const side=k===K_JAMB_L||k===K_JAMB_R, row=Math.floor((v+3)/(side?11:15)), deep=t>(row&1?0.45:0.6)?1:0;
-  const along=side?((v+3)%11):((v+3)%15), joint=along<0.9||Math.abs(t-(row&1?0.45:0.6))<0.05;
-  const id=h2(row*3+k,deep+7), base=[rgb('#77736a'),rgb('#6c685f'),rgb('#807b70')][id%3];
-  let c=joint?rgb('#3b3732'):mulc(base,0.92+(id>>4&7)*0.02), lit;
-  if(k===K_SILL){ lit=0.62+0.5*t;
+  const side=k===K_JAMB_L||k===K_JAMB_R, step=side?11:15, row=Math.floor((v+3)/step), deep=t>(row&1?0.45:0.6)?1:0;
+  const along=(v+3)%step, joint=along<0.9||Math.abs(t-(row&1?0.45:0.6))<0.05;
+  const id=h2(row*3+k,deep+7), base=[rgb('#78736a'),rgb('#6b665d'),rgb('#827c70')][id%3];
+  let c=joint?rgb('#322e29'):mulc(base,(along<1.8?1.08:along>step-1.2?0.88:0.95)+(id>>4&7)*0.02), lit;
+  if(side&&Math.abs(y-BAR_Y)<2.2&&t>0.72) return t>0.88?rgb('#1e1c1a'):rgb('#3a3530');   // the cramp holding the cross bar in the jamb
+  if(k===K_SILL){ lit=0.62+0.52*t;
     const u=v, ub=BARS.map(b=>VP.x+(b+2.5-VP.x)/0.767).find(b=>Math.abs(u-b)<1.6+1.8*(1-t));
-    if(ub!==undefined){ lit*=0.72; if(vnoise(u*0.8,t*6)>0.42) c=mixc(c,rgb('#6a3a1c'),0.45*t+0.1); } }   // the bars' shadows and their rust run in towards the room
-  else if(k===K_SOFFIT){ lit=0.34+0.3*t; c=mixc(c,rgb('#1a1612'),0.25+0.3*vnoise(x*0.2,t*3)); }
-  else lit=(k===K_JAMB_L?0.5:0.42)+0.5*t;
-  if(t<0.07) lit*=1.14;                                                                          // the worn arris
+    if(ub!==undefined){ lit*=0.70; if(vnoise(u*0.8,t*6)>0.4) c=mixc(c,rgb('#6e3a1c'),0.48*t+0.12); }   // the bars' shadows and their rust run in towards the room
+    if(t<0.25&&vnoise(x*0.35,y*0.6)>0.58) c=mixc(c,rgb('#242c1e'),0.35); }                            // moss at the sill's edge
+  else if(k===K_SOFFIT){ lit=0.32+0.3*t; c=mixc(c,rgb('#161310'),0.28+0.32*vnoise(x*0.2,t*3)); }
+  else lit=(k===K_JAMB_L?0.52:0.42)+0.5*t;
+  if(t<0.07) lit*=1.16;                                                                          // the worn arris
   return mulc(c,lit*(0.55+0.45*state.lum));
 }
 /** Square iron bars against the sky: a lit edge, a dark edge, rust. @param {number} x @param {number} y @param {number} light */
@@ -110,21 +118,26 @@ function outsideCol(x,y,S){
   const L=state, px=x+0.5, py=y+0.5, k=(y-OPEN.y0)/(OPEN.y1-OPEN.y0), smog=L.smog;
   let c=mixc(S[0],S[1],Math.min(1,k*1.4)); c=mixc(c,smog,0.62+0.18*k); c=mixc(c,L.light0,Math.max(0,0.25-Math.abs(py-50)*0.02));
   const roof=L.roof[x]??99, eave=L.eave[x]??99;
-  if(py>=57){                                                                                    /* the gaol's outer wall: coping, chevaux-de-frise */
-    const block=h2((x+(((y-57)/5|0)&1)*4)>>3,(y-57)/5|0); let w=py<59?rgb('#4a4842'):mulc(rgb('#33302c'),0.85+(block&7)*0.03);
-    if(py>=59&&((y-59)%5===0)) w=rgb('#24221f'); return [mixc(w,smog,0.18),0]; }
-  if(py>=53.5&&Math.abs(((px*0.5)%2)-1)*2.6<py-53.5) return [mixc(rgb('#1e1c1a'),smog,0.2),0];
+  if(py>=57){                                                                                    /* the gaol's outer wall: coping, courses of stone */
+    const row=((y-57)/5)|0, bx=(x+(row&1)*4)>>3, block=h2(bx,row);
+    let w=py<59?rgb('#545049'):mulc(rgb('#35322e'),0.84+(block&7)*0.03);
+    if(py>=59&&((y-59)%5===0||(x+(row&1)*4)%8===0)) w=rgb('#22201d');
+    return [mixc(w,smog,0.16),0]; }
+  if(py>=53.5&&Math.abs(((px*0.5)%2)-1)*2.6<py-53.5) return [mixc(rgb('#1e1c1a'),smog,0.2),0];   // chevaux-de-frise
   if(py>=roof){                                                                                  /* the terraces: slate roofs, a band of top-floor windows */
     let r;
-    if(py<eave) r=mulc(rgb('#3d4046'),((y-roof)|0)%2?0.92:1.02);
-    else { const win=(x%6<2)&&(py-eave>1.2)&&(py-eave<3.6), lit=L.night&&h2(x>>2,9)<110; r=win?(lit?rgb('#d89a48'):rgb('#1c1a18')):rgb('#4b3a30'); if(win&&lit) return [r,1]; }
-    return [mixc(r,smog,0.38),1]; }
-  const dx=px-DOME.x, far0=mixc(rgb('#2e3136'),smog,0.5);
+    if(py<eave){ r=mulc(rgb('#3b3f46'),((y-roof)|0)%2?0.9:1.04); if(L.rain&&((x+y)&3)===0) r=mixc(r,L.light0,0.18); }   // wet slate shines in rain
+    else { const win=(x%6<2)&&(py-eave>1.2)&&(py-eave<3.8), mullion=win&&Math.abs(py-eave-2.4)<0.45, lit=L.night&&h2(x>>2,9)<110;
+      r=win?(mullion?rgb('#26221e'):lit?rgb('#de9e4a'):rgb('#1a1816')):(Math.abs(py-eave)<0.6?rgb('#5c4a3e'):rgb('#48382e')); if(win&&lit) return [r,1]; }
+    return [mixc(r,smog,0.36),1]; }
+  const dx=px-DOME.x, far0=mixc(rgb('#2d3036'),smog,0.48);
   const body=(py>=DOME.y+6&&Math.abs(dx)<15)||(py>=DOME.y+3&&py<DOME.y+7&&Math.abs(dx)<10)||(py>=DOME.y&&py<DOME.y+3&&Math.abs(dx)<8);
-  const far=far0, cup=py<DOME.y&&(dx/10)**2+((py-DOME.y)/9)**2<1, lan=py>=DOME.y-13&&py<DOME.y-8.5&&Math.abs(dx)<1.7;
+  const cup=py<DOME.y&&(dx/10)**2+((py-DOME.y)/9)**2<1, lan=py>=DOME.y-13&&py<DOME.y-8.5&&Math.abs(dx)<1.7;
   const ball=py>=DOME.y-15&&py<DOME.y-13&&Math.abs(dx)<1, cross=(py>=DOME.y-18&&py<DOME.y-15&&Math.abs(dx)<0.6)||(Math.abs(py-DOME.y+16.5)<0.6&&Math.abs(dx)<1.6);
   if(body||cup||lan||ball||cross){
-    let d=far; if(cup) d=mulc(far,dx<-4?1.16:dx<1?1.06:0.92); else if(py>=DOME.y+3&&py<DOME.y+6) d=mulc(far,(x&1)?0.9:1.05);
+    let d=far0;
+    if(cup){ const rib=Math.abs(((dx*0.45)%1))-0.5<0.12?0.94:1; d=mulc(far0,(dx<-4?1.18:dx<1?1.06:0.9)*rib); }   // the ribs of the dome
+    else if(py>=DOME.y+3&&py<DOME.y+6) d=mulc(far0,(x&1)?0.88:1.08);
     return [L.night?mulc(d,0.6):d,2]; }
   return [c,3];
 }
@@ -150,7 +163,7 @@ export function buildPullupBackground(){
     else { L.bg[i]=revealCol(k,t,v,x,y); L.glow[i]=L.lum*0.35*t; L.roomK[i]=0.25+0.35*(1-t); } }
   L.openGlow=open; L.t=0; L.ps=0; L.pv=0; L.effort=0; L.phase=''; L.reps=0; L.asym=0; L.sheen=0;
   L.z=new Float32Array(N); L.mat=new Uint8Array(N); L.rays=new Float32Array(73*49); L.src=new Float32Array(72*48);
-  L.roaches=[0,1,2,3,4].map(id=>spawnRoach(id,true)); L.puffs=[]; L.drips=[]; L.birds=[]; L.birdT=120;
+  L.roaches=[0,1,2,3,4].map(id=>spawnRoach(id,true)); L.sway=0; L.swayV=0; L.headLag=0; L.headLagV=0; L.gripJolt=0; L.grit=[]; L.puffs=[]; L.drips=[]; L.birds=[]; L.birdT=120;
   L.motes=Array.from({length:18},(_,k)=>({x:20+h2(k,1)/255*104,y:4+h2(k,2)/255*88,ph:k}));
   return L.bg;
 }
@@ -161,9 +174,18 @@ export function buildPullupBackground(){
  * breath, sweat, the roaches, the birds and the dust. @param {{p:number,phase:string,held:boolean,reps:number,strain:number}} g */
 export function pullupSceneTick(g){
   const L=state; if(!L.bg) return; L.t++;
-  L.pv+=(g.p-L.ps)*0.32; L.pv*=0.6; L.ps+=L.pv; L.ps=Math.max(-0.12,Math.min(1.04,L.ps));
+  const prevPs=L.ps, prevPv=L.pv;
+  L.pv+=(g.p-L.ps)*0.30; L.pv*=0.64; L.ps+=L.pv; L.ps=Math.max(-0.12,Math.min(1.04,L.ps));
   L.effort+=((g.phase==='up'&&g.held?1:0)-L.effort)*0.08; L.strain=g.strain; L.fatigue=Math.min(1,g.reps/14);
-  if(g.phase==='up'&&L.phase!=='up') L.asym=(Math.random()-0.5)*0.12;
+  if(g.phase==='up'&&L.phase!=='up'){
+    L.asym=(Math.random()-0.5)*0.12; L.swayV+=L.asym*2.2+(Math.random()-0.5)*0.4; L.gripJolt=1;
+    for(const s of [-1,1]) for(let k=0;k<3;k++) L.grit.push({x:CX+s*GRIP.x+(Math.random()-0.5)*4,y:BAR_Y+2,vx:(Math.random()-0.5)*0.18,vy:0.15+Math.random()*0.25,age:0,life:28+Math.random()*18});   // rust crumbling off the bar under the fists
+  }
+  if(prevPs>0.03&&L.ps<=0.01&&prevPv<-0.015){ L.headLagV+=1.1; L.swayV+=(Math.random()-0.5)*0.35; }   // the jolt into the dead hang
+  L.gripJolt*=0.82;
+  L.swayV+=-L.sway*0.09-L.swayV*0.14; L.sway+=L.swayV;   // the body swings a little from the hips and the head trails the pull
+  const targetHead=-L.pv*24+L.strain*1.6+L.fatigue*0.9;
+  L.headLagV+=(targetHead-L.headLag)*0.22-L.headLagV*0.32; L.headLag=Math.max(-2.5,Math.min(3.2,L.headLag+L.headLagV));
   if(g.phase==='down'&&L.phase==='up'){ const P=L.pose; L.puffs.push({x:P.hx+(Math.random()<0.5?-5:5),y:P.hy+2,age:0,life:70,vx:(Math.random()-0.5)*0.1}); }   // he breathes out at the top
   if(g.reps>L.reps&&g.reps>=3&&L.drips.length<6) L.drips.push({x:(Math.random()-0.5)*14,y:-2,v:0,stick:0});
   L.reps=g.reps; L.phase=g.phase; L.sheen=Math.min(0.85,0.22+g.reps*0.06);
@@ -171,54 +193,59 @@ export function pullupSceneTick(g){
   for(const p of L.puffs) p.age++; L.puffs=L.puffs.filter(p=>p.age<p.life);
   for(const d of L.drips){ if(d.stick>0) d.stick--; else { d.v=Math.min(0.22,d.v+0.006); d.y+=d.v; if(Math.random()<0.02){ d.stick=20+Math.random()*60; d.v=0; } } }
   L.drips=L.drips.filter(d=>d.y<60);
+  for(const q of L.grit){ q.age++; q.x+=q.vx; q.y+=q.vy; q.vy+=0.03; } L.grit=L.grit.filter(q=>q.age<q.life&&q.y<95);
   for(const m of L.motes){ m.x+=Math.sin(L.t*0.011+m.ph*1.7)*0.05+0.012; m.y+=Math.cos(L.t*0.009+m.ph)*0.04-0.006; if(m.x>126) m.x=18; if(m.y<2) m.y=92; }
   for(const r of L.roaches) roachTick(r);
   if(--L.birdT<=0){ const left=Math.random()<0.5; L.birds.push({x:left?OPEN.x0-6:OPEN.x1+6,y:14+Math.random()*22,vx:(left?1:-1)*(0.3+Math.random()*0.25),ph:Math.random()*6}); L.birdT=300+Math.random()*700; }
   for(const b of L.birds){ b.x+=b.vx; b.y+=Math.sin(L.t*0.03+b.ph)*0.04; } L.birds=L.birds.filter(b=>b.x>OPEN.x0-8&&b.x<OPEN.x1+8);
 }
 
-/** Two-bone arm with the elbow kept outward and down. @param {number} sx @param {number} sy @param {number} gx @param {number} gy @param {number} side */
-function armIK(sx,sy,gx,gy,side){
-  const U=ARM.upper, F=ARM.fore, max=(U+F)*0.995; let dx=gx-sx, dy=gy-sy, d=Math.hypot(dx,dy);
-  if(d>max){ sx=gx-dx*max/d; sy=gy-dy*max/d; dx=gx-sx; dy=gy-sy; d=max; }
-  const a=(U*U-F*F+d*d)/(2*d), hh=Math.sqrt(Math.max(0,U*U-a*a)), bx=sx+dx*a/d, by=sy+dy*a/d, nx=-dy/d, ny=dx/d;
-  const e1=[bx+nx*hh,by+ny*hh], e2=[bx-nx*hh,by-ny*hh], e=side*(e1[0]-CX)>side*(e2[0]-CX)?e1:e2;
-  return {sx,sy,ex:e[0],ey:e[1],gx,gy};
+/** Let the elbow move slightly outward below the grip. @param {number} sx @param {number} sy @param {number} gx @param {number} gy @param {number} offset */
+function armIK(sx,sy,gx,gy,offset){
+  const max=(ARM.upper+ARM.fore)*0.995, dx=gx-sx, dy=gy-sy, d=Math.hypot(dx,dy);
+  if(d>max){ sx=gx-dx*max/d; sy=gy-dy*max/d; }
+  return {sx,sy,ex:gx+offset,ey:gy+ARM.fore,gx,gy};
 }
 
 /** The hero's skeleton for the smoothed progress: shoulder blades up by the ears at the dead hang, pulled down and
- * together on the way up, lats flaring, elbows driving down beside the ribs, the head tipping back over the bar. */
+ * together on the way up, lats flaring, elbows moving slightly outward below the grips, the head tipping back over the bar. */
 function solvePose(){
   const L=state, P=L.pose, p=L.ps, pc=Math.max(0,Math.min(1,p)), t=L.t;
-  const shrug=1-smooth(0,0.16,pc)+Math.max(0,-p)*3, ret=smooth(0.08,0.78,pc), act=Math.min(1,smooth(0.04,0.55,pc)+L.effort*0.25), tilt=smooth(0.72,1,pc);
-  const e=pc*pc*(3-2*pc)*0.35+pc*0.65, sw=16+1.2*ret-1.4*Math.min(1.4,shrug);
+  const shrug=1-smooth(0,0.18,pc)+Math.max(0,-p)*3, ret=smooth(0.18,0.85,pc), act=Math.min(1,smooth(0.04,0.50,pc)+L.effort*0.25), tilt=smooth(0.65,1,pc);
+  const sw=16.3+3.8*Math.sin(Math.PI*Math.pow(pc,0.7))*(1-0.4*pc)-0.1*ret;
+  const e=smooth(0,1,pc)*0.45+Math.pow(pc,1.6)*0.55;
   const shake=(L.strain*0.7+L.effort*L.fatigue*0.35)*(Math.sin(t*1.9)*0.6+Math.sin(t*3.1+1)*0.4);
-  const breath=(L.phase==='rest'||L.phase==='hang'||L.phase==='lock')?Math.sin(t*(0.07+L.fatigue*0.05)):0;
+  const breath=(L.phase==='rest'||L.phase==='hang'||L.phase==='lock')?Math.sin(t*(0.07+L.fatigue*0.06))*(1+0.5*L.fatigue):0;
   const hang=BAR_Y+Math.sqrt(((ARM.upper+ARM.fore)*0.985)**2-(GRIP.x-sw)**2), sy=hang+(SY_TOP-hang)*e+shake*0.5;
-  const lead=L.asym*Math.sin(Math.PI*pc)*6, tx=shake*0.4;
-  P.l=armIK(CX+tx-sw,sy-lead,CX-GRIP.x,GRIP.y,-1); P.r=armIK(CX+tx+sw,sy+lead,CX+GRIP.x,GRIP.y,1);
-  P.cx=CX+tx; P.ty=(P.l.sy+P.r.sy)/2+3*Math.min(1.3,shrug); P.tilt=(P.r.sy-P.l.sy)/(2*sw);
-  P.sw=sw; P.shrug=shrug; P.ret=ret; P.act=act; P.headTilt=tilt; P.breath=breath; P.trapH=6+4*Math.min(1.3,shrug);
-  P.hx=P.cx-P.tilt*5; P.hy=P.ty-14.6-1.2*tilt; P.flexL=1-Math.hypot(P.l.gx-P.l.sx,P.l.gy-P.l.sy)/(ARM.upper+ARM.fore); P.flexR=1-Math.hypot(P.r.gx-P.r.sx,P.r.gy-P.r.sy)/(ARM.upper+ARM.fore);
+  const lead=L.asym*Math.sin(Math.PI*pc)*6, tx=shake*0.4+L.sway;
+  P.l=armIK(CX+tx-sw,sy-lead,CX-GRIP.x,GRIP.y,-1.2*e); P.r=armIK(CX+tx+sw,sy+lead,CX+GRIP.x,GRIP.y,1.2*e);
+  P.cx=CX+tx; P.ty=(P.l.sy+P.r.sy)/2+2.2*Math.min(1.3,shrug); P.tilt=(P.r.sy-P.l.sy)/(2*sw)+L.sway*0.012; P.sway=L.sway;
+  P.sw=sw; P.shrug=shrug; P.ret=ret; P.act=act; P.headTilt=tilt; P.breath=breath;
+  P.trapH=5.2+2.0*Math.min(1.3,shrug)-1.0*ret+1.8*tilt*tilt;   // upper traps bunch up thick as he pulls over the bar
+  P.hx=P.cx-P.tilt*5; P.hy=P.ty-10.8+L.headLag*0.75; P.flexL=1-Math.hypot(P.l.gx-P.l.sx,P.l.gy-P.l.sy)/(ARM.upper+ARM.fore); P.flexR=1-Math.hypot(P.r.gx-P.r.sx,P.r.gy-P.r.sy)/(ARM.upper+ARM.fore);
 }
 
-/** Half-width of the back at Y px below the top of the ribcage: the traps' slope, the shoulders, the lats' flare, the
- * waist, the hips in the trousers. @param {number} Y */
+/** Half-width of the back at Y px below the top of the ribcage: a flared trapezoidal neck-to-shoulder slope above Y = 0,
+ * the lats' flare, the waist, the hips in the trousers. @param {number} Y */
 function backHalf(Y){
-  const P=state.pose, top=P.sw-1;
-  if(Y<0){ const q=Math.min(1,-Y/P.trapH); return 5.7+(top-5.7)*Math.pow(Math.max(0,1-q),0.7); }
-  if(Y>=40) return 12.4+(Y-40)*0.14;
-  const lat=(1.2+2.1*P.act)*gauss((Y-(7+3*(1-P.act)))/6.5);
-  return 12.2+(top-12.2)*Math.pow(1-Y/40,1.25)+lat+P.breath*0.5*gauss((Y-14)/10);
+  const P=state.pose, top=P.sw-0.8;
+  if(Y<0){
+    const q=Math.min(1,-Y/P.trapH), neckBase=3.9+0.45*P.act;
+    return neckBase+(top-neckBase)*Math.pow(Math.max(0,1-q),0.85);   // a full, nearly straight slope from the neck to the point of the shoulder: no gap under the ears
+  }
+  if(Y>=30) return 9.4+(Y-30)*0.14;
+  const lat=(2.2+2.0*P.act+1.2*P.headTilt)*gauss((Y-(7+2*(1-P.act)))/6.0);
+  return 9.4+(top-9.4)*Math.pow(1-Y/30,1.25)+lat+P.breath*0.5*gauss((Y-14)/10);
 }
-/** Height of the muscles over the round of the back, after a back mid-pull: the spine's groove between thick erectors,
- * the lower traps' diamond to a point at mid-back, the shoulder blades with their spines (wide and tipped up at the
- * dead hang, drawn down and in on the pull), teres and infraspinatus bunching towards the armpit, the lats' long wings.
+
+/** Height of the muscles over the round of the back: the cervical and thoracic spine groove, the C7 vertebra prominens at
+ * the base of the neck, the lower traps' diamond, the shoulder blades, teres/infraspinatus and the lats.
  * @param {number} X @param {number} Y @param {number} hw */
 function backBumps(X,Y,hw){
   const P=state.pose, ax=Math.abs(X);
-  let z=-1.5*gauss(X/1.25)*smooth(1,9,Y);                                                         // the spine's groove
-  z+=1.4*gauss((ax-4.4)/2.3)*smooth(15,31,Y)*(1+0.3*smooth(31,40,Y));                            // the erectors
+  let z=-1.5*gauss(X/1.25)*smooth(0.5,8,Y)-0.85*gauss(X/0.95)*(1-smooth(-0.5,2.5,Y));            // thoracic and cervical furrow
+  z+=(0.85+0.35*P.ret)*gauss(X/1.35)*gauss((Y+1.1-0.5*P.ret)/1.25);                               // C7 vertebra prominens at the neck base
+  z+=1.4*gauss((ax-4.4)/2.3)*smooth(15,31,Y)*(1+0.3*smooth(31,40,Y));                             // the erectors
   const tip=20+3*(1-P.ret), tw=Y<3?hw-3:(hw-3)*Math.max(0,(tip-Y)/(tip-3))*0.85;                  // lower and middle traps
   if(Y<tip) z+=(0.2+0.25*P.ret)*(1-smooth(tw-4,tw,ax))*smooth(-2,1,Y);
   const cx=10.5+3.5*(1-P.ret)+1.5*P.shrug, cy=9-2.5*P.shrug+1.5*P.ret, an=0.5*P.shrug-0.1*P.ret;  // the shoulder blade
@@ -228,7 +255,8 @@ function backBumps(X,Y,hw){
   z+=0.4*P.ret*gauss((ax-3.3)/1.8)*gauss((Y-11)/5);                                              // rhomboids between the blades
   const ax0=hw-1, ay0=6, vx=6.5-ax0, vy=33-ay0, tt=Math.max(0,Math.min(1,((ax-ax0)*vx+(Y-ay0)*vy)/(vx*vx+vy*vy)));
   z+=(0.8+2.2*P.act)*gauss(Math.hypot(ax-ax0-vx*tt,Y-ay0-vy*tt)/4.6)*Math.sin(Math.PI*tt)**0.7;   // the lats
-  z+=0.8*gauss((Y+1)/3.2)*gauss((ax-6)/3.2);                                                     // the upper traps over the shoulder line
+  const trapRidge=2.6+(hw-2.8)*smooth(-P.trapH,1.5,Y);
+  z+=(0.95+0.45*P.act)*gauss((Y+1.2)/3.0)*gauss((ax-trapRidge)/2.8);                              // upper trap slope from neck to acromion
   return z;
 }
 
@@ -252,26 +280,44 @@ function rasterBody(){
   const outer=(dx,dy,s)=>{ const l=Math.hypot(dx,dy)||1, n=[-dy/l,dx/l]; return n[0]*s*0.6-n[1]*0.8>0?n:[-n[0],-n[1]]; };
   for(const [A,s,flex] of /** @type {[any,number,number][]} */ ([[P.l,-1,P.flexL],[P.r,1,P.flexR]])){   // arms: deltoid, triceps, forearm, fist over the bar
     const S=[A.sx,A.sy], E=[A.ex,A.ey], fl=Math.hypot(A.gx-A.ex,A.gy-A.ey)||1, wr=[A.gx+(A.ex-A.gx)/fl*3.2,A.gy+(A.ey-A.gy)/fl*3.2];
-    const lu=outer(E[0]-S[0],E[1]-S[1],s), lf=outer(wr[0]-E[0],wr[1]-E[1],s), ur=[4.6,3.4], uz=[2.4,1], fr=[3.8,2.8], fz=[1,-3], fN=Math.min(1,flex/0.6);
+    const lu=outer(E[0]-S[0],E[1]-S[1],s), lf=outer(wr[0]-E[0],wr[1]-E[1],s), ur=[4.1,3.1], uz=[2.4,1], fr=[3.8,2.8], fz=[1,-3], fN=Math.min(1,flex/0.6);
+    // The upper trapezius joins the neck to the actual shoulder joint, including the raised joint in a dead hang.
+    cap([P.cx+s*4,P.ty-P.trapH+1+5*P.shrug],S,2.4,4.1,1.6,2.4,M_SKIN,0);
     cap(E,wr,fr[0],fr[1],fz[0],fz[1],M_SKIN,0.4);
     muscle(E,wr,lf,fr,fz,0.12,0.58,1.3,0.7,3.5,2.2,0.8+0.4*L.effort);                               /* extensors and brachioradialis, thick just below the elbow */
     muscle(E,wr,lf,fr,fz,0.1,0.48,-1.1,-0.7,3,2.1,0.6+0.3*L.effort);                             /*   and the flexors */
-    cap(S,E,ur[0],ur[1],uz[0],uz[1],M_SKIN,0.9+0.3*flex);
-    muscle(S,E,lu,ur,uz,0.12,0.72,-2,-1.2,3.7,2.5,1.2+0.4*fN);                                 /* triceps, long head by the armpit */
-    muscle(S,E,lu,ur,uz,0.12,0.45,1.6,1.4,3,2.3,0.7+0.2*fN);                                   /*   and lateral head */
-    muscle(S,E,lu,ur,uz,0.4-0.12*fN,0.84-0.06*fN,1.6,1.3,3.1+0.9*fN,2.2,0.9+1.5*fN);
-    muscle(S,E,lu,ur,uz,-0.02,0.4,0.5,0.3,4.8,2.3,1+0.3*L.effort);                               /* the deltoid's cap to its insertion */                /* the biceps: gathers into a peak as the elbow bends, narrows into it */
+    cap(S,E,ur[0],ur[1],uz[0],uz[1],M_SKIN,0.5+0.2*flex);
+    muscle(S,E,lu,ur,uz,0.12,0.72,-2,-1.2,3.3,2.3,0.5+0.3*fN);                                 /* triceps, long head by the armpit */
+    muscle(S,E,lu,ur,uz,0.12,0.45,1.6,1.4,2.8,2.1,0.4+0.2*fN);                                   /*   and lateral head */
+    muscle(S,E,lu,ur,uz,0.4-0.12*fN,0.84-0.06*fN,1.6,1.3,2.8+0.6*fN,2.1,0.4+0.7*fN);
+    muscle(S,E,lu,ur,uz,-0.02,0.4,0.5,0.3,4.2,2.3,0.3+0.2*L.effort);                               /* the deltoid's cap to its insertion */                /* the biceps: gathers into a peak as the elbow bends, narrows into it */
     ell(A.gx,A.gy-0.7,3.5,3.9,-3,2.6,()=>M_HAND); }
-  cap([P.hx,P.hy+4],[P.cx,P.ty-1],5.1,5.8,0.5,0.5,M_SKIN,0);
-  for(const s of [-1,1]) cap([P.hx+s*2.2,P.hy+5],[P.cx+s*2.9,P.ty-3],2.5,2.7,3,2.8,M_SKIN,0);   /* the neck's two columns, a groove between */                                       // the neck
-  const hairline=(/** @type {number} */ x)=>P.hy+4.1-0.9*((x+0.5-P.hx)/6.9)**2-1.4*P.headTilt;
-  ell(P.hx,P.hy,6.9,7.9,1.5,7,(x,y)=>y+0.5>hairline(x)?M_SKIN:M_HAIR,2.5);                              // the head, cropped close
-  for(const s of [-1,1]) ell(P.hx+s*6.4,P.hy+1.5,1.3,2.5,0.8,1.4,()=>M_EAR);
-  for(let y=Math.floor(P.ty-P.trapH-1);y<h;y++){                                                   // the back, row by row
+  // the neck: a flared core from the occiput to the upper traps, and two distinct extensor columns with a groove between them
+  const nTopY=P.hy+2.6-0.7*P.headTilt, nBotY=P.ty-0.8, nTense=0.45*P.act+0.4*P.headTilt;
+  cap([P.hx,nTopY],[P.cx,nBotY],3.1,4.6,1.2,2.2,M_SKIN,0);
+  for(const s of [-1,1]){
+    cap([P.hx+s*1.85,nTopY+0.4],[P.cx+s*2.65,nBotY-1.0],1.45,1.8,2.3+nTense,2.4+nTense*0.8,M_SKIN,0.15);
+    cap([P.hx+s*2.35,nTopY+1.4],[P.cx+s*5.8,P.ty-0.2],1.2,2.1,2.2+0.3*P.act,2.8+0.4*P.act,M_SKIN,0);   // the lateral slope of the upper trapezius (neck-to-shoulder web)
+  }
+  // the head from behind: a narrower crown, wider above the ears, a rounded occiput with an undercut shadow at the nape
+  const hTop=9.4, hBot=6.8, hMidY=P.hy-0.5*(hTop-hBot), hRy=0.5*(hTop+hBot);
+  const hairline=(/** @type {number} */ x)=>{ const dx=x+0.5-P.hx, u=dx/6.4; return P.hy+3.6-1.6*u*u+0.6*gauss(dx/2.2)-1.45*P.headTilt; };   // a tapered nape hairline, foreshortened when the head tips back
+  for(let y=Math.floor(P.hy-hTop-1);y<=Math.ceil(P.hy+hBot+1);y++){
+    const dy=y+0.5-P.hy, v=(y+0.5-hMidY)/hRy; if(Math.abs(v)>=1) continue;
+    const rx=6.4+0.4*gauss((dy+0.8)/2.8)-1.0*smooth(1.0,hBot,dy)-0.5*smooth(-2.5,-hTop,dy);   // widest near the parietal bosses and the ears
+    for(let x=Math.floor(P.hx-rx-1);x<=Math.ceil(P.hx+rx+1);x++){
+      const dx=x+0.5-P.hx, u=dx/rx, q=Math.abs(u)**2+Math.abs(v)**2; if(q>=1) continue;
+      const dome=7.0*Math.sqrt(1-q), occiput=(1.15+0.45*P.headTilt)*gauss((dy-0.8+1.1*P.headTilt)/2.3)*gauss(dx/3.8), undercut=1.35*smooth(2.0,hBot,dy);   // the external occipital protuberance, and the curve in under it
+      plot(x,y,2.1+dome+occiput-undercut,y+0.5>hairline(x)?M_SKIN:M_HAIR);
+    }
+  }
+  const earY=P.hy+0.35-0.55*P.headTilt;
+  for(const s of [-1,1]) ell(P.hx+s*6.4,earY,1.2,2.5,1.2,1.6,()=>M_EAR);
+  for(let y=Math.floor(P.ty-P.trapH-1);y<h;y++){                                                   // the back, row by row; the trapezius is tapered so that it meets the neck instead of swallowing it
     const Y0=y+0.5-P.ty, hw0=backHalf(Y0);
     for(let x=Math.floor(P.cx-hw0-2);x<=Math.ceil(P.cx+hw0+2);x++){ const X=x+0.5-P.cx, Y=Y0-P.tilt*X, hw=backHalf(Y), u=X/hw; if(Y<-P.trapH||Math.abs(u)>=1) continue;
-      const round=5.6*Math.sqrt(1-u**4);
-      if(Y>=40) plot(x,y,round+0.6*Math.sin(X*0.9+Y*0.3)*smooth(42,48,Y),M_PANT);
+      const round=5.6*(Y<0?0.48+0.52*smooth(-P.trapH,0,Y):1)*Math.sqrt(1-u**4);
+      if(Y>=30) plot(x,y,round+0.6*Math.sin(X*0.9+Y*0.3)*smooth(32,38,Y),M_PANT);
       else plot(x,y,round+backBumps(X,Y,hw),M_SKIN); } }
   return [x0,x1,y0,y1];
 }
@@ -284,21 +330,37 @@ function shadeBody(box){
   const hair=[mixc(PAL[A.R_HAIR*3],0xff000000,0.45),PAL[A.R_HAIR*3],PAL[A.R_HAIR*3+1],PAL[A.R_HAIR*3+2]];
   const pant=[mixc(PAL[A.R_PANT*3],0xff000000,0.4),PAL[A.R_PANT*3],PAL[A.R_PANT*3+1],PAL[A.R_PANT*3+2]];
   const rimc=mixc(skin[5],L.lightC,0.55), room=(0.5+0.5*L.light)*(0.62+0.38*L.lum);
+  for(let y=Math.max(0,box[2]);y<=Math.min(h-1,box[3]+4);y++) for(let x=Math.max(3,box[0]);x<=Math.min(w-1,box[1]+6);x++){   // the body's shadow on the stone, thrown right and down from the lamp
+    const i=y*w+x; if(Z[i]>-1e8||L.kind[i]===K_SKY||L.kind[i]===K_BAR||y<2) continue;
+    if(Z[(y-2)*w+x-3]>-1e8) fb[i]=mulc(fb[i],0.72);
+  }
   for(let y=box[2];y<=box[3];y++) for(let x=box[0];x<=box[1];x++){ const i=y*w+x, z=Z[i]; if(z<-1e8) continue;
     const zl=x>0&&Z[i-1]>-1e8?Z[i-1]:z-3, zr=x<w-1&&Z[i+1]>-1e8?Z[i+1]:z-3, zu=y>0&&Z[i-w]>-1e8?Z[i-w]:z-3, zd=y<h-1&&Z[i+w]>-1e8?Z[i+w]:z-3;
     const dzx=Math.max(-3,Math.min(3,(zr-zl)/2)), dzy=Math.max(-3,Math.min(3,(zd-zu)/2)), nl=1/Math.hypot(dzx,dzy,1), nx=-dzx*nl, ny=-dzy*nl, nz=nl;
-    const m=M[i], over=Math.max(zl,zr,zu,zd)-z>2.6;
+    const m=M[i], over=Math.max(zl,zr,zu,zd)-z>2.4;
     let I=(0.1+0.82*Math.max(0,nx*LF[0]+ny*LF[1]+nz*LF[2]))*room; if(over) I*=0.5;
+    const dxH=x+0.5-P.hx, dyH=y+0.5-(P.hy+4.2-0.8*P.headTilt), dxC=x+0.5-P.cx, dyT=y+0.5-P.ty;
+    if(m===M_SKIN&&dyT<1.5){   // the skull's shadow on the nape under the occiput, and the cervical furrow between the neck columns
+      const underOcciput=gauss((dxH-0.5)/3.4)*gauss((dyH-1.1)/1.5)*(1-0.3*P.headTilt), neckGroove=gauss(dxC/0.95)*smooth(P.hy+2.5,P.hy+4.5,y+0.5)*(1-smooth(-0.5,2.0,dyT));
+      I*=1-0.42*underOcciput-0.32*neckGroove;
+    }
     const sp=(m===M_SKIN||m===M_HAND)?Math.pow(Math.max(0,nx*HV[0]+ny*HV[1]+nz*HV[2]),18)*L.sheen:0;
     let c;
     if(m===M_HAIR) c=hair[Math.max(0,Math.min(3,Math.floor(I*3.6)))];
-    else if(m===M_PANT){ c=pant[Math.max(0,Math.min(3,Math.floor(I*3.6)))]; const Y=y+0.5-P.ty-P.tilt*(x+0.5-P.cx); if(Y<42) c=mixc(c,0xff000000,0.3); }
-    else { let k=Math.max(over?0:1,Math.floor(I*5)+1-(over?2:0)+(m===M_EAR?-1:0)); if(m===M_HAND&&y+0.5<P.l.gy-2.6) k++; c=skin[Math.min(5,k)]; if(sp>0.45) c=mixc(c,0xffffffff,sp>0.75?0.55:0.3); }
-    const sx=Math.round(x+nx*3.4), sy=Math.round(y+ny*3.4), gl=sx>=0&&sy>=0&&sx<w&&sy<h&&Z[sy*w+sx]<-1e8?L.glow[sy*w+sx]:0, rim=(1-nz)*gl*2.2;
-    if(rim>0.3) c=mixc(c,m===M_HAIR?mixc(hair[2],L.lightC,0.4):m===M_PANT?mixc(pant[3],L.lightC,0.5):rimc,rim>0.5?0.75:0.4);
+    else if(m===M_PANT){
+      const X=x+0.5-P.cx-(y-P.ty)*P.sway*0.04, Y=y+0.5-P.ty-P.tilt*X, fold=Math.sin(X*0.65+(Y-30)*0.45)*0.12;
+      let pk=Math.max(0,Math.min(3,Math.floor((I+fold)*3.6))); if(((x+y)&3)===0&&I>0.3) pk=Math.max(0,pk-1);   // the weave of coarse drill
+      c=pant[pk];
+      if(Y<32.2) c=mixc(c,0xff000000,Y<31?0.48:0.26); else if(Math.abs(X)<0.7) c=mixc(c,0xff000000,0.28);   // the waistband and the centre seam
+    }
+    else { let k=Math.max(over?0:1,Math.floor(I*5)+1-(over?2:0)+(m===M_EAR?-1:0)); if(m===M_HAND&&y+0.5<P.l.gy-1.8) k+=L.effort>0.3?2:1; c=skin[Math.min(5,k)]; if(sp>0.45) c=mixc(c,skin[5],sp>0.75?0.6:0.35); }   // knuckles whiten with the effort; the sweat's shine is a lighter skin tone, not white
+    const sx=Math.round(x+nx*3.2), sy=Math.round(y+ny*3.2), gl=sx>=0&&sy>=0&&sx<w&&sy<h&&Z[sy*w+sx]<-1e8?L.glow[sy*w+sx]:0;
+    const rim=(1-nz)*gl*2.2*((m===M_EAR||dyT<1)?1.35:1);   // a stronger rim on the ears, the occiput and the upper trapezius
+    if(rim>0.26) c=m===M_HAIR?mixc(c,mixc(hair[2],L.lightC,0.3),rim>0.48?0.4:0.22):mixc(c,m===M_PANT?mixc(pant[3],L.lightC,0.5):rimc,rim>0.48?0.78:0.42);   // the hair keeps its colour: a soft rim, not a helmet
     fb[i]=c; }
-  for(const d of L.drips){ const x=Math.round(P.cx+d.x), y=Math.round(P.ty+8+d.y);   // sweat running down the back
-    for(let k=0;k<2;k++){ const yy=y-k; if(x<0||yy<0||x>=w||yy>=h) continue; const i=yy*w+x; if(M[i]===M_SKIN&&Z[i]>-1e8) fb[i]=mixc(fb[i],0xffffffff,k?0.2:0.45); } }
+  const dropHi=mixc(skin[5],L.lightC,0.45), dropTail=skin[3];
+  for(const d of L.drips){ const x=Math.round(P.cx+d.x*0.85), y=Math.round(P.ty+6+d.y);   // sweat running down the back: a lit head and a darker tail, no white
+    for(let k=0;k<3;k++){ const yy=y-k; if(x<0||yy<0||x>=w||yy>=h) continue; const i=yy*w+x; if(M[i]===M_SKIN&&Z[i]>-1e8) fb[i]=mixc(fb[i],k===0?dropHi:dropTail,k===0?0.5:0.22); } }
 }
 
 /* ---------- the life around him ---------- */
@@ -381,6 +443,7 @@ function airLife(){
       const s=a*(1-d)*(1-d)*(0.55+0.6*vnoise(x*0.5+p.age*0.05,y*0.5)); if(s>0.02) fb[y*w+x]=mixc(fb[y*w+x],L.lightC,Math.min(0.6,s)); } }
   for(const m of L.motes){ const x=Math.floor(m.x), y=Math.floor(m.y); if(x<0||y<0||x>=w||y>=h) continue; const r=R[(y>>1)*73+(x>>1)]*(0.35+0.65*L.lum);
     if(r>0.04) fb[y*w+x]=mixc(fb[y*w+x],L.lightC,Math.min(0.7,r*4)); }
+  for(const q of L.grit){ const x=Math.floor(q.x), y=Math.floor(q.y); if(x>=0&&y>=0&&x<w&&y<h&&((x+y+L.t)&1)) fb[y*w+x]=mixc(fb[y*w+x],RUST_DUST,0.65*(1-q.age/q.life)); }   // rust dust from the bar
 }
 
 /** Pose and rasterise the hero for a given progress (0 dead hang … 1 chin over the bar) without stepping the scene;

@@ -51,7 +51,17 @@ export function samplePose(m,t,out){
   const tp=m.apex>0?m.times[m.apex]:m.times[2];
   const back=t<tp?1-t/tp:0;
   if(m.hop) return; // dash offsets come directly from the keys
-  if(m.walk){ out[state.GY]=state.fromPose[state.GY]*back; return; }   // walks: GX comes from the keys (body travels with the feet)
+  if(m.walk){   // walks: GX comes from the keys (body travels with the feet)
+    out[state.GY]=state.fromPose[state.GY]*back;
+    if(m.id===state.M_WALKF||m.id===state.M_WALKB){   // procedural trunk work for real steps only (hit reactions are walk-type moves too)
+      const u=Math.max(0,Math.min(1,t/m.dur)), s1=Math.sin(u*Math.PI*2), s2=Math.sin(u*Math.PI), dir=m.walk>0?1:-1;
+      out[state.ROT]+=-0.40*s1*dir; out[state.HROT]+=0.30*s1*dir;   // shoulders counter-rotate against the hips: no more crab
+      out[state.LEAN]+=0.65*s2*dir; out[state.BX]+=0.50*s1*dir; out[state.SQ]+=-0.45*s2;
+      const lag=Math.sin(Math.max(0,u-0.12)*Math.PI*2);   // the head trails the body by 12% of the step
+      out[state.HX]+=-0.45*lag*dir; out[state.HY]+=0.55*s2; out[state.LGY]+=0.70*s1; out[state.RGY]+=-0.60*s1;
+    }
+    return;
+  }
   out[state.GX]=state.fromPose[state.GX]*back; out[state.GY]=state.fromPose[state.GY]*back;
   // footwork: step toward the apex position
   const bump=t<=tp?ease(state.E_OUT,t/tp):Math.max(0,1-(t-tp)/(m.dur-tp));
@@ -94,7 +104,7 @@ export function computeIdle(out){
   let ph=(boxingState.simNow-boxingState.lastBeatMs)/boxingState.beatMs; if(ph<0)ph=0; else if(ph>0.999)ph=0.999;
   let bi=boxingState.beatIdx;
   if(sparringState.idleOff){ ph+=sparringState.idleOff; if(ph>=1){ ph-=1; bi++; } }   // sparring: the two fighters shift their weight off-phase
-  const step=Math.floor(ph*8)/8, TAU=6.283185307;
+  const step=sparringState.shadow?ph:Math.floor(ph*8)/8, TAU=6.283185307;
   out.set(state.GUARD);
   if(boxingState.flow){
     // PENDULUM STEP: land on every beat, hop in on even beats, out on odd beats

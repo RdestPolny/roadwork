@@ -18,13 +18,6 @@ function todayHTML(){
   const P=['rano: śniadanie, treningi'+(work?', obowiązkowa korba':''),'południe: spacerniak'+(sun?' i niedzielne bicie':'')+' albo cela','wieczór: kolacja, treningi, łaźnia, sen'];
   return P.map((t,i)=>i===s.faza?'<b>'+t+' · akcje '+(2-s.akcje)+'/2</b>':t).filter((_,i)=>i>=s.faza).join('<br>');
 }
-/** Controls of the current mode, then the keys that always work. */
-function controlsHTML(){
-  const mode=(inputState.controlsText||inputState.nextEl.textContent||'').split(' · ').filter(t=>t&&!/^(SIŁ|SZY|WYT) \d+$/.test(t));
-  const all=[...mode,'P — karta postaci (poza walką i treningiem)','Esc — pauza w celi, wyjście z treningu i walki','F10 — pauza zawsze','O — opcje · M — dźwięk'];
-  return '<ul class="sys-keys">'+all.map(t=>'<li>'+t.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</li>').join('')+'</ul>';
-}
-
 // Runtime values owned by menu; initialized explicitly by main.js.
 export const state = {}; function resetSave(){ progressionState.saveStore.merge({}); } function saveMetaOf(d){
   const st=d.stats||{}, sm=d.sim||{}, lv=k=>(st[k]&&st[k].lvl)|0||1;
@@ -69,7 +62,6 @@ export function sysOpen(mode){
       const hub=boxingState.gstate==='hub'||boxingState.gstate==='menu';
       h+=sysBtnHTML('resume','Wracam','Esc');
       h+=sysBtnHTML('char','Karta postaci',hub?'P':'poza walką i treningiem',{off:!hub});
-      h+=sysBtnHTML('keys','Sterowanie','');
       h+=sysBtnHTML('save','Zapisz grę','slot 1–'+state.SLOT_N+' · autozapis działa cały czas');
       h+=sysBtnHTML('load','Wczytaj grę','autozapis lub slot');
     }
@@ -85,9 +77,6 @@ export function sysOpen(mode){
     for(let i=1;i<=state.SLOT_N;i++){ const r=slotRead(i);
       h+=sysBtnHTML(isSave?'pick-save':'pick-load','Slot '+i+(r?' · '+fmtTs(r.ts):''),r?saveMetaOf(r.data):(isSave?'pusty — zapisz tutaj':'pusty'),{arg:i,off:!isSave&&!r}); }
     h+=sysBtnHTML('back','Wstecz','Esc');
-  } else if(state.sysView==='keys'){
-    state.sysTitleEl.textContent='STEROWANIE'; sub='Klawisze tego miejsca i te, które działają zawsze';
-    h+=controlsHTML()+sysBtnHTML('back','Wstecz','Esc');
   }
   state.sysKickerEl.textContent=state.sysAsk?'':state.sysMode==='pause'?'PAUZA':'';
   const today=state.sysMode==='pause'&&state.sysView==='menu'&&!state.sysAsk&&isPrison()?todayHTML():'';
@@ -106,7 +95,6 @@ export function newGame(){ sysApply(null,true); sysClose(); if(isPrison()) start
       break;
     case 'load': state.sysView='load'; state.sysNote=''; break;
     case 'save': state.sysView='save'; state.sysNote=''; break;
-    case 'keys': state.sysView='keys'; state.sysNote=''; break;
     case 'char': sysClose(); openCharSheet(); return;
     case 'back': state.sysView='menu'; state.sysNote=''; break;
     case 'opts': optsToggle(true); return;

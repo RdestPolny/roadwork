@@ -12,6 +12,7 @@ import { state as rendererState, pset } from './renderer.js';
 import { state as boxingState, h2 } from './boxing.js';
 import { state as roomsState, faceI, faceJ, floorAt, solidDraw, skyBucket } from './rooms.js';
 import { skyColors } from './weather.js';
+import { state as npcsState } from './npcs.js';
 
 // Runtime values owned by ward; initialized explicitly by main.js.
 export const state = {};
@@ -26,7 +27,7 @@ export const WARD_WIN = {u0:32,u1:40,z0:15.6,z1:21.4,grille:true};
 /** The tallow lamp on its bracket on the left wall, by the door. */
 export const LAMP = {i:0.32,j:1.7,z:12.6};
 /** Sleeping places on the guard-bed, by item and level: centre i of the pallet. */
-const SLOTS = {bunk:[3.55,0.95],bunk2:[5.75,7.75]};
+const SLOTS = {bunk:[3.55,0.95],bunk2:[5.75,7.75,9.55,10.95]};
 /** The hero's own place on the guard-bed (the middle of 'bunk', where he sleeps) and where one sits on its edge. */
 export const SLOTS_HERO = 2.25, BED_SEAT_J = 2.15;
 /** Pallets lying on the guard-bed (i centres), the used ones and two spare. */
@@ -38,9 +39,9 @@ export function wardLayout(){ return [
   {t:'cpull',i:5.6,j:2.55,w:0.8,h:0.4},   /* under the window slot: up on the guard-bed, hands on the grille */
   {t:'croach',i:7.25,j:2.55,w:0.9,h:0.4},   /* kneeling on the guard-bed at the scratched GOD HELP ME: roaches on the wall */
   {t:'cwc',i:0.18,j:5.75,w:1.0,h:1.0},
-  {t:'csink',i:0.12,j:4.6,w:0.75,h:0.75},
+  {t:'csink',i:11.05,j:4.15,w:0.75,h:0.75},
+  {t:'cstool',i:11.25,j:5.1,w:0.6,h:0.6},
   {t:'cwheel',i:8.5,j:3.05,w:0.95,h:0.95},   /* Profesor's chair, clear of the window slot */
-  {t:'ccom',i:10.55,j:5.55,w:1.3,h:0.9},
   {t:'cfloor',i:2.2,j:4.2,w:3.0,h:2.6},
   {t:'cshadow',i:7.2,j:4.1,w:1.6,h:1.6}
 ]; }
@@ -48,14 +49,14 @@ export function wardLayout(){ return [
 /** Where a cell person lies: centre, facing (head to the wall), the pallet height, the spot in front of his place. @param {{t:string,lv:number}} bed */
 export function wardBed(bed){
   const it=gymState.cellList.find(x=>x.t===bed.t); if(!it) return null;
-  const i=(SLOTS[bed.t]||[it.i+1])[bed.lv?1:0];
+  const i=(SLOTS[bed.t]||[it.i+1])[bed.lv];
   return {it,at:[i,1.2],face:[0,-1],base:PALLET_Z-0.25,app:[i,BED_J1+0.45]};
 }
 /** Places on the edge of the guard-bed to sit (centre, the spot in front, facing the room). */
 export const WARD_SEATS = [{c:[1.2,2.15],a:[1.2,2.95],f:[0,1]},{c:[4.6,2.15],a:[4.6,2.95],f:[0,1]},{c:[8.8,2.15],a:[8.8,2.95],f:[0,1]},{c:[10.4,2.15],a:[10.4,2.95],f:[0,1]}];
 /** Open floor for squats, push-ups and standing about; the water butt. */
 export const WARD_EX = [{p:[3.0,4.6],f:[1,0]},{p:[6.6,5.6],f:[0,1]},{p:[9.0,4.3],f:[-1,0]},{p:[4.4,6.2],f:[1,0]}];
-export const WARD_WASH = {p:[1.25,4.95],f:[-1,0]};
+export const WARD_WASH = {p:[10.55,4.45],f:[1,0]};
 
 /* ---------- walls ---------- */
 
@@ -152,7 +153,7 @@ function scratches(){
 
 /** The floor: worn stone flags, wet patches, straw by the guard-bed, the stain round the tub, dirt along the walls.
  * @param {number} x @param {number} y */
-function floorCol(x,y){
+export function floorCol(x,y){
   const a=(x-gymState.HUB_OX)/6, b=(y-gymState.HUB_OY)/3, i=(a+b)/2, j=(b-a)/2;
   if(i<0||j<0||i>WARD_W||j>WARD_H) return 0;
   const row=Math.floor(j/1.16), fj=j/1.16-row, off=h2(row,3)/255*1.7, si=(i+off)/1.85, col=Math.floor(si), fi=si-col, n=h2(col*5+row*17,row*7+2);
@@ -193,7 +194,10 @@ function pallet(ci){
   quad(i0,j1,z0,i1,j1,z0,i1,j1,z1,i0,j1,z1,(x,y)=>{ faceJ(j1,x,y); return h2(Math.floor(roomsState.fa*20),sd)<50?C.straw:C.tickS; });
   quad(i1,j0,z0,i1,j1,z0,i1,j1,z1,i1,j0,z1,()=>C.tickD);
   quad(i0,j0,z1,i1,j0,z1,i1,j1,z1,i0,j1,z1,top);
-  quad(i0+0.05,j0,z1,i1-0.05,j0,z1,i1-0.05,j0+0.38,z1+0.45,i0+0.05,j0+0.38,z1+0.45,(x,y)=>{ const n=h2(x|0,y|0); return n<80?C.ragD:C.rag; });   // the rolled rag
+  if(ci===7.75){
+    quad(i0+0.03,j0+0.05,z1,i1-0.1,j0+0.02,z1,i1-0.22,j0+0.55,z1+0.35,i0+0.12,j0+0.4,z1+0.48,(x,y)=>h2(x|0,y|0)<105?C.ragD:C.rag);
+    isoLine(i0+0.12,j0+0.3,z1+0.35,i1-0.23,j0+0.42,z1+0.4,C.ragD);
+  } else quad(i0+0.05,j0,z1,i1-0.05,j0,z1,i1-0.05,j0+0.38,z1+0.45,i0+0.05,j0+0.38,z1+0.45,(x,y)=>{ const n=h2(x|0,y|0); return n<80?C.ragD:C.rag; });
 }
 /** The guard-bed: a plank platform on trestles, black underneath; pallets, chains and odds and ends on top. @param {any} it */
 function guardBed(it){
@@ -212,10 +216,12 @@ function guardBed(it){
     return n<70?C.woodD:n>215?C.woodH:C.wood; });
   isoLine(i0,j1,Z,i1,j1,Z,C.woodK);
   for(const ci of PALLETS) if(ci>i0+0.3&&ci<i1-0.3) pallet(ci);
-  if(!B2){ cup(3.05,1.6); bread(1.55,2.05); bible(3.55,1.75); } else { cup(6.35,1.9); bread(7.2,0.75); }
+  if(!B2){ cup(3.05,1.6); bread(1.55,2.05); bible(3.55,1.75); } else { cup(6.35,1.9); bread(7.2,0.75); plate(8.5,1.9); }
 }
 /** A dented tin cup. @param {number} ci @param {number} cj */
 function cup(ci,cj){ const r=0.1; solidDraw(ci-r,cj-r,ci+r,cj+r,PALLET_Z,PALLET_Z+1.4,(a,b,z)=>{ const d=Math.hypot(a-ci,b-cj); if(d>r) return 0; if(z>PALLET_Z+1.25) return d<r*0.6?C.ironK:C.tinH; return (a-ci)-(b-cj)>0?C.tinD:C.tin; }); }
+/** A shallow tin plate on the bed. @param {number} ci @param {number} cj */
+function plate(ci,cj){ const r=0.25; solidDraw(ci-r,cj-r,ci+r,cj+r,PALLET_Z,PALLET_Z+0.18,(a,b)=>{ const d=Math.hypot(a-ci,b-cj); return d>r?0:d>r*0.7?C.tinH:C.tinD; }); }
 /** A crust of black bread. @param {number} ci @param {number} cj */
 function bread(ci,cj){ solidDraw(ci-0.18,cj-0.1,ci+0.18,cj+0.1,PALLET_Z,PALLET_Z+0.7,(a,b,z)=>{ const u=(a-ci)/0.18, v=(b-cj)/0.1; if(u*u+v*v>1||z>PALLET_Z+0.7*(1-u*u*0.6)) return 0; return z>PALLET_Z+0.45?C.crust:C.crumb; }); }
 /** The prison bible, black, the gilt gone. @param {number} ci @param {number} cj */
@@ -236,21 +242,34 @@ function barrel(it,hgt,inner,lid){
 }
 /** Profesor's bath chair: a wicker back, two big spoked wheels, a small one in front. @param {any} it */
 function bathChair(it){
-  if(gymState.bunkFront) return;
-  const i0=it.i+0.08, i1=it.i+itemW(it)-0.08, j0=it.j+0.1, j1=it.j+itemH(it)-0.1, cj=(j0+j1)/2, zs=4.2;
-  const wheel=(/** @type {number} */ wi,/** @type {number} */ wj,/** @type {number} */ wz,/** @type {number} */ R)=>{ let px=0, py=0;
-    for(let k=0;k<6;k++){ const t=k/6*Math.PI; isoLineThin(wi,wj+Math.cos(t)*R/7.5,wz+Math.sin(t)*R,wi,wj-Math.cos(t)*R/7.5,wz-Math.sin(t)*R,C.woodH); }   // spokes
-    for(let k=0;k<=40;k++){ const t=k/40*Math.PI*2, x=Math.round(isoX(wi,wj+Math.cos(t)*R/7.5)), y=Math.round(isoY(wi,wj+Math.cos(t)*R/7.5,wz+Math.sin(t)*R)); pset(x,y,C.woodK); pset(x,y+1,t<Math.PI?C.woodH:C.wood); px=x; py=y; }   // the iron-shod rim
-    pset(Math.round(isoX(wi,wj)),Math.round(isoY(wi,wj,wz)),C.ironH);
-    void px; void py; };
-  wheel(i0,cj,3.2,3.2);
-  quad(i0,j0,zs,i1,j0,zs,i1,j1,zs,i0,j1,zs,(x,y)=>{ floorAt(x,y,zs); return h2(Math.floor(roomsState.fa*12),Math.floor(roomsState.fz*12))<90?C.rag:C.ragD; });   // the seat, a folded blanket on it
-  quad(i0,j1,zs-1,i1,j1,zs-1,i1,j1,zs,i0,j1,zs,()=>C.woodD);
-  quad(i0,j0,zs,i1,j0,zs,i1,j0,zs+5.4,i0,j0,zs+5.4,(x,y)=>{ faceJ(j0,x,y); const fa=roomsState.fa*14, fz=roomsState.fz*1.6;   // the wicker back
-    if(roomsState.fz>zs+5.0) return C.woodD; return ((Math.floor(fa)+Math.floor(fz))&1)?C.wicker:C.wickerD; });
-  for(const ai of [i0,i1]) isoLine(ai,j0,zs+2.4,ai,j1-0.05,zs+2.4,C.woodD);                   // arm rests
-  isoLine(i0+0.1,j1+0.15,0.6,i1-0.1,j1+0.15,0.6,C.iron); isoLine((i0+i1)/2,j1,zs-1,(i0+i1)/2,j1+0.15,0.6,C.iron);   // the front wheel's fork
-  wheel(i1,cj,3.2,3.2);
+  const P=npcsState.PROF, ci=it.i+itemW(it)/2, cj=it.j+itemH(it)/2-0.05, fi=P?.fi??0, fj=P?.fj??1, zs=4.2;
+  // Local forward and side coordinates follow the seated figure's orientation.
+  const pt=(f,s,z)=>[ci+f*fi-s*fj,cj+f*fj+s*fi,z];
+  const line=(f0,s0,z0,f1,s1,z1,col)=>isoLine(...pt(f0,s0,z0),...pt(f1,s1,z1),col);
+  const panel=(a,b,c,d,col)=>quad(...pt(...a),...pt(...b),...pt(...c),...pt(...d),col);
+  const wheel=(side)=>{
+    const phase=P?.ph||0, R=3.2;
+    for(let k=0;k<6;k++){ const t=k/6*Math.PI+phase; const a=pt(Math.cos(t)*R/7.5,side,3.2+Math.sin(t)*R), b=pt(-Math.cos(t)*R/7.5,side,3.2-Math.sin(t)*R); isoLineThin(...a,...b,C.woodH); }
+    for(let k=0;k<=40;k++){ const t=k/40*Math.PI*2, q=pt(Math.cos(t)*R/7.5,side,3.2+Math.sin(t)*R), x=Math.round(isoX(q[0],q[1])), y=Math.round(isoY(...q)); pset(x,y,C.woodK); pset(x,y+1,t<Math.PI?C.woodH:C.wood); }
+    const q=pt(0,side,3.2); pset(Math.round(isoX(q[0],q[1])),Math.round(isoY(...q)),C.ironH);
+  };
+  const near=fi-fj>=0?0.4:-0.4;
+  if(gymState.bunkFront){
+    if(fi+fj<0){
+      panel([-0.38,-0.48,zs],[-0.38,0.48,zs],[-0.38,0.48,zs+7],[-0.38,-0.48,zs+7],(x,y)=>((x+y)&1)?C.wicker:C.wickerD);
+      line(-0.38,-0.48,zs+7,-0.38,0.48,zs+7,C.woodH);
+    }
+    wheel(near);
+    line(-0.38,near,zs+2.4,0.32,near,zs+2.4,C.woodH);
+    line(0.32,near,zs+2.4,0.32,near,zs+0.5,C.woodD);
+    return;
+  }
+  wheel(-near);
+  panel([-0.38,-0.38,zs],[0.38,-0.38,zs],[0.38,0.38,zs],[-0.38,0.38,zs],(x,y)=>h2(x|0,y|0)<90?C.rag:C.ragD);
+  panel([-0.38,-0.48,zs],[-0.38,0.48,zs],[-0.38,0.48,zs+7.0],[-0.38,-0.48,zs+7.0],(x,y)=>((x+y)&1)?C.wicker:C.wickerD);
+  for(const side of [-0.38,0.38]) line(-0.38,side,zs+2.4,0.32,side,zs+2.4,C.woodD);
+  line(0.5,-0.3,0.6,0.5,0.3,0.6,C.iron); line(0.32,0,zs-1,0.5,0,0.6,C.iron);
+  line(-0.38,-0.48,zs+7,-0.38,0.48,zs+7,C.woodH);
 }
 /** The chest for what he owns: planks, two iron bands, a padlock. @param {any} it */
 function chest(it){
@@ -287,6 +306,12 @@ export function drawWardItem(it){
     case 'bunk': case 'bunk2': guardBed(it); return true;
     case 'cwc': barrel(it,4.2,C.filth,false); return true;
     case 'csink': if(!gymState.bunkFront){ barrel(it,3.3,C.water,true); const ci=it.i+itemW(it)/2, cj=it.j+itemH(it)/2; isoLine(ci+0.05,cj-0.05,3.4,ci+0.35,cj+0.2,1.8,C.tinD); } return true;   // and the ladle hooked on its rim
+    case 'cstool': {
+      const i=it.i, j=it.j, w=itemW(it), h=itemH(it), z=2.5;
+      for(const a of [i+0.08,i+w-0.08]) for(const b of [j+0.08,j+h-0.08]) isoLine(a,b,0,a,b,z,C.woodD);
+      quad(i,j,z,i+w,j,z,i+w,j+h,z,i,j+h,z,()=>C.woodH);
+      isoLine(i,j+h,z,i+w,j+h,z,C.woodK); return true;
+    }
     case 'cwheel': bathChair(it); return true;
     case 'ccom': chest(it); return true;
     case 'cpull': case 'cfloor': case 'croach': return true;
@@ -358,8 +383,28 @@ function drawRat(R, t){
   }
 }
 
+/** Draw roaches on the wall or after the guard-bed has been drawn. @param {boolean} bed */
+export function wardRoaches(bed){
+  if(!gymState.actors){
+    for(let k=0;k<4;k++){
+      const duration=[150,190,120,170][k], pause=[38,65,25,52][k], cycle=2*(duration+pause);
+      const phase=(boxingState.tick+k*103)%cycle, moving=phase<duration||(phase>=duration+pause&&phase<2*duration+pause);
+      const p=phase<duration?phase/duration:phase<duration+pause?1:phase<2*duration+pause?1-(phase-duration-pause)/duration:0;
+      const travel=k===0||k===2, onBed=travel&&p>0.72;
+      if(onBed!==bed) continue;
+      const i=8.0+k*0.55+Math.sin(p*Math.PI*2+k)*0.35;
+      const j=onBed?(p-0.72)*3:0, z=travel?13-Math.min(1,p/0.72)*(13-PALLET_Z):11.7+p*3.2;
+      const x=Math.round(isoX(i,j)), y=Math.round(isoY(i,j,z)), leg=moving?((boxingState.tick>>1)+k&1):0;
+      pset(x-1,y-1,C.roachLeg); pset(x+1,y+1,C.roachLeg);
+      pset(x-1,y+leg,C.roachLeg); pset(x+1,y-leg,C.roachLeg);
+      pset(x,y,C.roach); pset(x,y-1,C.roachH);
+    }
+  }
+}
+
 export function wardLife(){
   const t = boxingState.tick, P = gymState.hubP;
+  wardRoaches(false);
   for(const R of state.rats){                                                                // a rat runs, stops, sniffs, runs on; bolts from the hero
     const near = Math.hypot(R.i - P.i, R.j - P.j) < 1.6;
     if(near && R.wait > 0) R.wait = 0;
@@ -421,6 +466,7 @@ export function initialize(){
     ratShadow:rgb('#14100c'),ratDark:rgb('#241e18'),rat:rgb('#3d3228'),ratH:rgb('#5a4c3e'),
     ratSnout:rgb('#70564a'),ratNose:rgb('#9c6e66'),ratEye:rgb('#d82818'),ratEar:rgb('#78564c'),
     ratPaws:rgb('#58443c'),ratT:rgb('#5e4840'),ratTT:rgb('#7c6258'),
+    roach:rgb('#21140e'),roachH:rgb('#563626'),roachLeg:rgb('#332017'),
     fly:rgb('#0e0e0e'),drop:rgb('#8a9a9a'),breath:rgb('#c8ccc4')});
   state.rats=[
     {path:[[1.4,2.7],[3.6,2.8],[5.4,3.3],[7.8,3.5],[9.8,3.8],[10.2,5.0],[8.0,5.2],[5.0,4.6],[2.2,5.2],[1.4,6.2],[0.8,4.2]],k:0,seed:0}

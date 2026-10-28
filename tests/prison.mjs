@@ -46,7 +46,7 @@ export async function checkPrisonDay(page) {
   assert.equal(r.error, undefined);
   assert.deepEqual([r.start.phase, r.start.room, r.start.card, r.start.title, r.start.coins, r.start.faza], ['prison', 'cell', true, 'Przyjęcie', 0, 1], 'the intake on Monday at noon');
   assert.deepEqual(r.noon.door, ['Wyjdź na spacerniak', 'Zakończ: południe → wieczór · zostało akcji: 2']);
-  assert.deepEqual(r.noon.bunk, ['Drzemka · 1 akcja · −2 zmęczenia — nie jesteś zmęczony [x]', 'Sen dopiero wieczorem [x]']);
+  assert.deepEqual(r.noon.bunk.slice(0,2), ['Drzemka · 1 akcja · −2 zmęczenia — nie jesteś zmęczony [x]', 'Sen dopiero wieczorem [x]']);
   assert.equal(r.yard, 'yard', 'walking out to the yard costs no action');
   assert.equal(r.evening.faza, 2); assert.equal(r.evening.akcje, 0);
   assert.ok(r.evening.door.includes('Idź do łaźni') && r.evening.door.some(o => o.startsWith('Odbierz miskę')), 'supper and the bath in the evening');
@@ -54,13 +54,13 @@ export async function checkPrisonDay(page) {
   assert.equal(r.bath, 'laznia');
   assert.deepEqual([r.morning.day, r.morning.faza, r.morning.akcje, r.morning.room], [2, 0, 0, 'cell'], 'the bath was the second evening action: the night passes, Tuesday morning in the cell');
   assert.ok(r.morning.h >= 85, 'washed: ' + r.morning.h);
-  assert.ok(r.morning.door.some(o => o.startsWith('Żelazna korba')) && r.morning.door.some(o => o.includes('bez pracy to raport')), 'work in the morning');
+  assert.ok(r.morning.door.some(o => o.startsWith('Żelazna korba')) && r.morning.door.some(o => o.includes('Pomiń pracę')), 'work in the morning');
   assert.equal(r.work, true, 'the shift is the crank minigame');
   assert.deepEqual([r.afterWork.day, r.afterWork.faza, r.afterWork.zm, r.afterWork.glod], [2, 1, 1, 1], 'breakfast and work: noon, tired by one, not hungry yet');
   assert.equal(r.morning.door.some(o=>/rzeźnia|Kierat/.test(o)),false,'only crank labour is available');
   assert.deepEqual([r.day3.day, r.day3.faza, r.day3.raporty], [3, 0, 0]);
-  assert.deepEqual([r.skipped.faza, r.skipped.raporty], [1, 1], 'a morning without work is a report');
-  assert.ok(r.skipped.door.includes('Zakaz spaceru — kara za raport [x]'), 'and the yard is lost');
+  assert.deepEqual([r.skipped.faza, r.skipped.raporty], [1, 0], 'a morning without work creates no report');
+  assert.ok(r.skipped.door.includes('Wyjdź na spacerniak'), 'the yard remains open');
 }
 
 /** The Ward at a meal: the bowl through the flap, arm wrestling a cellmate for his bread, eating on the guard-bed. */
@@ -120,7 +120,7 @@ export async function checkCanteenArm(page) {
   assert.equal(r.hudAfterEating, true, 'the watch and needs remain visible after eating');
   assert.equal(r.rooms.includes('canteen'), false, 'Newgate has no canteen');
   assert.deepEqual([r.win, r.g], ['win', 'hub'], 'rhythm and bracing beat Harry');
-  assert.ok(r.respekt >= 1);
+  assert.equal(r.respekt, 0);
   assert.match(r.eat, /cudzym chlebem/, 'the won bread goes with the meal');
   assert.deepEqual([r.carryBefore, r.carry, r.carryAfterWin, r.carryEating], [false, true, true, false], 'he carries the bowl from the flap until he sits down to eat');
   assert.equal(r.drawn, true, 'the arm wrestling close-up is drawn in the 2× frame');
@@ -131,51 +131,29 @@ export async function checkCanteenArm(page) {
   assert.deepEqual(r.next, [1, 2, 1], 'wrestling for food is free: supper leaves one evening action');
   assert.deepEqual(r.afterSport, [2, 0, 0], 'wrestling for sport spends the second evening action');
   assert.equal(r.idle, 'loss', 'doing nothing loses');
-  assert.ok(r.respekt2 < r.respekt);
+  assert.equal(r.respekt2, r.respekt);
 }
 
-/** Supervision: reports cost opinion and the next yard, repeated reports keep the prisoner in the Ward; fights pay respect and may be seen. */
+/** Legacy report penalties and respect do not affect a new fight or the yard. */
 export async function checkSupervision(page) {
-  const r = await page.evaluate(async () => {
-    const b = window.__boxer; b.newGame('prison'); b.pause();
-    const P = await import('/src/progression.js'), G = await import('/src/gym.js'), X = await import('/src/prison.js'), R = await import('/src/rooms.js');
+  const r=await page.evaluate(async()=>{
+    const b=window.__boxer; b.newGame('prison'); b.pause();
     document.querySelector('#storyChoices button').click(); b.pause();
-    const S = P.state.save.sim, PR = P.state.save.prison, out = {}, cards = [];
-    const run = n => { for (let i = 0; i < n; i++) { b.step(1); if (X.cardOpen()) { cards.push(document.getElementById('storyTitle').textContent); document.querySelector('#storyChoices button').click(); b.pause(); } } };
-    const st = t => G.stationOf(G.state.gymItems.find(x => x.t === t));
-    const rnd = Math.random;
-    try {
-      Math.random = () => 0.99;                                     // nobody sees the first fight
-      out.fight1 = X.prisonFightEnd({win: true, draw: false, ko: false, stars: 2, sec: 30, venue: 'cell'});
-      out.resp1 = PR.respekt;
-      Math.random = () => 0.01;                                     // the second one is seen
-      out.fight2 = X.prisonFightEnd({win: false, draw: false, ko: false, stars: 1, sec: 30, venue: 'yard'});
-      Math.random = rnd;
-      out.after2 = {resp: PR.respekt, op: PR.opinia, raporty: PR.raporty.length, zakaz: !!PR.flagi['zakaz-spaceru']};
-      Object.assign(S, {faza: 1, akcje: 0}); PR.zegar = S.day*3 + 1; run(2);   // noon
-      out.yardDoor = G.stationOptions(st('cdoor'))[0][0];
-      X.addRaport('test'); X.addRaport('test'); run(30); b.step(30);   // the zoom-in at the door runs with rendering
-      out.repeated = {room: G.state.hubRoom, op: PR.opinia, reports: PR.raporty.length, transfer: !!PR.flagi['do-izolatki']};
-      out.pushOpt = !!G.stationOptions(st('cfloor')).find(o => o[3] === 'go' && !o[2]);
-      R.setRoomRaw('izolatka');
-      out.retiredRoom = G.state.hubRoom;
-    } catch (e) { out.error = String(e) + ' ' + e.stack; }
-    Math.random = rnd;
-    out.cards = cards;
-    b.newGame();
-    return out;
+    const P=await import('/src/progression.js'), G=await import('/src/gym.js'), X=await import('/src/prison.js');
+    const S=P.state.save.sim, PR=P.state.save.prison;
+    PR.respekt=50; PR.raporty=[1]; PR.flagi['zakaz-spaceru']=true;
+    const old=[PR.respekt,PR.opinia,PR.raporty.length];
+    const result=X.prisonFightEnd({win:true,draw:false,ko:true,stars:2,sec:30,venue:'cell'});
+    Object.assign(S,{faza:1,akcje:0});
+    const door=X.cellDoorOptions(()=>{}).map(o=>o[0]);
+    PR.lista.rozdzial=10; const boss=!!X.listMatch('yard',7).entry;
+    const after=[PR.respekt,PR.opinia,PR.raporty.length];
+    return {old,after,result,door,boss};
   });
-  assert.equal(r.error, undefined);
-  assert.match(r.fight1, /\+8/); assert.match(r.fight1, /nic nie widział · ryzyko 13%/);
-  assert.equal(r.resp1, 8);
-  assert.match(r.fight2, /raport/);
-  assert.deepEqual(r.after2, {resp: 2, op: 35, raporty: 1, zakaz: true}, 'a lost fight to a weaker inmate costs respect; a report costs opinion and the yard');
-  assert.match(r.yardDoor, /^Zakaz spaceru/);
-  assert.deepEqual(r.repeated, {room:'cell', op:5, reports:3, transfer:false});
-  assert.equal(r.pushOpt, true, 'push-ups remain available in the Ward');
-  assert.equal(r.retiredRoom, 'cell', 'retired room identifiers return to the Ward');
-  assert.ok(!r.cards.includes('Karcer') && !r.cards.includes('Z powrotem w celi'));
-
+  assert.deepEqual(r.after,r.old);
+  assert.doesNotMatch(r.result,/respekt|raport|klucznik/i);
+  assert.ok(r.door.includes('Wyjdź na spacerniak'));
+  assert.equal(r.boss,true,'the list no longer requires respect');
 }
 
 /** Profesor in the cell: the wheelchair talk, notes and the daily task pay XP, the prison cap banks XP, the level-10 trial starts. */
@@ -295,9 +273,8 @@ export async function checkSpacerniak(page) {
     const S = P.state.save, PR = S.prison, out = {};
     try {
       out.p0 = X.bareInfo().points;
-      X.addRespekt(65); out.p1 = X.bareInfo().points;               // Znany, Szanowany and Twardziel reached
-      X.addRespekt(-30); out.p2 = X.bareInfo().points;              // the points stay once earned
-      PR.respekt = 40;
+      PR.lista.rozdzial=9; out.p1=X.bareInfo().points;
+      PR.respekt=0; out.p2=X.bareInfo().points;
       ST.openSkillTree();
       out.tab = !document.querySelector('[data-skill-tab="bare"]').hidden;
       out.cards = document.querySelectorAll('#skill-panel-bare [data-skill]').length;
@@ -313,9 +290,9 @@ export async function checkSpacerniak(page) {
     return out;
   });
   assert.equal(r.error, undefined);
-  assert.deepEqual([r.p0, r.p1, r.p2], [0, 3, 3], 'a point per rank reached, kept when respect falls');
+  assert.deepEqual([r.p0, r.p1, r.p2], [0, 3, 3], 'points follow completed names on the list');
   assert.deepEqual([r.tab, r.cards], [true, 10], 'nine perks and Brudna robota, moved from Siła');
-  assert.deepEqual([r.buyKciuk, r.buyNerki], ['', 'rank']);
+  assert.deepEqual([r.buyKciuk, r.buyNerki], ['', 'points']);
   assert.deepEqual(r.unlocked, ['piach', 'kciuk'], 'the card click buys, then three points are spent');
   assert.deepEqual([r.loadout.includes('piach'), r.loadout.includes('kciuk'), r.loadout.length], [true, false, 6], 'a bought yard trick goes into the set while it has room');
   assert.equal(r.memory, 2, 'repeat encounters are remembered');
@@ -345,7 +322,7 @@ export async function checkSundayAndEvents(page) {
       const resp0 = PR.respekt;
       for (let f = 0; f < 3; f++) {
         for (let i = 0; i < 80 && IFS.phase !== 'fight'; i++) b.step(1);
-        IFM.isoFightFinish(0, 'KO'); b.step(180);
+        IFM.isoFightFinish(0, 'KO'); b.step(300);
         out['how' + f] = IFS.how;
         N.exitToHub(); b.step(30); run(3);
       }
@@ -367,7 +344,7 @@ export async function checkSundayAndEvents(page) {
   assert.equal(r.once, true);
   assert.equal(r.bicieCard, 'Niedzielne bicie'); assert.equal(r.limit, 90*60);
   assert.deepEqual([r.how0, r.how1, r.how2], ['KO', 'KO', 'KO']);
-  assert.equal(r.bicie.wins, 1); assert.ok(r.bicie.resp >= 10, 'the brawl pays respect: ' + r.bicie.resp);
+  assert.equal(r.bicie.wins, 1); assert.equal(r.bicie.resp,0);
   assert.equal(r.bicie.points, r.bicie.ranks + 1, 'a point per rank reached and one for the first brawl'); assert.deepEqual([r.bicie.gstate, r.bicie.limit], ['hub', 0]);
   assert.deepEqual(r.bets, ['… z zakładem: 5 prymek (wygrana: 10)', '… z zakładem: 10 prymek (wygrana: 20)']);
   assert.match(r.favour, /^Sparing z Reubenem za 3 prymki/);
@@ -399,7 +376,7 @@ export async function checkBath(page) {
       const fo = G.stationOptions(G.state.hubNear); out.fight = fo[0][0];
       fo[0][1](); out.venue = [SP.state.sparVenue, SP.isBareknuckle(), G.state.hubRoom, B.state.gstate];
       b.step(5); b.step(1);
-      IFM.isoFightFinish(0, 'KO'); b.step(180);
+      IFM.isoFightFinish(0, 'KO'); b.step(300);
       out.won = IFS.winner === IFS.P;
       NV.exitToHub(); for (let i = 0; i < 40; i++) b.step(1);
       out.back = [G.state.hubRoom, B.state.gstate, N.state.YN.filter(C => C.sleeves).length];
@@ -420,7 +397,7 @@ export async function checkBath(page) {
   assert.deepEqual([r.free, r.taken], [1, 4], 'four tubs taken by inmates, one free');
   assert.equal(r.perShower, 1, 'one man to a tub');
   assert.equal(r.overlap, 0, 'nobody stands in the picture of a man in a tub');
-  assert.match(r.fight, /^Bójka w łaźni: .* para kryje \(klucznik 20%\)/);
+  assert.doesNotMatch(r.fight,/klucznik|raport/i);
   assert.deepEqual(r.venue, ['laznia', true, 'laznia', 'isofight'], 'a bareknuckle fight in the bath room, in towels');
   assert.equal(r.won, true);
   assert.deepEqual(r.back, ['laznia', 'hub', 0], 'back in the bath, still in towels');
@@ -438,7 +415,7 @@ export async function checkCharSheet(page) {
     out.look = JSON.stringify(P.state.save.look) === JSON.stringify(D.HERO_LOOK);
     out.lookTab = !!document.querySelector('#shop .tabs [data-slot="look"]');
     // a bare fight goes into the record
-    SP.startSpar(0, 'cell', null); b.step(60); IFM.isoFightFinish(0, 'KO'); b.step(180);
+    SP.startSpar(0, 'cell', null); b.step(60); IFM.isoFightFinish(0, 'KO'); b.step(300);
     NV.exitToHub(); b.step(30);
     out.record = [P.state.save.record.bare.w + P.state.save.record.bare.l + P.state.save.record.bare.d, P.state.save.record.last.length, P.state.save.record.last[0]?.v];
     return out;
@@ -487,7 +464,7 @@ export async function checkCharSheet(page) {
   assert.equal(r.lookTab, false, 'no look editor in the locker');
   assert.deepEqual(r.record, [1, 1, 'cell'], 'the bare fight is counted');
   assert.equal(open.open, true, 'P opens the sheet in the hub');
-  for (const s of ['Potrzeby i forma', 'Energia', 'Higiena', 'Siła', 'Szybkość', 'Wytrzymałość', 'brakuje', 'Cechy', 'Ciosy', 'Bójki na gołe pięści', 'Respekt', 'Lista Profesora']) assert.ok(open.text.includes(s), s);
+  for (const s of ['Potrzeby i forma', 'Energia', 'Higiena', 'Siła', 'Szybkość', 'Wytrzymałość', 'brakuje', 'Cechy', 'Ciosy', 'Bójki na gołe pięści', 'Lista Profesora']) assert.ok(open.text.includes(s), s);
   assert.equal(open.portrait, true, 'the portrait is painted');
   assert.match(open.quest, /Jack „Młody” Morley/, 'Harry beaten in the cell: the ladder points to Jack next');
   assert.deepEqual(deck, {start: 5, removed: 4, added: 5, learnt: true, paid: 1, shown: true, head: '6/6'}, 'the Skille tab takes a skill out and back; the uppercut is learnt for a point of Siła and goes into the set while it has room');

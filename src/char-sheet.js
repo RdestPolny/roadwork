@@ -11,7 +11,7 @@ import { STAT_KEYS, STAT_PL, STAT_MAX } from './data.js';
 import { traitRows, traitClick, fightPassiveText } from './skill-tree.js';
 import { passiveSummary } from './stats.js';
 import { DRILLS, PRISON_CAP } from './training-data.js';
-import { BARE_PERKS, RESPEKT_RANKS, respektRank, recentRaports, WEEKDAYS, weekday, fmtMoney, LADDER, ladderNext, listEntry, lessonText } from './prison-data.js';
+import { BARE_PERKS, WEEKDAYS, weekday, fmtMoney, LADDER, ladderNext, listEntry, lessonText } from './prison-data.js';
 import { simTime, simFormText, actionsLeft, hungerLevel, TIRED_MAX } from './simulation.js';
 import { bareInfo } from './prison.js';
 import { drawHeroPortrait } from './hero.js';
@@ -75,12 +75,9 @@ export function renderCharSheet(){
   state.who.innerHTML='<span class="cs-lbl">'+'Skazany'+'</span><b class="cs-name">BOHATER</b><span>'+esc(place)+(block?' · '+esc(block):'')+'</span>';
   let facts='';
   {
-    const R=RESPEKT_RANKS[respektRank(P.respekt)], next=RESPEKT_RANKS[respektRank(P.respekt)+1], rap=recentRaports(P.raporty,sim.day);
-    facts+=fact('Respekt',String(Math.round(P.respekt)),next?'do „'+esc(next.name)+'” '+Math.max(0,next.from-Math.round(P.respekt)):esc(R.name));
-    facts+=fact('Opinia',String(Math.round(P.opinia)),rap?'raporty w tygodniu: '+rap:'bez raportów');
     facts+=fact('Konto',fmtMoney(P.wypiska),'tytoń: '+P.fajki+' prym.');
     facts+=fact('Lista Profesora',Object.keys(P.lista.wygrane).length+' / 10',P.profesor?.spotkany?'nazwisk':'Profesor jeszcze nie mówi');
-    state.stamp.textContent=R.name; state.stamp.hidden=false;
+    state.stamp.hidden=true;
   }
   state.facts.innerHTML='<div class="cs-facts">'+facts+'</div>';
   state.quest.innerHTML=questHTML(P);
@@ -116,7 +113,7 @@ export function renderCharSheet(){
   let perks=(state.perkMsg?'<p class="cs-deckhead"><em>'+esc(state.perkMsg)+'</em></p>':'');
   for(const k of STAT_KEYS) perks+='<div class="cs-traits"><h3>'+STAT_PL[k]+'<small>poziom '+S.stats[k].lvl+' · Cechy na poziomach 5, 10 i 15</small></h3>'+traitRows(k,false)+'</div>';
   { const B=BARE_PERKS.filter(p=>S.bare.unlocked.includes(p.id)), info=bareInfo();
-      perks+='<div class="cs-perkrow"><b>Spacerniak'+(' · punkty '+(info.points-info.spent)+' / '+info.points)+'</b>'+(B.length?'<div class="cs-chips">'+B.map(p=>'<span class="on" title="'+esc(PERK_CARDS[p.id].text)+'">'+esc(p.name)+'</span>').join('')+'</div>':'<small>brak — za respekt, w drzewku u Profesora</small>')+'</div>'; }
+      perks+='<div class="cs-perkrow"><b>Spacerniak'+(' · punkty '+(info.points-info.spent)+' / '+info.points)+'</b>'+(B.length?'<div class="cs-chips">'+B.map(p=>'<span class="on" title="'+esc(PERK_CARDS[p.id].text)+'">'+esc(p.name)+'</span>').join('')+'</div>':'<small>brak — w drzewku u Profesora</small>')+'</div>'; }
   {   // what the Cechy and Spacerniak perks do in a brawl (the skills they teach are on the Skille tab)
     const rules=playerFightPerks().filter(id=>PERK_CARDS[id]&&PERK_CARDS[id].kind!=='karta').map(id=>PERK_CARDS[id].text);
     perks+='<div class="cs-perkrow"><b>W bójce</b>'+(rules.length?'<ul class="cs-rules">'+rules.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>':'<small>Jeszcze bez Cech. Pierwszą wybierzesz na poziomie 5.</small>')+'</div>';

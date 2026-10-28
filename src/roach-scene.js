@@ -2,7 +2,7 @@
    in English bond under flaking limewash, GOD HELP ME scratched into it with tallies and a cross, cracks where the
    mortar has gone, an iron ring for the chains and its rust, damp rising from the bed; the bed's planks along the
    bottom. A tallow lamp stands on the bed behind him, low on the left: it rakes the wall, flickers a little and lays
-   his shoulder and the shadow of his fist on the lime. The light is mood only and never changes what can be seen.
+   a round aiming shadow on the lime. The light is mood only and never changes what can be seen.
    The wall is a height field relit every frame; roaches, squashed bodies, the fist and the dust take the same light.
    The fist itself comes into the picture only while it is thrown. */
 
@@ -25,13 +25,8 @@ const NAIL = {x:34,y:47};
 /** The lamp behind him on the bed, in wall pixels (z towards the viewer). */
 const LAMP = {x:-58,y:74,z:112};
 const GAIN = 2.25, FALL2 = 1/(150*150), AMB = [0.085,0.098,0.105], WARM = [1,0.72,0.44];
-/** Where the shadow of his right shoulder lies, and where the thrown fist comes from (off the picture). */
-const SHOULDER = {dx:20,dy:4,rx:34,ry:24};
 /** Where the thrown fist comes from: his right shoulder, below the picture. */
 export const FIST_FROM = {x:124,y:142};
-/** The shoulder's shadow below the picture, the upper arm and the forearm (wall pixels): the arm comes up from below,
- * straightens as the fist goes higher and folds at the elbow as it comes down. */
-const ARM = {x:100,y:124,upper:50,fore:46};
 const K_LIME=0, K_BRICK=1, K_MORTAR=2, K_IRON=3, K_CRACK=4, K_GROOVE=5, K_BED=6;
 
 /** Baked maps of the wall, the light of this frame and the small life on it. */
@@ -108,13 +103,15 @@ function wallPx(x,y){
   return [c,h,k,wet];
 }
 
-/** The guard-bed's planks at the bottom, edge-on from where he kneels. @param {number} x @param {number} y @returns {number[]} */
+/** The guard-bed's planks at the bottom, edge-on from where he kneels, with a height of their own so the grain, the nails and the straw take the lamp.
+ * @param {number} x @param {number} y @returns {[number[],number,number]} colour, height, wetness */
 function bedPx(x,y){
-  if(y===WALL_Y1) return mul3(P.woodD,0.35);                                                        // the black gap at the wall
-  const b=y<87?0:y<91?1:2, top=[85,87,91][b], g=vnoise(x*0.05+b*9,(y-top)*1.4+b*3);
-  let c=mix3(P.wood,P.woodL,g*0.8); if(y===top) c=mul3(P.woodD,0.8);
-  if(h2(Math.floor(x/3)+b*50,b)<26&&((x+y*2)%5)<2) c=mix3(c,P.straw,0.7);                          // straw off the pallets
-  return mul3(c,0.8+0.25*fbm(x*0.1,y*0.6+b));
+  if(y===WALL_Y1) return [mul3(P.woodD,0.32),-0.9,0];                                              // the black gap at the wall
+  const b=y<88?0:y<92?1:2, top=[85,88,92][b], seam=y===top||x%36===18, g=vnoise(x*0.06+b*9,(y-top)*1.4+b*3), knot=Math.hypot((x%41)-19,(y-top-1.5)*1.8)<1.6;
+  let c=seam?mul3(P.woodD,0.65):knot?P.woodD:mix3(P.wood,P.woodL,g*0.82), h=seam?-0.35:(0.35+0.22*g-(knot?0.18:0)), wet=0.08;
+  if(Math.abs((x%36)-18)>1.5&&Math.abs((x%36)-18)<3.2&&y===top+2){ c=P.iron; h=0.75; wet=0.22; }   // the heads of the forged nails at the joints
+  if(h2(Math.floor(x/2)+b*50,y)<24&&((x+y*2)%5)<2){ c=mix3(c,P.straw,0.78); h+=0.28; wet=0.02; }    // straw off the pallets
+  return [mul3(c,0.82+0.24*fbm(x*0.1,y*0.6+b)),h,wet];
 }
 
 /** Scratch a 1-px groove from (x0,y0) to (x1,y1) through the lime. @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1 @param {number} depth */
@@ -167,16 +164,22 @@ function ironwork(){
     else if(tube<1.35&&y>R.y+2){ state.kind[i]=K_IRON; state.hgt[i]=2.2+Math.sqrt(1.35*1.35-tube*tube)*1.3; let c=mul3(P.iron,0.95); if(vnoise(x*0.6,y*0.4+2)>0.58) c=mix3(c,P.rust,0.55); setAlb(i,c); state.wet[i]=0.3; }
     else if(y>cy+5&&Math.abs(x+0.5-R.x-0.6*vnoise(y*0.1,3))<1.6+1.4*vnoise(x*0.4,y*0.05)){ const k=0.55*(1-(y-cy-5)/(WALL_Y1-cy-5)); setAlb(i,mix3(getAlb(i),P.rustD,k)); }
   }
+  for(let link=0;link<2;link++){   // two heavy links of the chain hanging under the ring, casting a shadow on the wall
+    const ly=cy+5.5+link*5.2, lx=R.x+(link&1?0.6:-0.4);
+    for(let y=Math.max(0,Math.floor(ly-3.5));y<Math.min(WALL_Y1,Math.ceil(ly+3.5));y++) for(let x=Math.floor(lx-3);x<=Math.ceil(lx+3);x++){
+      const i=y*w+x, dx=(x+0.5-lx)/(link&1?1.2:2.1), dy=(y+0.5-ly)/2.8, d=Math.hypot(dx,dy), tube=Math.abs(d-0.78);
+      if(tube<0.36){ state.kind[i]=K_IRON; state.hgt[i]=1.85+Math.sqrt(Math.max(0,0.13-tube*tube))*1.8; setAlb(i,mix3(P.iron,P.rust,0.35*vnoise(x*0.8,y*0.8))); state.wet[i]=0.26; } } }
   for(let y=NAIL.y-2;y<NAIL.y+12;y++) for(let x=NAIL.x-2;x<=NAIL.x+2;x++){ const i=y*w+x, d=Math.hypot(x+0.5-NAIL.x,y+0.5-NAIL.y);
     if(d<1.3){ state.kind[i]=K_IRON; state.hgt[i]=2.1-d*0.5; setAlb(i,mix3(P.iron,P.rust,0.3)); }
     else if(y>NAIL.y+1&&Math.abs(x+0.5-NAIL.x)<0.9) setAlb(i,mix3(getAlb(i),P.rustD,0.5*(1-(y-NAIL.y)/12))); }
 }
 
-/** Normals from the height field (the bed keeps its own). @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1 */
+/** Normals from the height field (the bed's too: its planks and straw have a relief). @param {number} x0 @param {number} y0 @param {number} x1 @param {number} y1 */
 function normals(x0,y0,x1,y1){
   const w=appearanceState.W, H=state.hgt, N=state.nrm;
-  for(let y=Math.max(0,y0);y<=Math.min(WALL_Y1-1,y1);y++) for(let x=Math.max(0,x0);x<=Math.min(w-1,x1);x++){ const i=y*w+x;
-    const dx=H[y*w+Math.min(w-1,x+1)]-H[y*w+Math.max(0,x-1)], dy=H[Math.min(WALL_Y1-1,y+1)*w+x]-H[Math.max(0,y-1)*w+x];
+  const hMax=appearanceState.H-1;
+  for(let y=Math.max(0,y0);y<=Math.min(hMax,y1);y++) for(let x=Math.max(0,x0);x<=Math.min(w-1,x1);x++){ const i=y*w+x;
+    const dx=H[y*w+Math.min(w-1,x+1)]-H[y*w+Math.max(0,x-1)], dy=H[Math.min(hMax,y+1)*w+x]-H[Math.max(0,y-1)*w+x];
     const nx=-dx*0.95, ny=-dy*0.95, l=Math.hypot(nx,ny,1); N[i*3]=nx/l; N[i*3+1]=ny/l; N[i*3+2]=1/l; }
 }
 
@@ -187,9 +190,9 @@ export function buildRoachWall(){
   S.lam=new Float32Array(N); S.shade=new Float32Array(N); S.col=new Float32Array(N*3); S.vign=new Float32Array(N);
   for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const i=y*w+x;
     if(y<WALL_Y1){ const [c,hh,k,wet]=wallPx(x,y); setAlb(i,c); S.hgt[i]=hh; S.kind[i]=k; S.wet[i]=wet; }
-    else { setAlb(i,bedPx(x,y)); S.kind[i]=K_BED; }
+    else { const [c,hh,wet]=bedPx(x,y); setAlb(i,c); S.hgt[i]=hh; S.kind[i]=K_BED; S.wet[i]=wet; }
     const vx=(x+0.5-70)/86, vy=(y+0.5-46)/62; S.vign[i]=1-0.62*smooth(0.35,1.25,Math.hypot(vx,vy)); }
-  carvings(); cracks(); ironwork(); normals(0,0,w-1,WALL_Y1-1);
+  carvings(); cracks(); ironwork(); normals(0,0,w-1,h-1);
   S.t=0; S.lampK=1; S.parts=[]; S.puffs=[]; S.breathT=90;
   S.motes=Array.from({length:14},(_,k)=>({x:h2(k,1)/255*144,y:10+h2(k,2)/255*70,ph:k*1.7}));
 }
@@ -205,10 +208,10 @@ export function chipWall(x,y){
     else if(d<r+0.9&&state.kind[i]===K_LIME) setAlb(i,mix3(getAlb(i),P.chip,0.55)); }
   normals(Math.floor(x-6),Math.floor(y-5),Math.ceil(x+6),Math.ceil(y+5));
 }
-/** The knuckles' print in blood, four marks in a row, still wet. @param {number} x @param {number} y */
+/** A small, wet trace of blood from the knuckles. @param {number} x @param {number} y */
 export function bloodWall(x,y){
   const w=appearanceState.W;
-  for(const kx of [-4,-1.4,1.4,4]){ const cx=x+kx+(Math.random()-0.5)*0.6, cy=y-1+Math.abs(kx)*0.12;
+  for(const kx of [-1.4,1.4]){ const cx=x+kx+(Math.random()-0.5)*0.6, cy=y-1+Math.abs(kx)*0.12;
     for(let yy=Math.floor(cy-1);yy<=cy+2;yy++) for(let xx=Math.floor(cx-1);xx<=cx+1;xx++){ if(xx<0||yy<0||xx>=w||yy>=WALL_Y1) continue;
       const i=yy*w+xx, d=Math.hypot(xx+0.5-cx,(yy+0.5-cy)*0.8+(yy>cy?-0.3:0)); if(d>1.25) continue;
       setAlb(i,mix3(getAlb(i),d<0.7?P.bloodW:P.blood,d<0.7?0.9:0.6)); state.wet[i]=Math.max(state.wet[i],0.7); } }
@@ -218,10 +221,12 @@ export function wallDust(x,y,n){
   for(let k=0;k<n;k++){ const a=Math.random()*6.28, v=0.3+Math.random()*0.9;
     state.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v*0.6-0.3,age:0,life:25+Math.random()*40,c:Math.random()<0.7?P.chip:P.mortar,goo:false}); }
 }
-/** Drops squirting from under the knuckles. @param {number} x @param {number} y @param {number} n */
+/** Drops squirting from under the knuckles, and a few dark flecks of shell that fall. @param {number} x @param {number} y @param {number} n */
 export function wallGoo(x,y,n){
-  for(let k=0;k<n;k++){ const a=Math.random()*6.28, v=0.6+Math.random()*1.1;
-    state.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v*0.7,age:0,life:6+Math.random()*7,c:P.goo,goo:true}); }
+  for(let k=0;k<n+2;k++){
+    const shell=k>=n, a=Math.random()*6.28, v=(shell?0.45:0.35)+Math.random()*(shell?0.85:0.65);
+    state.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v*0.65-(shell?0.2:0.05),age:0,life:shell?14+Math.random()*10:9+Math.random()*8,c:shell?P.gut:mix3(P.gooD,P.goo,0.45),goo:!shell});
+  }
 }
 
 /* ---------- the life in the scene ---------- */
@@ -262,30 +267,13 @@ function sdFist(px,py){
   return d;
 }
 
-/** Where the arm's shadow runs to the fist: shoulder, elbow (kept outward and down), wrist. Out of reach the shoulder
- * comes after the fist, as he leans in. @param {number} wx @param {number} wy @param {number} t */
-function armShadow(wx,wy,t){
-  let sx=ARM.x+Math.sin(t*0.035)*1.2, sy=ARM.y+Math.sin(t*0.035)*1.6, dx=wx-sx, dy=wy-sy, d=Math.hypot(dx,dy)||1;
-  const max=(ARM.upper+ARM.fore)*0.985;
-  if(d>max){ sx=wx-dx/d*max; sy=wy-dy/d*max; dx=wx-sx; dy=wy-sy; d=max; }
-  const a=(ARM.upper**2-ARM.fore**2+d*d)/(2*d), h=Math.sqrt(Math.max(0,ARM.upper**2-a*a)), bx=sx+dx*a/d, by=sy+dy*a/d, nx=-dy/d, ny=dx/d;
-  const e1=[bx+nx*h,by+ny*h], e2=[bx-nx*h,by-ny*h], out=(/** @type {number[]} */ e)=>e[0]*0.8+e[1]*0.6, e=out(e1)>out(e2)?e1:e2;
-  return {sx,sy,ex:e[0],ey:e[1]};
-}
-
-/** The shadows on the wall this frame: his shoulder low on the right (breathing), the arm bent at the elbow and the fist
- * at the aim. @param {any} V */
+/** Soft fist-shaped aiming shadow on the wall. @param {any} V */
 function shadows(V){
-  const S=state, w=appearanceState.W, Sh=S.shade, sh=V.shadow, s=sh.s, blur=sh.blur, ax=sh.x+sh.ox, ay=sh.y+sh.oy;
-  const wx=ax+0.8*s, wy=ay+6.5*s, A=armShadow(wx,wy,S.t), bx=A.sx+SHOULDER.dx, by=A.sy+SHOULDER.dy;
-  const x0=Math.min(A.sx,A.ex,wx)-12, x1=Math.max(A.sx,A.ex,wx)+12, y0=Math.min(A.ey,wy)-12;
-  for(let y=0;y<appearanceState.H;y++) for(let x=0;x<w;x++){ const i=y*w+x, px=x+0.5, py=y+0.5;   // the bed's planks take the arm too
-    const e=Math.hypot((px-bx)/SHOULDER.rx,(py-by)/SHOULDER.ry); let v=0.55*(1-smooth(0.7,1.3,e));
-    if(px>x0&&px<x1&&py>y0){
-      const [du]=sdCone(px,py,A.sx,A.sy,A.ex,A.ey,8.5,6.2), [df]=sdCone(px,py,A.ex,A.ey,wx,wy,6,3.6*s), da=smin(du,df,2.5);
-      if(da<blur*2+1) v=Math.max(v,0.8*smooth(blur+0.6,-blur-0.6,da)); }
-    if(Math.abs(px-ax)<14*s&&Math.abs(py-ay)<12*s){ const df=sdFist((px-ax)/s,(py-ay)/s)*s; v=Math.max(v,0.95*smooth(blur+0.5,-blur-0.5,df)); }
-    Sh[i]=v; }
+  const w=appearanceState.W, Sh=state.shade, sh=V.shadow, s=sh.s, blur=sh.blur, ax=sh.x+sh.ox, ay=sh.y+sh.oy;
+  for(let y=0;y<appearanceState.H;y++) for(let x=0;x<w;x++){
+    const d=sdFist((x+0.5-ax)/s,(y+0.5-ay)/s)*s;
+    Sh[y*w+x]=0.95*smooth(blur+2,-blur-2,d);
+  }
 }
 
 /* ---------- light ---------- */
@@ -297,7 +285,8 @@ function lightWall(){
   for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const i=y*w+x, bed=y>=WALL_Y1;
     const pz=bed?(y-WALL_Y1)*7:H[i]*1.4, py=bed?WALL_Y1:y;
     const dx=S.lx-x, dy=S.ly-py, dz=LAMP.z-pz, d2=dx*dx+dy*dy+dz*dz, inv=1/Math.sqrt(d2);
-    const nx=bed?0:N[i*3], ny=bed?-0.75:N[i*3+1], nz=bed?0.66:N[i*3+2];
+    let nx=N[i*3], ny=N[i*3+1], nz=N[i*3+2];
+    if(bed){ nx=N[i*3]; ny=-0.75+N[i*3+1]; nz=0.66+N[i*3+2]-1; const nl=Math.hypot(nx,ny,nz)||1; nx/=nl; ny/=nl; nz/=nl; }   // the bed lies back, its planks and straw tilt that normal
     const ndl=Math.max(0,(nx*dx+ny*dy+nz*dz)*inv), lam=I/(1+d2*FALL2)*(1-S.shade[i]*0.92);
     S.lam[i]=lam; const l=lam*ndl*GAIN;
     let sp=0; const wt=S.wet[i];
@@ -384,25 +373,30 @@ function drawSplat(p){
  * @param {{x:number,y:number,s:number,pain:number,a:number}} F */
 function drawFist(F){
   const S=state, w=appearanceState.W, h=appearanceState.H, col=S.col, s=F.s, dxA=FIST_FROM.x-F.x, dyA=FIST_FROM.y-F.y, lA=Math.hypot(dxA,dyA)||1, ux=dxA/lA, uy=dyA/lA;
-  const soft=0.7+1.7*(s-1), Ld=[-0.52,0.3,0.8], I=S.I*(0.35+0.65*S.lampK), raw=smooth(25,70,F.pain), blood=smooth(55,90,F.pain);
-  /** Distance, material and height of the hand at a local point. @param {number} px @param {number} py */
-  const field=(px,py)=>{
-    const df=sdFist(px,py), [da,ta]=sdCone(px,py,0.8,7.2,0.8+ux*70,7.2+uy*70,4.2,8.5), d=smin(df,da,1.6);
-    let kn=0; for(const [kx,ky] of KN){ const q=Math.hypot(px-kx,py-ky); if(q<1.9) kn=Math.max(kn,1-q/1.9); }
-    const mat=da<df-0.5?(ta*70>19?(ta*70<23.5?3:2):0):(kn>0.25?1:0), sleeve=mat>=2?(mat===3?1.4:0.9):0;
-    return {d:d-sleeve,mat,h:2.8*Math.sqrt(clamp01(-(d-sleeve)/2.8))+kn*0.9+sleeve*0.6,kn}; };
+  const soft=0.65+1.5*(s-1), Ld=[-0.58,0.28,0.76], I=S.I*(0.35+0.65*S.lampK), raw=smooth(25,70,F.pain), blood=smooth(55,90,F.pain);
+  /** Distance, material and height of the hand at a local point: the knuckles, the tendons of the back of the hand, the folds of the rolled sleeve. @param {number} px @param {number} py */
+  const field=(x,y)=>{
+    const px=x*uy-y*ux, py=x*ux+y*uy;
+    const df=sdFist(px,py), [da,ta]=sdCone(px,py,0.8,7.2,0.8,77.2,4.2,8.5), d=smin(df,da,1.6);
+    let kn=0, tendon=0;
+    for(const [kx,ky] of KN){
+      const q=Math.hypot(px-kx,py-ky); if(q<1.9) kn=Math.max(kn,1-q/1.9);
+      if(py>ky&&py<ky+6.5){ const td=Math.abs(px-kx*0.82); if(td<0.65) tendon=Math.max(tendon,(1-td/0.65)*(1-(py-ky)/6.5)); }
+    }
+    const mat=da<df-0.5?(ta*70>19?(ta*70<23.5?3:2):0):(kn>0.25?1:0), sleeve=mat>=2?(mat===3?1.4:0.9):0, fold=mat>=2?0.25*Math.sin(ta*42+px*0.7):0;
+    return {d:d-sleeve,mat,h:2.8*Math.sqrt(clamp01(-(d-sleeve)/2.8))+kn*0.95+tendon*0.35+sleeve*0.6+fold,kn}; };
   const R=Math.ceil(16*s), reach=(10+soft)/s;
   for(let y=Math.max(0,Math.floor(F.y-R));y<h;y++) for(let x=Math.max(0,Math.floor(F.x-R));x<w;x++){
     const px=(x+0.5-F.x)/s, py=(y+0.5-F.y)/s;
-    if(Math.hypot(px,py-2.8)>12+reach&&sdCone(px,py,0.8,7.2,0.8+ux*70,7.2+uy*70,4.2,8.5)[0]>2+reach) continue;   // far from the hand and the arm
+    if(Math.hypot(px,py)>16+reach&&sdCone(px,py,0,0,ux*77,uy*77,6,8.5)[0]>2+reach) continue;   // far from the hand and the arm
     const f=field(px,py); const a=clamp01(0.5-f.d*s/soft)*F.a; if(a<=0.01) continue;
-    const e=0.6, hx=field(px+e,py).h-field(px-e,py).h, hy=field(px,py+e).h-field(px,py-e).h, nl=Math.hypot(hx*0.5,hy*0.5,1), nx=-hx*0.5/nl, ny=-hy*0.5/nl, nz=1/nl;
-    const ndl=Math.max(0,nx*Ld[0]+ny*Ld[1]+nz*Ld[2]);
-    let c=f.mat===2?mul3(P.cloth,0.8+0.35*vnoise((x-F.x)*0.9,(y-F.y)*0.9)):f.mat===3?P.clothD:P.skin, gloss=0.18;
-    if(f.mat<2&&f.kn>0){ c=mix3(c,P.knuck,raw*f.kn*0.9); if(blood>0&&f.kn>0.45){ c=mix3(c,P.bloodW,blood*0.85); gloss=0.6*blood; } }
+    const e=0.55, hx=field(px+e,py).h-field(px-e,py).h, hy=field(px,py+e).h-field(px,py-e).h, nl=Math.hypot(hx*0.5,hy*0.5,1), nx=-hx*0.5/nl, ny=-hy*0.5/nl, nz=1/nl;
+    const ndl=Math.max(0,nx*Ld[0]+ny*Ld[1]+nz*Ld[2]), rim=Math.max(0,-nx)*(1-nz)*1.35;   // a warm rim from the lamp on the left
+    let c=f.mat===2?mul3(P.cloth,0.78+0.32*vnoise((x-F.x)*0.9,(y-F.y)*0.9)-(((x+y)&1)*0.05)):f.mat===3?P.clothD:mul3(P.skin,0.94+0.12*vnoise(px*1.8,py*1.8)), gloss=0.22;
+    if(f.mat<2&&f.kn>0){ c=mix3(c,P.knuck,raw*f.kn*0.9); if(blood>0&&f.kn>0.45){ c=mix3(c,P.bloodW,blood*0.85); gloss=0.65*blood; } }
     if(f.mat>=2) gloss=0;
-    const l=I*(0.14+1.02*ndl), sp=gloss*I*Math.max(0,nx*-0.25+ny*0.15+nz*0.95)**14*0.5, i=y*w+x;
-    for(let k=0;k<3;k++){ const v=c[k]*l*[1,0.86,0.7][k]+sp; col[i*3+k]+=(v-col[i*3+k])*a; } }
+    const l=I*(0.12+1.04*ndl+0.42*rim), sp=gloss*I*Math.max(0,nx*-0.25+ny*0.15+nz*0.95)**14*0.5, i=y*w+x;
+    for(let k=0;k<3;k++){ const v=c[k]*l*[1,0.85,0.68][k]+sp*[1,0.82,0.58][k]; col[i*3+k]+=(v-col[i*3+k])*a; } }
 }
 
 /* ---------- the whole picture ---------- */

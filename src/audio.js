@@ -60,6 +60,9 @@ export function sfxBreath(){ if(!state.actx||!state.soundOn)return; const t=stat
 
 export function sfxClap(){ if(!state.actx||!state.soundOn)return; const t=state.actx.currentTime; const src=state.actx.createBufferSource(); src.buffer=state.noiseBuf; const f=state.actx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1400; const g=state.actx.createGain(); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.07); src.connect(f).connect(g).connect(state.master); src.start(t); src.stop(t+0.09); }
 
+/** A soft low pulse and a rush of air on a perfect evade. */
+export function sfxPerfectEvade(){ tone('sine',135,68,0.14,0.11); sfxWhoosh(0.62); }
+
 export function sfxLand(v){ tone('sine',120,55,0.09,0.22*v); }
 
 export function sfxBlock(v,bare=false){   // leather on leather: muffled thump + a dry slap

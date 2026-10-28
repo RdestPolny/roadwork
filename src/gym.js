@@ -1,12 +1,12 @@
 import { state as appearanceState, rgb, setRamp } from './appearance.js';
 import { carryingTray, drawHeldTray, mealDoorOptions, mealBedOptions, mealMateOptions } from './ward-meal.js';
-import { buildBath, drawBathItem, bathTick, bathOptions, bathFX, BATH_W, BATH_H, state as bathState } from './bath.js';
+import { buildBath, drawBathItem, bathTick, bathOptions, bathFX, BATH_W, BATH_H, LAMPS as BATH_LAMPS, state as bathState } from './bath.js';
 import { gateOptions, listTag, prisonFightStart, prisonFightExtras } from './prison.js';
-import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, zoomBlit } from './renderer.js';
+import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
 import { state as progressionState } from './progression.js';
-import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw } from './npcs.js';
-import { lightCell, drawCellLights } from './cell-light.js';
-import { wardBlanket, wardLife, wardBreath, wardSmog, wardVignette } from './ward.js';
+import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
+import { lightCell, drawCellLights, cellLights } from './cell-light.js';
+import { wardBlanket, wardLife, wardRoaches, wardBreath, wardSmog, wardVignette, LAMP, WARD_WIN } from './ward.js';
 import { yardFog } from './exercise-yard.js';
 import { weatherNow, weatherLight, drawRain } from './weather.js';
 import { drawCellItem, state as roomsState, buildCell, skyBucket, cellOptions, actTick, dimFB, drawActivityOverlay } from './rooms.js';
@@ -201,13 +201,14 @@ export function hubTick(){
   let ynB=null; if(state.hubRoom==='yard'&&!cnNight()&&!roomsState.hubAct) for(let k=0;k<npcsState.YN.length;k++){ const C=npcsState.YN[k]; const d=Math.hypot(C.i-state.hubP.i,C.j-state.hubP.j)-0.35; if(d<bd){ bd=d; ynB=k; } }
   /* the healers: Śmierdziel by the Ward's tub, a turnkey on the yard (healers.js) */
   let heal=null; if(!roomsState.hubAct){
-    const cand=state.hubRoom==='cell'?[[npcsState.STINK,'smierdziel']]:state.hubRoom==='yard'&&!cnNight()?[[npcsState.GUARD,'klucznik'],[npcsState.GUARD2,'klucznik']]:[];
+    const cand=state.hubRoom==='cell'?[[npcsState.STINK,'smierdziel']]:[];
     for(const [C,id] of cand){ if(!C||C.away) continue; const d=Math.hypot(C.i-state.hubP.i,C.j-state.hubP.j)-0.35; if(d<bd){ bd=d; heal={C,id}; cnB=null; ynB=null; } } }
-  if(heal){ const C=heal.C; if(!state.hubNear||state.hubNear.id!==heal.id){ state.hubNear={id:heal.id,npc:true,name:heal.id==='smierdziel'?'ŚMIERDZIEL':'KLUCZNIK',title:heal.id==='smierdziel'?'Śmierdziel — maść na rany, za tytoń':'Klucznik — za szylingi do felczera',look:[C.i,C.j,heal.id==='smierdziel'?10:15],spot:[state.hubP.i,state.hubP.j],item:null}; setInfo(); } state.hubNear.look[0]=C.i; state.hubNear.look[1]=C.j; }
+  if(heal){ const C=heal.C; if(!state.hubNear||state.hubNear.id!==heal.id){ state.hubNear={id:heal.id,npc:true,name:'ŚMIERDZIEL',title:'Śmierdziel — maść i droga do felczera',look:[C.i,C.j,10],spot:[state.hubP.i,state.hubP.j],item:null}; setInfo(); } state.hubNear.look[0]=C.i; state.hubNear.look[1]=C.j; }
   else if(cnB!==null){ const C=npcsState.CN[cnB]; if(!state.hubNear||state.hubNear.cn!==cnB){ state.hubNear={id:'cellfight',cn:cnB,name:C.name.toUpperCase(),title:C.name+' — współwięzień',look:[C.i,C.j,15],spot:[state.hubP.i,state.hubP.j],item:null}; setInfo(); } state.hubNear.look[0]=C.i; state.hubNear.look[1]=C.j; }
   else if(mnB!==null){ const C=npcsState.YN[mnB], name=sparringState.YARD_OPP[mnB].title; if(!state.hubNear||state.hubNear.yn!==mnB){ state.hubNear={id:'bathfight',yn:mnB,name:name.toUpperCase(),title:name+' — w łaźni',look:[C.i,C.j,13],spot:[state.hubP.i,state.hubP.j],item:null}; setInfo(); } }
   else if(ynB!==null){ const C=npcsState.YN[ynB], name=sparringState.YARD_OPP[ynB].title; if(!state.hubNear||state.hubNear.yn!==ynB){ state.hubNear={id:'yardfight',yn:ynB,name:name.toUpperCase(),title:name+' — współwięzień',look:[C.i,C.j,15],spot:[state.hubP.i,state.hubP.j],item:null}; setInfo(); } state.hubNear.look[0]=C.i; state.hubNear.look[1]=C.j; }
   else if((best&&best)!==(state.hubNear&&state.hubNear.item)||(state.hubNear&&(state.hubNear.cn!==undefined||state.hubNear.yn!==undefined||state.hubNear.npc))){ state.hubNear=best?stationOf(best):null; setInfo(); }
+  if(best?.t==='cwheel'&&state.hubNear?.item===best) state.hubNear=stationOf(best);
   if(!state.hubTrans.kind&&(skyBucket()!==roomsState.homeSkyB||weatherNow()!==roomsState.homeWx)) hubRebake();   // the light follows the clock and the weather
   updatePopups();
 }
@@ -215,6 +216,56 @@ export function hubTick(){
 export // ipC = the character being drawn (hubP or the trainer)
 function bodyPt(fwd,side,z){ if(state.ipPose===1){ const f=z-9; z=state.ipBase+fwd*0.45+2; fwd=f; } else if(state.ipPose===2) z+=state.ipBase;   // lying: height becomes length, chest up
   const C=state.ipC||state.hubP, S=1/7.5, i=C.i+(fwd*C.fi-side*C.fj)*S, j=C.j+(fwd*C.fj+side*C.fi)*S; state.bpX=isoX(i,j); state.bpY=isoY(i,j,z+(C.z0||0)); state.bpD=i+j; }
+
+/** The light on a figure standing at C: the strongest source of the room [i, j, height, strength 0..1] (the Ward's barred window by day or
+ * the tallow lamp, the bath's nearest gas jet, the yard's overcast sky) and the screen direction towards it. @param {any} C */
+function figureLight(C){
+  const r=state.hubRoom, wx=weatherNow(); let L=[C.i,C.j,20,0];
+  if(r==='cell'){
+    const lt=cellLights(progressionState.save.sim.min), day=lt.day*(wx==='sun'?0.55:wx==='cloud'?0.42:0.32), wi=(WARD_WIN.u0+WARD_WIN.u1)/12, wz=(WARD_WIN.z0+WARD_WIN.z1)/2;
+    if(lt.bulb) L=day>0.25&&Math.hypot(C.i-wi,C.j)<Math.hypot(C.i-LAMP.i,C.j-LAMP.j)*1.1?[wi,0,wz,day]:[LAMP.i,LAMP.j,LAMP.z,0.62];
+    else L=day>0.05?[wi,0,wz,day]:[wi,0.4,WARD_WIN.z0+2,0.28];
+  } else if(r==='laznia'){
+    let best=BATH_LAMPS[0], bd=1e9; for(const l of BATH_LAMPS){ const d=Math.hypot(C.i-l[0],C.j-l[1]); if(d<bd){ bd=d; best=l; } }
+    L=[best[0],best[1],best[2],0.52/Math.max(1,bd*0.32)];
+  } else if(r==='yard'){
+    const b=skyBucket(); L=[C.i-2.2,C.j-3.2,28,b===0?0.2:(wx==='sun'?0.52:wx==='cloud'?0.32:0.24)];
+  }
+  const sx=isoX(L[0],L[1])-isoX(C.i,C.j), sy=isoY(L[0],L[1],L[2])-isoY(C.i,C.j,10), sl=Math.hypot(sx,sy)||1;
+  return L[3]>0.05?{str:L[3],lx:sx/sl,ly:sy/sl,face:((L[0]-C.i)*C.fi+(L[1]-C.j)*C.fj)/(Math.hypot(L[0]-C.i,L[1]-C.j)||1)}:null;
+}
+
+/** A figure drawn into its own buffer, so the light pass touches the figure only and never the room behind it. */
+let litBuf=/** @type {Uint32Array|null} */ (null);
+/** Start a lit figure: aim the shading and switch to the clean buffer. @param {{str:number,lx:number,ly:number,face:number}} lit */
+function litBegin(lit){
+  const N=appearanceState.W*appearanceState.H; if(litBuf?.length!==N) litBuf=new Uint32Array(N);
+  return {real:setFramebuffer(litBuf),prev:setLightVec(lit.lx,lit.ly)};
+}
+/** Rim light on the edge facing the source, the lit half brighter, the far half darker; then the figure goes onto the room.
+ * @param {{str:number,lx:number,ly:number,face:number}} lit @param {{real:Uint32Array,prev:[number,number]}} st @param {number} cx @param {number} cy */
+function litEnd(lit,st,cx,cy){
+  const W=appearanceState.W, H=appearanceState.H, buf=/** @type {Uint32Array} */ (litBuf), real=st.real, K=state.ISO_K;
+  let x0=W, y0=H, x1=0, y1=0;
+  for(let k=0;k<state.ipN;k++){ const r=Math.max(state.ipR0[k],state.ipR1[k])+3*K;
+    x0=Math.min(x0,state.ipX0[k]-r,state.ipX1[k]-r); x1=Math.max(x1,state.ipX0[k]+r,state.ipX1[k]+r); y0=Math.min(y0,state.ipY0[k]-r,state.ipY1[k]-r); y1=Math.max(y1,state.ipY0[k]+r,state.ipY1[k]+r); }
+  x0=Math.max(1,Math.floor(x0)); y0=Math.max(1,Math.floor(y0)); x1=Math.min(W-2,Math.ceil(x1)); y1=Math.min(H-2,Math.ceil(y1));
+  const {str,lx,ly}=lit, C_OUT=appearanceState.C_OUT, C_SH=appearanceState.C_SHADOW, dirX=lx>=0?1:-1, dirY=ly>=0?1:-1, span=Math.max(6*K,(x1-x0)*0.45), face=lit.face*0.12*str;
+  for(let y=y0;y<=y1;y++){ const row=y*W;
+    for(let x=x0;x<=x1;x++){
+      const c=buf[row+x]; if(!c) continue;
+      if(c!==C_OUT&&c!==C_SH){
+        const u=((x-cx)*lx+(y-cy)*ly*0.55)/span, nx=buf[row+x+dirX], ny=buf[(y+dirY)*W+x];
+        const edge=(nx===0||nx===C_OUT)||(Math.abs(ly)>0.55&&(ny===0||ny===C_OUT));
+        if(u>0.06&&edge) buf[row+x]=shadeC(c,1+str*0.52+Math.max(0,face));
+        else if(u>0.16) buf[row+x]=shadeC(c,1+(u-0.16)*str*0.32+face);
+        else if(u<-0.06) buf[row+x]=shadeC(c,Math.max(0.5,1+(u+0.06)*str*0.72+face));
+      }
+      real[row+x]=buf[row+x]; buf[row+x]=0;
+    }
+  }
+  setFramebuffer(real); setLightVec(st.prev[0],st.prev[1]);
+}
 
 /**
  * A person in the 2× room, modelled for the larger picture: realistic proportions (a smaller head with a jaw, ears and hair,
@@ -224,48 +275,60 @@ function bodyPt(fwd,side,z){ if(state.ipPose===1){ const f=z-9; z=state.ipBase+f
  * @param {any} C @param {any} J
  * In the bath L.bare strips the drelich (top and trousers take the skin), L.waist wraps a towel round the hips
  * and L.censor puts a pixel mosaic over the groin.
- * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,beard?:boolean,stubble?:boolean,mustache?:boolean,cut?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean}} L
+ * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,beard?:boolean,stubble?:boolean,mustache?:boolean,cut?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
  * Newgate: style 'flatcap' (L.cap ramp), L.chops mutton-chop whiskers, L.scarf a neckerchief colour, L.irons leg irons.
- * @param {{pose?:number,base?:number,noShadow?:boolean}} [o]
+ * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean}} [o]   light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
 export function figureHD(C,J,L,o={}){
   state.ipC=C; state.ipN=0; state.ipPose=o.pose||0; state.ipBase=o.base||0;
-  const nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+  const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   for(let s=-1;s<=1;s+=2){
     const k=s===nearS?0:1, A=J(s), SK=L.sk[k], PT=L.pt[k], TP=L.top[k], wr=mix(A.el,A.hd,0.8), toe=[A.foot[0]+0.85,A.foot[1],A.foot[2]-0.25];
     if(L.waist) ipAdd(...A.hip,1.3, ...A.knee,1.08, PT,L.waist,0.5,0.5,L.waist); else ipAdd(...A.hip,1.3, ...A.knee,1.08, PT);   /* thigh (the towel over its top half) */
     ipAdd(...A.knee,1.02, ...A.foot,0.84, PT);                                                                   // shin
     ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15,0.92, ...toe,0.74, L.shoe);                                   // prison shoe
-    ipAdd(...A.sh,1.1, ...A.el,0.9, TP); ipAdd(...A.el,0.88, ...wr,0.76, TP);                                   // long drelich sleeve
+    ipAdd(...A.sh,1.1, ...A.el,0.9, TP); ipAdd(...A.el,0.88, ...wr,0.76, L.rolledSleeves?SK:TP);
     ipAdd(...wr,0.62, ...A.hd,0.7, SK);                                                                          // hand
     ipAdd(A.hip[0],A.hip[1],A.hip[2]+0.3,1.35, A.hip[0],A.hip[1]*0.4,A.hip[2]+0.4,1.4, L.waist||PT);            // seat of the trousers
   }
-  const P=J.pel, Q=J.chest, H=[J.head[0]+0.1,J.head[1],J.head[2]-0.6], SL=J(-1).sh, SR=J(1).sh, T0=L.top[0], S0=L.sk[0];
+  const P=J.pel, Q=J.chest, SL=J(-1).sh, SR=J(1).sh, T0=L.top[0], S0=L.sk[0];
+  // The head and chest fixtures (face, collar, pocket...) sit in a frame that follows the neck and the spine, so a ragdoll that lies or
+  // tumbles carries its face with it; standing figures use the plain body axes and draw exactly as before.
+  const frame=(/** @type {number[]} */ from,/** @type {number[]} */ to)=>{ let ux=to[0]-from[0], uy=to[1]-from[1], uz=to[2]-from[2]; const ul=Math.hypot(ux,uy,uz)||1; ux/=ul; uy/=ul; uz/=ul;
+    let sx=-uy*ux, sy=1-uy*uy, sz=-uy*uz, sl=Math.hypot(sx,sy,sz); if(sl<0.2){ sx=1-ux*ux; sy=-ux*uy; sz=-ux*uz; sl=Math.hypot(sx,sy,sz)||1; } sx/=sl; sy/=sl; sz/=sl;
+    return [sy*uz-sz*uy,sz*ux-sx*uz,sx*uy-sy*ux,sx,sy,sz,ux,uy,uz]; };   // forward = side × up, side = body side made square to the axis
+  const at=(/** @type {number[]} */ o,/** @type {number[]|null} */ fr)=>(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>fr?[o[0]+a*fr[0]+b*fr[3]+c*fr[6],o[1]+a*fr[1]+b*fr[4]+c*fr[7],o[2]+a*fr[2]+b*fr[5]+c*fr[8]]:[o[0]+a,o[1]+b,o[2]+c];
+  const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],o.tilt?frame(Q,J.head):null), tp=at(Q,o.tilt?frame(P,Q):null), pp=at(P,o.tilt?frame(P,Q):null), H=hp(0,0,0);
   if(L.waist) ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist);              /* bare torso, the towel tucked in at the waist */
-  else ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0);                                              // the drelich jacket
+  else ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),L.tuckedShirt?1.55:1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0);
   ipAdd(SL[0],SL[1]*0.82,SL[2]-0.15,1.15, SR[0],SR[1]*0.82,SR[2]-0.15,1.15, T0);                               // shoulders
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
-  ipAdd(Q[0],Q[1],Q[2]+0.3,0.72, H[0]-0.15,H[1],H[2]-1.3,0.68, HS);                                            // neck
+  ipAdd(Q[0],Q[1],Q[2]+0.3,0.72, ...hp(-0.15,0,-1.3),0.68, HS);                                            // neck
   ipAdd(...H,1.75, ...H,1.75, L.style==='fringe'?L.hair:HS);                                                       // skull beneath the hair
-  if(L.style==='fringe') ipAdd(H[0]+0.9,H[1],H[2]-0.2,1.15, H[0]+1.0,H[1],H[2]-0.65,1.0, S0);                     // face in front of the hair
-  ipAdd(H[0]+0.45,H[1],H[2]-0.7,1.2, H[0]+0.85,H[1],H[2]-1.15,0.95, HS);                                       // jaw and chin
-  if(L.style!=='hood') for(let s=-1;s<=1;s+=2) ipAdd(H[0]-0.15,H[1]+s*1.68,H[2]-0.15,0.42, H[0]-0.1,H[1]+s*1.68,H[2]-0.25,0.4, L.sk[s===nearS?0:1]);   // ears
+  if(L.style==='fringe') ipAdd(...hp(0.9,0,-0.2),1.15, ...hp(1.0,0,-0.65),1.0, S0);                     // face in front of the hair
+  ipAdd(...hp(0.45,0,-0.7),1.2, ...hp(0.85,0,-1.15),0.95, HS);                                       // jaw and chin
+  if(L.style!=='hood') for(let s=-1;s<=1;s+=2) ipAdd(...hp(-0.15,s*1.68,-0.15),0.42, ...hp(-0.1,s*1.68,-0.25),0.4, L.sk[s===nearS?0:1]);   // ears
   const st=L.style||'short';
-  if(st==='long'){ ipAdd(H[0]-0.35,H[1],H[2]+0.6,1.8, H[0]-0.35,H[1],H[2]+0.6,1.8, L.hair); ipAdd(H[0]-0.85,H[1],H[2]-0.3,1.45, H[0]-1.0,H[1],H[2]-1.9,1.2, L.hair); }   // long, down the neck
-  else if(st==='bald') ipAdd(H[0]-0.95,H[1]-1.25,H[2]+0.15,0.85, H[0]-0.95,H[1]+1.25,H[2]+0.15,0.85, L.hair);   // a horseshoe of hair round the back
-  else if(st==='cap'){ ipAdd(H[0]-0.25,H[1],H[2]+1.25,1.55, H[0]-0.25,H[1],H[2]+1.45,1.5, L.cap??L.hair); ipAdd(H[0]+1.2,H[1]-0.8,H[2]+1.2,0.3, H[0]+1.35,H[1]+0.8,H[2]+1.2,0.3, L.shoe); }   /* peaked uniform cap */
-  else if(st==='hood'){ const cr=L.cap??L.hair; ipAdd(...H,1.98, ...H,1.98, cr); ipAdd(H[0]+0.45,H[1],H[2]-0.8,1.5, H[0]+0.65,H[1],H[2]-1.45,1.3, cr);   /* a canvas hood over head and face, */
-    ipAdd(H[0]-0.15,H[1],H[2]-1.2,1.65, Q[0]-0.1,Q[1],Q[2]+0.2,2.25, cr); }                                                       /* its skirt over the shoulders */
-  else if(st==='flatcap'){ const cr=L.cap??L.hair; ipAdd(H[0]-0.25,H[1],H[2]+0.75,1.86, H[0]+0.35,H[1],H[2]+0.95,1.8, cr); ipAdd(H[0]+1.15,H[1]-0.95,H[2]+0.85,0.42, H[0]+1.35,H[1]+0.95,H[2]+0.85,0.42, cr); }   /* a cloth cap pulled low, a short peak */
-  else if(st==='toque') ipAdd(H[0]-0.25,H[1],H[2]+0.9,1.55, H[0]-0.4,H[1],H[2]+2.5,1.7, L.hair);                              /* cook's tall white cap */
-  else if(st==='shaved') ipAdd(H[0]-0.25,H[1],H[2]+0.35,1.76, H[0]-0.25,H[1],H[2]+0.35,1.76, L.hair);   // a hair cap a little larger than the skull:
-  else { ipAdd(H[0]-0.3,H[1],H[2]+0.6,1.8, H[0]-0.3,H[1],H[2]+0.6,1.8, L.hair);                       // it shows on top and at the back, the face covers its front
-    if(st==='fringe') ipAdd(H[0]+0.85,H[1]-0.95,H[2]+1.15,0.52, H[0]+1.0,H[1]+0.85,H[2]+1.0,0.5, L.hair); }   // straight fringe
-  if(L.beard) ipAdd(H[0]+0.75,H[1],H[2]-0.75,1.18, H[0]+0.95,H[1],H[2]-1.6,0.92, L.hair);
-  if(L.chops) for(let s=-1;s<=1;s+=2) ipAdd(H[0]+0.35,H[1]+s*1.45,H[2]-0.1,0.52, H[0]+0.8,H[1]+s*1.2,H[2]-1.25,0.5, L.hair);   /* mutton chops down to the jaw */
+  if(st==='long'){ ipAdd(...hp(-0.35,0,0.6),1.8, ...hp(-0.35,0,0.6),1.8, L.hair); ipAdd(...hp(-0.85,0,-0.3),1.45, ...hp(-1.0,0,-1.9),1.2, L.hair); }   // long, down the neck
+  else if(st==='bald') ipAdd(...hp(-0.95,-1.25,0.15),0.85, ...hp(-0.95,1.25,0.15),0.85, L.hair);   // a horseshoe of hair round the back
+  else if(st==='cap'){ ipAdd(...hp(-0.25,0,1.25),1.55, ...hp(-0.25,0,1.45),1.5, L.cap??L.hair); ipAdd(...hp(1.2,-0.8,1.2),0.3, ...hp(1.35,0.8,1.2),0.3, L.shoe); }   /* peaked uniform cap */
+  else if(st==='hood'){ const cr=L.cap??L.hair; ipAdd(...H,1.98, ...H,1.98, cr); ipAdd(...hp(0.45,0,-0.8),1.5, ...hp(0.65,0,-1.45),1.3, cr);   /* a canvas hood over head and face, */
+    ipAdd(...hp(-0.15,0,-1.2),1.65, ...tp(-0.1,0,0.2),2.25, cr); }                                                       /* its skirt over the shoulders */
+  else if(st==='flatcap'){ const cr=L.cap??L.hair; ipAdd(...hp(-0.25,0,0.75),1.86, ...hp(0.35,0,0.95),1.8, cr); ipAdd(...hp(1.15,-0.95,0.85),0.42, ...hp(1.35,0.95,0.85),0.42, cr); }   /* a cloth cap pulled low, a short peak */
+  else if(st==='toque') ipAdd(...hp(-0.25,0,0.9),1.55, ...hp(-0.4,0,2.5),1.7, L.hair);                              /* cook's tall white cap */
+  else if(st==='bun'){ ipAdd(...hp(0.15,0,0.75),2.12, ...hp(-0.5,0,1.15),2.05, L.hair);   /* full hair parted in the middle, */
+    for(let s=-1;s<=1;s+=2) ipAdd(...hp(-0.25,s*1.5,0.35),0.9, ...hp(-0.75,s*1.5,-0.45),0.85, L.hair);   /* swept back over the ears */
+    ipAdd(...hp(-1.85,0,1.25),1.5, ...hp(-2.15,0,0.6),1.35, L.hair); }   /* and pinned up in a bun at the back */
+  else if(st==='shaved')ipAdd(...hp(-0.25,0,0.35),1.76, ...hp(-0.25,0,0.35),1.76, L.hair);   // a hair cap a little larger than the skull:
+  else { ipAdd(...hp(-0.3,0,0.6),1.8, ...hp(-0.3,0,0.6),1.8, L.hair);                       // it shows on top and at the back, the face covers its front
+    if(st==='fringe') ipAdd(...hp(0.85,-0.95,1.15),0.52, ...hp(1.0,0.85,1.0),0.5, L.hair); }   // straight fringe
+  if(L.beard) ipAdd(...hp(0.75,0,-0.75),1.18, ...hp(0.95,0,-1.6),0.92, L.hair);
+  if(L.chops) for(let s=-1;s<=1;s+=2) ipAdd(...hp(0.35,s*1.45,-0.1),0.52, ...hp(0.8,s*1.2,-1.25),0.5, L.hair);   /* mutton chops down to the jaw */
   for(let k=0;k<state.ipN;k++) state.ipOrd[k]=k;
   for(let a=1;a<state.ipN;a++){ const v=state.ipOrd[a]; let b=a-1; while(b>=0&&state.ipD[state.ipOrd[b]]>state.ipD[v]){ state.ipOrd[b+1]=state.ipOrd[b]; b--; } state.ipOrd[b+1]=v; }
   if(!state.ipPose&&!o.noShadow){ bodyPt(0,0,0); shadowEll(Math.round(state.bpX),Math.round(state.bpY),4,1); }
+  const lst=lit?litBegin(lit):null;   // everything below goes to the clean buffer until litFinish
+  const litFinish=()=>{ if(lit&&lst){ bodyPt(Q[0],Q[1],Q[2]); litEnd(lit,lst,state.bpX,state.bpY); } };
   for(let p=0;p<2;p++) for(let a=0;a<state.ipN;a++){ const k=state.ipOrd[a];
     taper(Math.round(state.ipX0[k]),Math.round(state.ipY0[k]),state.ipR0[k],Math.round(state.ipX1[k]),Math.round(state.ipY1[k]),state.ipR1[k],p,state.ipRp[k],state.ipRp2[k],state.ipZ1[k],state.ipZ2[k],state.ipRp3[k]); }
   // ---- details on the side facing the camera (one 2× pixel each)
@@ -273,31 +336,33 @@ export function figureHD(C,J,L,o={}){
   bodyPt(...H); const hd0=state.bpD;
   const dot=(/** @type {number} */ f,/** @type {number} */ sd,/** @type {number} */ z,/** @type {number} */ c,/** @type {number} */ d0)=>{ bodyPt(f,sd,z); if(state.bpD>d0+0.02) pset(Math.round(state.bpX),Math.round(state.bpY),c); };
   const EYE=rgb('#3a2a20'), LIP=sh(S0,0);
-  if(st==='hood'){ for(let s=-1;s<=1;s+=2){ dot(H[0]+1.85,H[1]+s*0.55,H[2]+0.15,rgb('#0a0908'),hd0); dot(H[0]+1.82,H[1]+s*0.85,H[2]+0.2,rgb('#0a0908'),hd0); }   /* two slits, nothing else of a face */
-    dot(H[0]+1.6,H[1],H[2]-0.9,sh(L.cap??L.hair,0),hd0); }
+  if(st==='hood'){ for(let s=-1;s<=1;s+=2){ dot(...hp(1.85,s*0.55,0.15),rgb('#0a0908'),hd0); dot(...hp(1.82,s*0.85,0.2),rgb('#0a0908'),hd0); }   /* two slits, nothing else of a face */
+    dot(...hp(1.6,0,-0.9),sh(L.cap??L.hair,0),hd0); }
   else {
-  for(let s=-1;s<=1;s+=2){ dot(H[0]+1.5,H[1]+s*0.66,H[2]+0.2,EYE,hd0); dot(H[0]+1.42,H[1]+s*0.72,H[2]+0.8,sh(L.hair,st==='bald'?1:0),hd0); }   // eyes, brows
-  dot(H[0]+1.82,H[1]+0.12,H[2]-0.3,sh(S0,1),hd0);                                                               // nose: a half-tone, not a hole
-  if(L.mustache||L.beard){ dot(H[0]+1.6,H[1]-0.35,H[2]-0.62,sh(L.hair,L.beard?1:0),hd0); dot(H[0]+1.6,H[1]+0.35,H[2]-0.62,sh(L.hair,L.beard?1:0),hd0); }
-  if(!L.beard) dot(H[0]+1.5,H[1]-0.1,H[2]-1.0,LIP,hd0);                                                       // mouth (a beard hides it)
-  if(L.stubble) for(const [f,sd,z] of [[1.2,-0.62,-1.05],[1.3,0.6,-1.1],[1.4,0,-1.4],[1.05,-0.95,-0.7],[1.05,0.95,-0.75]]) dot(H[0]+f,H[1]+sd,H[2]+z,sh(S0,0),hd0);
-  if(L.cut) dot(H[0]+1.78,H[1]-0.18,H[2]+0.22,rgb('#b8402c'),hd0);                                            // the fresh cut on the bridge of the nose
+  const eyeAt=(/** @type {number} */ s)=>{ bodyPt(...hp(1.5,s*0.66,0.2)); return [Math.round(state.bpX),Math.round(state.bpY),state.bpD]; };
+  const e0=eyeAt(-1), e1=eyeAt(1), profile=Math.abs(e0[0]-e1[0])<3&&Math.abs(e0[1]-e1[1])<3;   // seen from the side the two eyes land together: keep only the near eye and brow
+  for(let s=-1;s<=1;s+=2){ if(profile&&(s<0?e0[2]<e1[2]:e1[2]<=e0[2])) continue; dot(...hp(1.5,s*0.66,0.2),EYE,hd0); dot(...hp(1.5,s*0.66,-0.15),EYE,hd0); }   // eyes, two pixels tall; no brows, they read as a second eye
+  dot(...hp(1.82,0.12,-0.3),sh(S0,1),hd0);                                                               // nose: a half-tone, not a hole
+  if(L.mustache||L.beard){ dot(...hp(1.6,-0.35,-0.62),sh(L.hair,L.beard?1:0),hd0); dot(...hp(1.6,0.35,-0.62),sh(L.hair,L.beard?1:0),hd0); }
+  if(!L.beard) dot(...hp(1.5,-0.1,-1.0),LIP,hd0);                                                       // mouth (a beard hides it)
+  if(L.stubble) for(const [f,sd,z] of [[1.2,-0.62,-1.05],[1.3,0.6,-1.1],[1.4,0,-1.4],[1.05,-0.95,-0.7],[1.05,0.95,-0.75]]) dot(...hp(f,sd,z),sh(S0,0),hd0);
+  if(L.cut) dot(...hp(1.78,-0.18,0.22),rgb('#b8402c'),hd0);                                            // the fresh cut on the bridge of the nose
   }
   bodyPt(...Q); const cd0=state.bpD, TD=sh(T0,0), TL=sh(T0,2);
-  if(L.censor){ bodyPt(P[0]+1.0,P[1],P[2]-0.5); censor(Math.round(state.bpX),Math.round(state.bpY)); }
-  if(L.bare){ state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
-  dot(Q[0]+1.7,Q[1]-0.55,Q[2]+0.15,TL,cd0); dot(Q[0]+1.7,Q[1]+0.55,Q[2]+0.15,TL,cd0);                     // collar points
-  if(L.scarf!==undefined){ dot(Q[0]+1.75,Q[1],Q[2]+0.25,L.scarf,cd0); dot(Q[0]+1.85,Q[1]+0.25,Q[2]-0.3,L.scarf,cd0); dot(Q[0]+1.85,Q[1]-0.2,Q[2]-0.55,L.scarf,cd0); }   /* a knotted neckerchief */
-  bodyPt(Q[0]+2.0,Q[1],Q[2]-0.9); const ax=Math.round(state.bpX), ay=Math.round(state.bpY), ad=state.bpD;
-  bodyPt(P[0]+1.7,P[1],P[2]+0.8); const bx=Math.round(state.bpX), by=Math.round(state.bpY);
+  if(L.censor){ bodyPt(...pp(1.0,0,-0.5)); censor(Math.round(state.bpX),Math.round(state.bpY)); }
+  if(L.bare){ litFinish(); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
+  dot(...tp(1.7,-0.55,0.15),TL,cd0); dot(...tp(1.7,0.55,0.15),TL,cd0);                     // collar points
+  if(L.scarf!==undefined){ dot(...tp(1.75,0,0.25),L.scarf,cd0); dot(...tp(1.85,0.25,-0.3),L.scarf,cd0); dot(...tp(1.85,-0.2,-0.55),L.scarf,cd0); }   /* a knotted neckerchief */
+  bodyPt(...tp(2.0,0,-0.9)); const ax=Math.round(state.bpX), ay=Math.round(state.bpY), ad=state.bpD;
+  bodyPt(...pp(1.7,0,0.8)); const bx=Math.round(state.bpX), by=Math.round(state.bpY);
   if(ad>cd0+0.02&&state.bpD>cd0-0.2){ line(ax,ay,bx,by,TD,TD); for(const t of [0.15,0.5,0.85]) pset(Math.round(ax+(bx-ax)*t)+1,Math.round(ay+(by-ay)*t),TL); }   // button placket
-  dot(Q[0]+1.85,Q[1]+nearS*1.05,Q[2]-0.45,TD,cd0); dot(Q[0]+1.85,Q[1]+nearS*1.35,Q[2]-0.45,TD,cd0);         // breast pocket edge
-  if(L.belt){ bodyPt(P[0]+1.55,P[1]-1.3,P[2]+0.9); const x0=Math.round(state.bpX), y0=Math.round(state.bpY), d0=state.bpD; bodyPt(P[0]+1.55,P[1]+1.3,P[2]+0.9); if(Math.max(d0,state.bpD)>cd0-0.3) line(x0,y0,Math.round(state.bpX),Math.round(state.bpY),sh(L.shoe,0),sh(L.shoe,1)); }   /* belt */
+  dot(...tp(1.85,nearS*1.05,-0.45),TD,cd0); dot(...tp(1.85,nearS*1.35,-0.45),TD,cd0);         // breast pocket edge
+  if(L.belt){ bodyPt(...pp(1.55,-1.3,0.9)); const x0=Math.round(state.bpX), y0=Math.round(state.bpY), d0=state.bpD; bodyPt(...pp(1.55,1.3,0.9)); if(Math.max(d0,state.bpD)>cd0-0.3) line(x0,y0,Math.round(state.bpX),Math.round(state.bpY),sh(L.shoe,0),sh(L.shoe,1)); }   /* belt */
   if(L.irons){ const a=J(-1).foot, b=J(1).foot; bodyPt(a[0],a[1],a[2]+0.5); const x0=state.bpX, y0=state.bpY; bodyPt(b[0],b[1],b[2]+0.5); const x1=state.bpX, y1=state.bpY;   /* leg irons: two cuffs, the chain sagging between */
     const IR=rgb('#3a3632'), IH=rgb('#7a7068'); for(let k=0;k<=12;k++){ const u=k/12, x=x0+(x1-x0)*u, y=y0+(y1-y0)*u+Math.sin(Math.PI*u)*3*state.ISO_K; pset(Math.round(x),Math.round(y),k&1?IH:IR); }
     for(const [x,y] of [[x0,y0],[x1,y1]]) for(let d=-1;d<=1;d++){ pset(Math.round(x)+d,Math.round(y)-1,IR); pset(Math.round(x)+d,Math.round(y),IH); } }
-  if(L.baton){ bodyPt(P[0]+0.3,P[1]+nearS*2.05,P[2]+1.0); const x0=Math.round(state.bpX), y0=Math.round(state.bpY); bodyPt(P[0]+0.7,P[1]+nearS*2.2,P[2]-3.0); line(x0,y0,Math.round(state.bpX),Math.round(state.bpY),sh(L.shoe,0),sh(L.shoe,0)); }   /* rubber baton on the hip */
-  state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
+  if(L.baton){ bodyPt(...pp(0.3,nearS*2.05,1.0)); const x0=Math.round(state.bpX), y0=Math.round(state.bpY); bodyPt(...pp(0.7,nearS*2.2,-3.0)); line(x0,y0,Math.round(state.bpX),Math.round(state.bpY),sh(L.shoe,0),sh(L.shoe,0)); }   /* rubber baton on the hip */
+  litFinish(); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
 }
 
 /** A pixel mosaic over the groin: 4×3 blocks of 2×2 picture pixels, each the average of what is under it, lighter or darker by turns. @param {number} cx @param {number} cy */
@@ -314,7 +379,7 @@ export function ipAdd(f0,s0,z0,r0,f1,s1,z1,r1,rp,rp2,zz1,zz2,rp3){
   if(state.ipN>=state.IP_N) return; const k=state.ipN++;
   bodyPt(f0,s0,z0); state.ipX0[k]=state.bpX; state.ipY0[k]=state.bpY; let d=state.bpD;
   bodyPt(f1,s1,z1); state.ipX1[k]=state.bpX; state.ipY1[k]=state.bpY; state.ipD[k]=(d+state.bpD)*0.5;
-  const K=state.ISO_K; state.ipR0[k]=r0*K; state.ipR1[k]=r1*K; state.ipRp[k]=rp; state.ipRp2[k]=rp2||0; state.ipZ1[k]=zz1===undefined?-9:zz1; state.ipZ2[k]=zz2===undefined?-9:zz2; state.ipRp3[k]=rp3||0;
+  const K=state.propCamera?.figureScale??state.ISO_K; state.ipR0[k]=r0*K; state.ipR1[k]=r1*K; state.ipRp[k]=rp; state.ipRp2[k]=rp2||0; state.ipZ1[k]=zz1===undefined?-9:zz1; state.ipZ2[k]=zz2===undefined?-9:zz2; state.ipRp3[k]=rp3||0;
 } function drawIsoBoxer(){                                   // in the cell he wears the same drelich as the inmates (long sleeves, no belt, black shoes)
   if(state.hubRoom==='laznia'){ drawIsoTowel(); return; }
   if(!PRISON_LOOK.includes(state.hubRoom)){ drawIsoBoxer0(); return; }
@@ -346,7 +411,7 @@ export function heroFigureLook(){
 } function drawIsoBoxer0(){
   state.ipC=state.hubP; state.ipN=0; state.ipPose=state.hubP.pose|0; state.ipBase=state.hubP.poseZ||0;
   const HD=state.ISO_K>1&&(PRISON_LOOK.includes(state.hubRoom)||state.hubRoom==='laznia'), jt={};   // the 2× cell: the modelled figure
-  const still=state.ipPose===1||state.ipPose===2, mv=state.hubP.moving&&!state.ipPose, ph=state.hubP.ph, bob=still?0:(mv?Math.abs(Math.sin(ph))*0.7:0.35*Math.sin(boxingState.tick*0.09));
+  const still=state.ipPose===1||state.ipPose===2, mv=state.hubP.moving&&!state.ipPose, ph=state.hubP.ph, swayI=mv?0.35*Math.cos(ph):0, swayJ=mv?0.45*Math.sin(ph):0, bob=still?0:(mv?Math.abs(Math.sin(ph))*0.7:0.35*Math.sin(boxingState.tick*0.09));
   const sideD=(-state.hubP.fj+state.hubP.fi), nearS=sideD>=0?1:-1;
   const dressed=!state.isoTowel&&!(roomsState.hubAct&&roomsState.hubAct.kind==='shower'&&roomsState.hubAct.t>roomsState.ACT_FADE);   // prison clothes (the bath has its own figure)
   for(let s=-1;s<=1;s+=2){
@@ -378,7 +443,7 @@ export function heroFigureLook(){
     ipAdd(ex,s*es,ez,1.0, hx,s*hs,hz,0.9, longS?SH:SK);
     ipAdd(hx,s*hs,hz-0.2,1.0, hx+0.1,s*hs,hz-0.2,1.0, SK);                            // bare fists
   }
-  if(HD){ const A=appearanceState, J=(/** @type {number} */ s)=>jt[s]; J.pel=[0,0,6.6+bob]; J.chest=[0.4,0,12.2+bob]; J.head=[0.35,0,15.6+bob];
+  if(HD){ const A=appearanceState, J=(/** @type {number} */ s)=>jt[s]; J.pel=[0,0,6.6+bob]; J.chest=[0.4+swayI,swayJ,12.2+bob]; J.head=[0.35,0,15.6+bob];
     const look={sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'fringe',stubble:true,cut:true};
     if(state.heroHood) Object.assign(look,{style:'hood',stubble:false,cut:false});
     if(state.isoTowel){ const wet=!!(roomsState.hubAct&&roomsState.hubAct.kind==='shower'&&roomsState.hubAct.t>roomsState.ACT_FADE);   /* the bath: a towel and slippers, under the shower naked */
@@ -388,8 +453,8 @@ export function heroFigureLook(){
     figureHD(state.hubP,J,look,{pose:state.ipPose,base:state.ipBase,noShadow:still});
     if(tray&&front) drawHeldTray(state.hubP,10.6+bob);
     return; }
-  if(dressed) ipAdd(0,0,6.6+bob,2.2, 0.4,0,12.2+bob,2.85, appearanceState.R_HSH,appearanceState.R_HPT,0.27,0.34,appearanceState.R_HBELT);   // shirt tucked into the trousers, belt
-  else ipAdd(0,0,6.6+bob,2.1, 0.4,0,12.2+bob,2.8, appearanceState.R_SKIN,appearanceState.R_TRUNK,0.34,0.44,appearanceState.R_TT);
+  if(dressed) ipAdd(0,0,6.6+bob,2.2, 0.4+swayI,swayJ,12.2+bob,2.85, appearanceState.R_HSH,appearanceState.R_HPT,0.27,0.34,appearanceState.R_HBELT);   // shirt tucked into the trousers, belt
+  else ipAdd(0,0,6.6+bob,2.1, 0.4+swayI,swayJ,12.2+bob,2.8, appearanceState.R_SKIN,appearanceState.R_TRUNK,0.34,0.44,appearanceState.R_TT);
   ipAdd(0.35,0,15.6+bob,2.45, 0.35,0,15.6+bob,2.45, appearanceState.R_SKIN);
   if(appearanceState.lk.style!=='bald') ipAdd(-0.5,0,16.5+bob,appearanceState.lk.style==='afro'?2.9:2.25, -0.5,0,16.5+bob,appearanceState.lk.style==='afro'?2.9:2.25, appearanceState.R_HAIR);
   for(let k=0;k<state.ipN;k++) state.ipOrd[k]=k;
@@ -408,7 +473,7 @@ function drawScene(){
     state.drRef[n]=it; state.drDone[n]=0; n++; }
   const actOrd=roomsState.hubAct&&roomsState.hubAct.t>=roomsState.ACT_FADE&&roomsState.hubAct.order?roomsState.hubAct:null;   // using furniture: the boxer is drawn right before / after that item
   let pIdx=-1; if(!actOrd&&!state.actors){ state.drA0[n]=state.hubP.i-0.2; state.drB0[n]=state.hubP.j-0.2; state.drA1[n]=state.hubP.i+0.2; state.drB1[n]=state.hubP.j+0.2; state.drRef[n]=null; state.drDone[n]=0; pIdx=n; n++; }
-  const NPCL=state.actors?null:state.hubRoom==='cell'?npcsState.CNL:state.hubRoom==='yard'?(cnNight()?null:npcsState.YND):(state.hubRoom==='laznia'?bathState.crowd:null);   // hooded inmates and the turnkeys
+  const NPCL=state.actors?state.fightSpectators:state.hubRoom==='cell'?npcsState.CNL:state.hubRoom==='yard'?(cnNight()?null:npcsState.YND):(state.hubRoom==='laznia'?bathState.crowd:null);   // hooded inmates and the turnkeys
   const cnIdx=[]; if(NPCL) for(const C of NPCL){ if(C.after||!C.step) continue; const r=cnRect(C); state.drA0[n]=r[0]; state.drB0[n]=r[1]; state.drA1[n]=r[2]; state.drB1[n]=r[3]; state.drRef[n]=null; state.drDone[n]=0; cnIdx.push([n,C]); n++; }
   const actIdx=[]; if(state.actors) for(const a of state.actors){ state.drA0[n]=a.i-0.25; state.drB0[n]=a.j-0.25; state.drA1[n]=a.i+0.25; state.drB1[n]=a.j+0.25; state.drRef[n]=null; state.drDone[n]=0; actIdx.push([n,a]); n++; }   // fight actors: {i,j,draw}
   for(let left=n;left>0;left--){
@@ -420,11 +485,13 @@ function drawScene(){
     state.drDone[pick]=1;
     const cnE=cnIdx.length?cnIdx.find(e=>e[0]===pick):null;
     const acE=actIdx.length?actIdx.find(e=>e[0]===pick):null;
-    if(acE) acE[1].draw(); else if(cnE) cnDraw(cnE[1]); else if(pick===pIdx) drawIsoBoxer(); else { const it=state.drRef[pick], mine=actOrd&&it===actOrd.item;
+    if(acE) acE[1].draw(); else if(cnE){ if(cnE[1]===npcsState.STINK) cnToiletStream(); cnDraw(cnE[1]); } else if(pick===pIdx) drawIsoBoxer(); else { const it=state.drRef[pick], mine=actOrd&&it===actOrd.item;
       if(mine&&actOrd.order==='before') drawIsoBoxer();
       const onIt=NPCL?NPCL.filter(C=>C.after===it):null;
-      if(onIt&&onIt.length){ blitSprite(it,0,1); for(const C of onIt) cnDraw(C); blitSprite(it,0,2); }   // inmate on a stool / in a bunk (+ the bunk's front layer over him)
+      if(it.t==='cwheel'&&state.hubRoom==='cell'){ drawItem(it); if(onIt) for(const C of onIt) cnDraw(C); state.bunkFront=true; drawItem(it); state.bunkFront=false; }
+      else if(onIt&&onIt.length){ blitSprite(it,0,1); for(const C of onIt) cnDraw(C); blitSprite(it,0,2); }   // inmate on a stool / in a bunk (+ the bunk's front layer over him)
       else blitSprite(it,0);
+      if(state.hubRoom==='cell'&&it.t==='bunk2') wardRoaches(true);
       if(mine&&actOrd.order==='after'){ drawIsoBoxer(); if(actOrd.kind==='shower'&&it.t==='lshower') blitSprite(it,0,2);   /* in the tub: its near sides over him */
         if(actOrd.kind==='sleep'){ wardBlanket(actOrd); } } }
   }
@@ -442,6 +509,7 @@ export function renderHub(){
   if(state.preScene) state.preScene();   // marks on the floor under the people (iso-fight.js)
   if(state.hubRoom==='cell') wardLife();   /* rats, flies and drips under the people */
   drawScene();
+  if(state.hubRoom==='cell'&&!state.actors&&!npcsState.STINK.step) cnToiletStream();
   if(state.hubRoom==='cell'){ wardBreath(state.actors||[state.hubP,...npcsState.CNL]); lightCell(); drawCellLights(); wardSmog(); wardVignette(); }   /* the Ward: cold breath, tallow and smog, dark edges */
   else if(state.hubRoom==='laznia') bathFX();   /* gaslight, steam, fog, carbolic */
   if(state.hubRoom==='yard'){ weatherLight(); const b=skyBucket(); if(b===0) dimFB(0.45); else if(b===4) dimFB(0.25); drawRain(); yardFog(); wardBreath(state.actors||npcsState.YND); wardVignette(); }   /* Newgate: smog in the well, breath through the hoods */
@@ -465,6 +533,9 @@ export function renderHub(){
 
 
 
+
+/** Set the people shown alongside fight actors in the room. @param {any[]|null} spectators */
+export function setFightSpectators(spectators){ state.fightSpectators=spectators; }
 
 export function initialize(){
 
@@ -498,6 +569,7 @@ state.hubP = {i:6.2,j:5.6,fi:-0.7071,fj:-0.7071,ph:0,moving:false,pose:0,poseZ:0
    // pose: 0 stand, 1 lie, 2 sit, 3 eat
 state.hubKeys = {u:0,d:0,l:0,r:0};
 state.preScene = null;
+state.fightSpectators = null;
 state.actors = null;   // fight actors drawn by the depth sorter instead of the hero and the inmates (iso-fight.js)
 
 state.hubNear = null;

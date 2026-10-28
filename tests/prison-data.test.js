@@ -15,16 +15,14 @@ test('the prison save keeps its schedule cursor', () => {
   assert.equal(sanitizePrison({zegar: -3}).zegar, 0);
 });
 
-test('respect ranks and arm wrestling setup', async () => {
-  const {respektRank, inmateRank, armSetup, armResult} = await import('../src/prison-data.js');
-  assert.deepEqual([0,14,15,34,35,60,84,85,100].map(respektRank), [0,0,1,1,2,3,3,4,4]);
-  assert.deepEqual([2,6,10,14,17,20].map(inmateRank), [0,1,2,3,3,4]);
-  const even = armSetup({myRank:1, oppRank:1, strLvl:5, endLvl:5, oppFight:8});
-  const boss = armSetup({myRank:3, oppRank:1, strLvl:5, endLvl:5, oppFight:8});
-  assert.equal(even.start, 0);
-  assert.ok(boss.start > 0 && boss.surgeGap > even.surgeGap, 'respect gives a head start and fewer surges');
-  assert.ok(armSetup({myRank:1, oppRank:1, strLvl:15, endLvl:5, oppFight:8}).push > even.push, 'strength pushes harder');
-  assert.deepEqual([1, -1, 0.3].map(armResult), ['win', 'loss', 'draw']);
+test('arm wrestling starts evenly and rewards strength', async () => {
+  const {armSetup, armResult} = await import('../src/prison-data.js');
+  const p={myRank:1,oppRank:1,strLvl:5,endLvl:5,oppFight:8};
+  const even=armSetup(p);
+  assert.equal(even.start,0);
+  assert.deepEqual(armSetup({...p,myRank:4}),even,'the old rank no longer affects wrestling');
+  assert.ok(armSetup({...p,strLvl:15}).push>even.push);
+  assert.deepEqual([1,-1,0.3].map(armResult),['win','loss','draw']);
 });
 
 test('slaughterhouse quota, stage and pay', () => {
@@ -41,15 +39,6 @@ test('money is shown in shillings and pence', async () => {
   const {fmtMoney} = await import('../src/prison-data.js');
   assert.deepEqual([fmtMoney(1.5), fmtMoney(3), fmtMoney(0.5), fmtMoney(0), fmtMoney(22.4), fmtMoney(-1.25)],
     ['1 szyl. 6 p.', '3 szyl.', '6 p.', '0 p.', '22 szyl. 5 p.', '−1 szyl. 3 p.']);
-});
-
-test('supervision: guard risk, respect from fights and reports', async () => {
-  const {guardRisk, fightRespekt, recentRaports} = await import('../src/prison-data.js');
-  assert.equal(guardRisk({venue:'cell'}),0.10); assert.equal(guardRisk({venue:'cell',night:true}),0.05);
-  assert.equal(guardRisk({venue:'yard',sec:35}),0.28);
-  assert.equal(guardRisk({venue:'canteen'}),0.60); assert.equal(guardRisk({venue:'laznia',sec:25}),0.22); assert.equal(guardRisk({venue:'canteen',blind:true}),0.15); assert.equal(guardRisk({venue:'yard',sunday:true}),0);
-  assert.deepEqual([fightRespekt({win:true,stars:2}),fightRespekt({win:true,ko:true,stars:2}),fightRespekt({win:false,stars:1}),fightRespekt({win:false,stars:4}),fightRespekt({win:false,draw:true,stars:1})],[8,12,-6,0,0]);
-  assert.equal(recentRaports([1,3,9,10],10),2);
 });
 
 test('Profesor: one note per fight and the daily task for the weakest tree', async () => {
@@ -82,7 +71,7 @@ test('Profesor\'s list: ten names in order, lessons and the shadow stages', asyn
   assert.deepEqual([cienStage({}),cienStage({'4':true}),cienStage({'4':true,'6':true})],[1,2,3]);
 });
 
-test('Spacerniak: points from respect, tiers by rank, one tier III, frozen outside prison', async () => {
+test('Spacerniak: points from progress, tiers by progress, one tier III, frozen outside prison', async () => {
   const {BARE_PERKS, barePoints, bareSpent, bareBlock} = await import('../src/prison-data.js');
   assert.equal(BARE_PERKS.length,10);
   assert.equal(barePoints({maxRank:4,bicie:true,glaz:true}),6); assert.equal(barePoints({maxRank:1,bicie:false,glaz:false}),1);

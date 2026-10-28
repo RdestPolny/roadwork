@@ -162,14 +162,17 @@ function contact(){
   state.roaches=state.roaches.filter(r=>!r.dead);
   if(best){
     hurt=HIT_PAIN[best==='clean'?'clean':'graze']; addPain(hurt); state.missed=false; state.t=0; state.phase='stop';
+    state.hand.vx=(state.sx-72)*0.015; state.hand.vy=0.45;   // the hand's recoil, carried on into the way back
     if(killed){ state.combo++; state.best=Math.max(state.best,state.combo); if(state.combo%5===0){ sessionAddTime(2); flash('+2 S'); state.feedback='Pięć z rzędu bez pudła — łój pali się dłużej (+2 s).'; } else state.feedback=best==='clean'?'Czysto.':'Dobity.'; }
     else state.feedback='Draśnięty — kuleje do szpary. Dobij go.';
     sfxSquash(killed?1:0.6); wallGoo(x,y,killed?5:2); shake(1,4,1); scare(x,y,18);
   } else {
     const surf=surfaceAt(x,y), m=missCost(surf,state.pain); addPain(m.pain-state.pain);
     state.cool=state.coolMax=m.cool; state.missed=true; state.combo=0; state.misses++; state.t=0; state.phase='stop';
+    const recoil=surf===SURFACE.iron?1.8:surf===SURFACE.brick?1.2:0.85;   // bare knuckles on iron kick back hardest
+    state.hand.vx=(Math.random()-0.5)*recoil; state.hand.vy=recoil*1.1;
     sessionMetric('misses'); sfxKnuckle(surf); sfxHiss(state.pain); chipWall(x,y); wallDust(x,y,surf===SURFACE.iron?4:12);
-    if(state.pain>=60) bloodWall(x,y);
+    bloodWall(x,y);
     shake(surf===SURFACE.iron?3:2,surf===SURFACE.iron?12:8,surf===SURFACE.iron?0:1); scare(x,y,24);
     state.feedback=(surf===SURFACE.iron?'W żelazne ucho! ':surf===SURFACE.brick?'Gołe kostki na cegle. ':'Kostki na wapnie. ')+'Ręka drży — chwila przerwy.';
   }
@@ -191,11 +194,12 @@ function addPain(d){
 /** @param {string} text */
 function flash(text){ state.flash=text; state.flashT=70; }
 
-/** The punch's progress for the picture: 0 at the chin … 1 on the wall. */
+/** The punch's progress for the picture: 0 at the chin … 1 on the wall. A short pull-back first, an explosive shot at the wall, a springy return. */
 function reach(){
-  if(state.phase==='out') return Math.pow((state.t+1)/OUT_T,1.6);
+  if(state.phase==='out'){ const u=(state.t+1)/OUT_T; return u<0.2?-0.06*Math.sin(u/0.2*Math.PI):Math.pow((u-0.2)/0.8,1.35); }
   if(state.phase==='stop') return 1;
-  if(state.phase==='back') return 1-Math.pow(state.t/BACK_T,0.7);
+  if(state.phase==='back'){ const e=Math.pow(Math.max(0,1-state.t/BACK_T),1.45); return state.missed?0.5+0.5*e:e; }
+  if(state.phase==='cool') return 0.5*Math.max(0,1-(state.coolMax-state.cool)/24);
   return 0;
 }
 
@@ -216,7 +220,8 @@ export function roachTick(){
   const shakeK=S.phase==='cool'?S.cool/S.coolMax:0, amp=3*smooth(20,100,S.pain)+2.5*shakeK, fast=S.pain>=90?0.55:0.21;
   S.tremX=(vnoise(S.ticks*fast,1.3)-0.5)*2*amp+(vnoise(S.ticks*0.03,8)-0.5)*0.9; S.tremY=(vnoise(S.ticks*fast+40,4.1)-0.5)*2*amp+Math.sin(S.ticks*0.035)*0.5+shakeK*shakeK*6;
   if(S.phase==='out'){ S.t++; if(S.t>=OUT_T) contact(); }
-  else if(S.phase==='back'){ S.t++; if(S.t>=BACK_T){ H.x=S.sx; H.y=S.sy; H.vx=H.vy=0;
+  else if(S.phase==='back'){ S.t++; if(S.t>=BACK_T){ H.x=S.sx+H.vx*2; H.y=S.sy+H.vy*2;   // the recoil is not cut off: the spring takes it on
+
     if(S.missed){ S.phase='cool'; } else { S.phase='aim'; if(S.buffered){ S.buffered=false; roachStrike(); } } } }
   else if(S.phase==='cool'){ if(--S.cool<=0){ S.phase='aim'; S.feedback='Ręka znowu słucha.'; setInfo(); } }
   S.pain=Math.max(0,S.pain-(++S.rest>60?PAIN_REST:PAIN_FADE));
@@ -254,11 +259,14 @@ function summaryExtra(r){
 /** Render the wall with the shadow, the roaches, the stains and the fist in flight. */
 export function renderRoaches(){
   setFramebuffer(renderer.FB_MAIN);
-  const S=state, e=reach(), fly=S.phase==='out'||S.phase==='stop'||S.phase==='back';
-  const ax=fly?S.sx:S.hand.x+S.tremX, ay=fly?S.sy:S.hand.y+S.tremY;
-  const F0=FIST_FROM, fist=fly?{x:ax+(F0.x-ax)*(1-e),y:ay+(F0.y-ay)*(1-e),s:1+2.4*(1-e),a:1}:null;
-  const ghost=S.phase==='out'&&S.t>0?(()=>{ const e0=Math.pow(S.t/OUT_T,1.6); return {x:ax+(F0.x-ax)*(1-e0),y:ay+(F0.y-ay)*(1-e0),s:1+2.4*(1-e0),a:0.35}; })():null;
-  renderRoachWall({shadow:{x:ax,y:ay,ox:1.2*e,oy:-0.8*e,s:1.5-0.5*e,blur:1.1-0.8*e},roaches:S.roaches,splats:S.splats,fist,ghost,pain:S.pain,pulse:S.pulse});
+  const S=state, e=reach(), fly=S.phase==='out'||S.phase==='stop'||S.phase==='back'||(S.phase==='cool'&&e>0);
+  const ax=S.phase==='cool'?S.hand.x:fly?S.sx:S.hand.x, ay=S.phase==='cool'?S.hand.y:fly?S.sy:S.hand.y;
+  const F0=FIST_FROM, arc=fly?Math.sin(Math.max(0,e)*Math.PI)*(S.phase==='back'?-3.5:2.8):0;   // the fist flies a slight arc, out and back
+  const trem=S.missed&&S.phase==='stop'?Math.sin(S.t*2.4)*1.4:S.missed&&S.phase==='back'?Math.sin(S.t*2.4)*1.4:S.phase==='cool'?Math.sin((S.coolMax-S.cool)*2.4)*2*e:0;
+  const fist=fly?{x:ax+(F0.x-ax)*(1-e)+arc+trem,y:ay+(F0.y-ay)*(1-e)+Math.abs(arc)*0.6+trem*0.4,s:1+2.35*(1-e),a:1}:null;
+  const ghost=S.phase==='out'&&S.t>1?(()=>{ const e0=Math.pow((S.t-0.4)/OUT_T,1.4); return {x:ax+(F0.x-ax)*(1-e0)+1.8,y:ay+(F0.y-ay)*(1-e0)+1.2,s:1+2.35*(1-e0),a:0.28}; })():null;
+  const e1=Math.max(0,e);
+  renderRoachWall({shadow:{x:ax,y:ay,ox:1.2*e1,oy:-0.8*e1,s:1.5-0.5*e1,blur:1.1-0.8*e1},roaches:S.roaches,splats:S.splats,fist,ghost,pain:S.pain,pulse:S.pulse});
   if(S.flashT>0&&(S.flashT>14||S.flashT&2)) drawText(S.flash,72,4,appearance.C_SPARK,1);
 }
 

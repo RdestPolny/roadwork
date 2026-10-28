@@ -1,7 +1,7 @@
-import { cellFightBg, cellFightBack, cellFightFront } from './cell-fight-scene.js';
+import { wardWallBg, drawWardWallLive } from './ward-wall.js';
 import { saveFighterContext, loadFighterContext } from './fighter-context.js';
 import { state as appearanceState, setRamp, applyGear, applyLook, rgb } from './appearance.js';
-import { state as boxingState, torsoEdge, solve, setFlow, resetClock, commitWalk, startMove, handleEvents, updateShorts, spawn, clearParticles, popup, updateParticles, h2, drawText, drawBoxer, drawParticles, drawPopups } from './boxing.js';
+import { state as boxingState, setVenueLight, clearVenueLight, setupFighterLight, torsoEdge, solve, setFlow, resetClock, commitWalk, startMove, handleEvents, updateShorts, spawn, clearParticles, popup, updateParticles, h2, drawText, drawBoxer, drawParticles, drawPopups } from './boxing.js';
 import { state as animationState, isFwd, samplePose, poseSampleTime, computeIdle, isDash } from './animation.js';
 import { state as pushupsState, puReset } from './pushups.js';
 import { state as npcsState } from './npcs.js';
@@ -87,7 +87,7 @@ export function setFightLimit(ticks){ state.timeLimit=ticks; }
 export function setRigged(on){ state.rigged=on; state.rigKO=false; }
 
 /** The player's trousers-only fight skin, including Cień; bath outfits keep their towel. @param {any} [F] */
-export function bareTorsoOut(F=state.ctxF){ return (boxingState.gstate==='spar'&&isBareknuckle()&&state.sparVenue!=='laznia'&&!!F&&F===state.FA); }
+export function bareTorsoOut(F=state.ctxF){ return (boxingState.gstate==='spar'&&!isShadowboxing()&&isBareknuckle()&&state.sparVenue!=='laznia'&&!!F&&F===state.FA); }
 export function prisonOut(){ return boxingState.gstate==='crank'||boxingState.gstate==='pullup'||boxingState.gstate==='work'||boxingState.gstate==='arm'||(boxingState.gstate==='spar'&&isBareknuckle()&&state.sparVenue!=='laznia')||(boxingState.gstate==='pushup'&&pushupsState.puVenue==='cell'); } function prisonPal(F){                 // this fighter wears the cell drelich: blue shirt + trousers, black shoes
   const keep=appearanceState.PAL.slice(); appearanceState.PAL.set(F.pal);
   setRamp(appearanceState.R_SHIRT,npcsState.CN_TOP,false); setRamp(appearanceState.R_SHIRTF,npcsState.CN_TOP,true); setRamp(appearanceState.R_PANT,npcsState.CN_PANT,false); setRamp(appearanceState.R_PANTF,npcsState.CN_PANT,true);
@@ -99,7 +99,7 @@ function snapFighterLook(F,eq,look){ applyGear(eq); applyLook(look); F.pal.set(a
   state.ctxF=F; state.oppF=F.opp; state.mirrorCtx=F.mirror;                          // fresh context (previous one is being reset too)
   boxingState.state=animationState.IDLE; boxingState.stateT=0; boxingState.frameIdx=-1; boxingState.fired=0; boxingState.idleT=99; boxingState.curGrade=1; boxingState.buffered=-1; boxingState.bufferTick=0; boxingState.bufferedGrade=1; boxingState.moveStep=0; animationState.moveRate=1;
   animationState.posX=state.START_POS; boxingState.flashL=0; boxingState.flashR=0; animationState.cur.set(animationState.GUARD); animationState.fromPose.set(animationState.GUARD); animationState.lastPose.set(animationState.GUARD);
-  boxingState.trX=0; boxingState.trY=0; boxingState.trVX=0; boxingState.trVY=0; state.aimLow=0; state.nextLow=0; state.idleOff=F.idleOff;
+  boxingState.trX=0; boxingState.trY=0; boxingState.trVX=0; boxingState.trVY=0; boxingState.torsoLagX=0; boxingState.torsoLagVX=0; boxingState.rdOn=0; boxingState.rdLying=false; state.aimLow=0; state.nextLow=0; state.idleOff=F.idleOff;
   F.effPos=state.START_POS; F.pendHit=-1; F.blockT=0; F.down=false; F.hurt=0; F.stun=0; F.kx=F.kv=F.ky=F.shk=F.hitT0=0;
   boxingState.STATS.speed=F.spd; solve(); boxingState.prevHX=appearanceState.BASE_X+animationState.posX+animationState.cur[animationState.BX]; boxingState.prevHY=appearanceState.HIP_Y0+animationState.cur[animationState.BY]; derive(F); saveCtx(F);
 }
@@ -108,7 +108,7 @@ export function sparExit(){
   if(isShadowboxing())stopShadowboxing();
   state.shadow=false;state.shadowRate=1;
   if(state.ctxF){ switchTo(state.FA); state.ctxF=null; } boxingState.trl=boxingState.trailMain;
-  state.oppF=null; state.mirrorCtx=false; state.aimLow=0; state.nextLow=0; state.idleOff=0; animationState.idleTired=0; animationState.idleHurt=0; animationState.idleClose=0; animationState.idleSeed=7; state.faceDmg=0; state.lyingDraw=false;
+  clearVenueLight(); state.oppF=null; state.mirrorCtx=false; state.aimLow=0; state.nextLow=0; state.idleOff=0; animationState.idleTired=0; animationState.idleHurt=0; animationState.idleClose=0; animationState.idleSeed=7; state.faceDmg=0; state.lyingDraw=false;
   rendererState.fb=rendererState.FB_MAIN; if(state.sparLkSave) appearanceState.lk=state.sparLkSave; if(state.WORK_RAMPS) appearanceState.PAL.set(state.WORK_RAMPS,appearanceState.R_SHIRT*3); applyGear(progressionState.save.eq); applyLook(progressionState.save.look);
   applyStats();
   animationState.posX=0; boxingState.state=animationState.IDLE; boxingState.buffered=-1; animationState.cur.set(animationState.GUARD); animationState.lastPose.set(animationState.cur); boxingState.idleT=0; boxingState.hitstop=0; boxingState.shakeT=0;
@@ -263,23 +263,21 @@ function composite(mirror,hurt,dx=0,dy=0,scaleX=1,ghost=false){
   }
 } function drawFighter(F){
   switchTo(F);
-  appearanceState.PAL.set(F.pal); appearanceState.trStyle=F.tr; appearanceState.glStyle=F.gl; appearanceState.btStyle=F.bt; appearanceState.lk=F.look; state.faceDmg=F.dmg; state.lyingDraw=boxingState.state===animationState.S_KO&&boxingState.stateT>14;
-  rendererState.fb=state.FB_ALT; state.FB_ALT.fill(0); drawBoxer(); rendererState.fb=rendererState.FB_MAIN;
+  appearanceState.PAL.set(F.pal); appearanceState.trStyle=F.tr; appearanceState.glStyle=F.gl; appearanceState.btStyle=F.bt; appearanceState.lk=F.look; state.faceDmg=F.dmg; state.lyingDraw=boxingState.rdOn?boxingState.rdLying:boxingState.state===animationState.S_KO&&boxingState.stateT>14;
   const view=fighterView(F);
+  setupFighterLight(view.x,view.mirror);
+  rendererState.fb=state.FB_ALT; state.FB_ALT.fill(0); drawBoxer(); rendererState.fb=rendererState.FB_MAIN;
   composite(view.mirror,false,view.dx,view.dy,view.scaleX,isShadowboxing()&&F===state.FB);
 }
 
-/** Present Cień: the painted cell, the shadow and the boxer. */
+/** Present the boxer training in the Ward. */
 export function renderSpar(){
   rendererState.fb=rendererState.FB_MAIN; rendererState.fb.set(state.bgRing);
-  const hot=boxingState.shakeT>0||state.SP.phase==='end';
-  cellFightBack(hot);
-  for(let i=0;i<2;i++){ const F=state.FIG[i],view=fighterView(F); shadowEll(view.x,appearanceState.FLOOR_Y+view.dy-Math.round(F.ky||0),F.st===animationState.S_KO?13:Math.round((F.stW*0.5+6)*view.scaleX),1); }
+  drawWardWallLive(0,0,0);
+  const view=fighterView(state.FA);
+  shadowEll(view.x,appearanceState.FLOOR_Y+view.dy-Math.round(state.FA.ky||0),Math.round((state.FA.stW*0.5+6)*view.scaleX),1);
   drawParticles(true);
-  const aAtt=state.FA.st>=0&&state.FA.st<=3;
-  const front=state.SP.pivot||aAtt?state.FA:state.FB;
-  drawFighter(front===state.FA?state.FB:state.FA); drawFighter(front);
-  cellFightFront();
+  drawFighter(state.FA);
   drawParticles(false);
   if(state.SP.pivot)drawText('PIVOT',72,30,appearanceState.C_SWEAT,1);
   drawPopups();
@@ -415,7 +413,8 @@ export function startSpar(idx,venue,station,shadow=false){
 
 /** The backdrop of Cień: the painted Ward cell. @param {string} _venue */
 export function buildRing(_venue){
-  rendererState.fb=state.bgRing; cellFightBg(); rendererState.fb=rendererState.FB_MAIN;
+  rendererState.fb=state.bgRing; wardWallBg(); rendererState.fb=rendererState.FB_MAIN;
+  setVenueLight(102,16,0.52);
 }
 
 export function initialize(){
@@ -489,6 +488,8 @@ state.YARD_OPP = [
   // the end of Profesor's list: the yard boss, the only ★★★ in prison (no yard figure; he is called from the yard door)
   {name:'SZEF',title:'Szef spacerniaka',style:'counter',hp:130,rank:20,perks:['dirty-work','shove','counterpuncher','read-tells'],eq:{},look:{skin:'s3',hair:'h1',style:'short',eyes:'narrow',brows:'angry',nose:'broken',facial:'mustache',extra:'scar'}},
 ];
+
+state.CELL_OPP.push(state.YARD_OPP[0],state.YARD_OPP[1]);
 
 // Fights at the meal from Profesor's list (#3 Zeke, #9 Dan): in the Ward over the bowls, everybody watching.
 state.CANTEEN_OPP = [

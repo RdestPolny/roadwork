@@ -11,7 +11,7 @@ import { state as progressionState } from './progression.js';
 import { enterHub, setPanelMode } from './navigation.js';
 import { setInfo } from './input.js';
 import { tone, initAudio, sfxWhoosh } from './audio.js';
-import { armSetup, armResult, respektRank } from './prison-data.js';
+import { armSetup, armResult } from './prison-data.js';
 
 // Runtime values owned by armwrestle; initialized explicitly by main.js.
 export const state = {};
@@ -22,8 +22,8 @@ const PERIOD = 34;          // ticks of one push rhythm
  * Start a bout. @param {{name:string,fight:number,oppRank:number,stake:string,look?:Record<string,string>,onEnd:(res:'win'|'loss'|'draw')=>void}} o
  */
 export function startArm(o){
-  const save=progressionState.save, P=save.prison;
-  const S=armSetup({myRank:respektRank(P.respekt),oppRank:o.oppRank,strLvl:save.stats.str.lvl,endLvl:save.stats.end.lvl,oppFight:o.fight});
+  const save=progressionState.save;
+  const S=armSetup({myRank:0,oppRank:0,strLvl:save.stats.str.lvl,endLvl:save.stats.end.lvl,oppFight:o.fight});
   state.A={...o,S,bar:S.start,t:0,sta:S.stamina,brace:false,surgeT:0,nextSurge:S.surgeGap,tell:0,result:null,endT:0,flash:0,lastQ:-1,returnSt:gymState.hubNear};
   initAudio(); boxingState.gstate='arm'; document.body.classList.add('arm'); setPanelMode(); setInfo();
 }

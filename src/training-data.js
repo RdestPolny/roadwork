@@ -169,7 +169,7 @@ const bestGrade=(/** @type {any} */ r)=>!r.aborted&&!r.fail&&['S','A'].includes(
  * A fight trial with `yard` is decided by the next yard fight with a rival of at least `minStars`. */
 /** @type {Record<string,TrialDef & {yard?:boolean,minStars?:number}>} */
 export const PRISON_TRIALS = {
-  'str:10':{name:'Próba siły',task:'Pompki na gazetach, stopień III, ocena A lub S',drill:'pushup',stage:3,ok:bestGrade},
+  'str:10':{name:'Próba siły',task:'Pompki, stopień III, ocena A lub S',drill:'pushup',stage:3,ok:bestGrade},
   'spd:10':{name:'Próba szybkości',task:'Cień z Profesorem, stopień III, ocena A lub S',drill:'shadowp',stage:3,ok:bestGrade},
   'end:10':{name:'Próba wytrzymałości',task:'Bójka na spacerniaku z rywalem ★★ lub mocniejszym: wygraj, nie schodząc poniżej 15% kondycji',yard:true,minStars:2,ok:f=>f.win&&f.minSta>=0.15}
 };

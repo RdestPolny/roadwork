@@ -1,9 +1,9 @@
 /* The Ward's back wall seen from the side (native 144×96): the vault black with soot, the peeled limewash, the barred window,
    the guard-bed on its trestles and the flags. Baked once behind the push-ups; unlit (the scene lights it itself). */
 
-import { state as appearanceState, rgb } from './appearance.js';
-import { state as rendererState } from './renderer.js';
-import { h2, drawChar } from './boxing.js';
+import { state as appearanceState, rgb, setRamp } from './appearance.js';
+import { state as rendererState, taper, disc } from './renderer.js';
+import { state as boxingState, h2, drawChar } from './boxing.js';
 import { mix } from './cast.js';
 import { vnoise, fbm } from './noise.js';
 
@@ -69,8 +69,8 @@ function wardWall(x,y){
   return flags(x,y,C.flag,C.fjoint);
 }
 
-/** The Ward's back wall into rendererState.fb: the wall behind the push-ups. */
-export function wardWallBg(){
+/** The Ward's back wall into rendererState.fb. @param {boolean} [breathe] subtle expansion of the seated prisoner's chest. */
+export function wardWallBg(breathe=false){
   const fb=rendererState.fb, w=appearanceState.W, h=appearanceState.H;
   const px=(/** @type {number} */ x,/** @type {number} */ y,/** @type {number} */ c)=>{ if(x>=0&&x<w&&y>=0&&y<h) fb[y*w+x]=c; };
   for(let y=0;y<h;y++) for(let x=0;x<w;x++) fb[y*w+x]=wardWall(x,y);
@@ -95,10 +95,74 @@ export function wardWallBg(){
   for(let y=24;y<34;y++) px(LAMP[0],y+4,C.iron); for(let x=LAMP[0]-1;x<=LAMP[0]+3;x++) px(x,LAMP[1]+3,C.iron);   // the lamp's bracket
   for(let y=62;y<WALL_FLOOR+1;y++) for(let x=128;x<140;x++){ const e=x===128||x===139; px(x,y,e?C.bedK:((y===65||y===71)?C.iron:(x<132?C.bedF:C.bed))); }   // the night tub in the corner
   for(let x=118;x<144;x++){ const k=vnoise(x*0.3,6.6); if(k>0.4) px(x,WALL_FLOOR+1+(k>0.6?1:0),mix(C.flag[1],C.piss,Math.min(1,(k-0.4)*3))); }
+  // Seated facing the room: one knee raised, the other leg hanging over the pallet.
+  const slots=[appearanceState.R_PANTF,appearanceState.R_PANT,appearanceState.R_BOOTF,appearanceState.R_BOOT,appearanceState.R_SHIRTF,appearanceState.R_SHIRT,appearanceState.R_SKINF,appearanceState.R_SKIN,appearanceState.R_HAIR];
+  const saved=slots.map(slot=>appearanceState.PAL.slice(slot*3,slot*3+3));
+  const cloth=['#30352d','#464b3d','#5b604c'], skin=['#624b3d','#826552','#a0826a'], hair=['#171714','#292822','#3b3930'], boot=['#1b1c19','#292b26','#393b32'];
+  for(const [slot,colors,far] of [[appearanceState.R_PANTF,cloth,true],[appearanceState.R_PANT,cloth,false],[appearanceState.R_SHIRTF,cloth,true],[appearanceState.R_SHIRT,cloth,false],[appearanceState.R_BOOTF,boot,true],[appearanceState.R_BOOT,boot,false],[appearanceState.R_SKINF,skin,true],[appearanceState.R_SKIN,skin,false],[appearanceState.R_HAIR,hair,false]]) setRamp(slot,colors,far);
+  for(let pass=0;pass<2;pass++){
+    taper(47,56,2.2,37,47,2.0,pass,appearanceState.R_PANTF,0,-9,-9,0);
+    taper(37,47,2.0,38,61,1.6,pass,appearanceState.R_PANTF,0,-9,-9,0);
+    taper(47,56,2.5,58,57,2.0,pass,appearanceState.R_PANT,0,-9,-9,0);
+    taper(58,57,2.0,60,74,1.5,pass,appearanceState.R_PANT,0,-9,-9,0);
+    taper(38,61,1.4,38,64,1.2,pass,appearanceState.R_BOOTF,0,-9,-9,0);
+    taper(60,74,1.5,63,75,1.4,pass,appearanceState.R_BOOT,0,-9,-9,0);
+    taper(47,55,3.2,43,43,breathe?4.0:3.6,pass,appearanceState.R_SHIRT,0,-9,-9,0);
+    taper(41,43,2.2,36,45,1.5,pass,appearanceState.R_SHIRTF,0,-9,-9,0);
+    taper(36,45,1.4,35,49,1.0,pass,appearanceState.R_SKINF,0,-9,-9,0);
+    taper(45,43,2.2,52,50,1.5,pass,appearanceState.R_SHIRT,0,-9,-9,0);
+    taper(52,50,1.4,59,55,1.0,pass,appearanceState.R_SKIN,0,-9,-9,0);
+    taper(43,41,1.3,43,43,1.4,pass,appearanceState.R_SKIN,0,-9,-9,0);
+    taper(43,37,2.8,43,40,2.2,pass,appearanceState.R_SKIN,0,-9,-9,0);
+    taper(42,36,2.5,44,36,2.2,pass,appearanceState.R_HAIR,0,-9,-9,0);
+  }
+  px(40,35,rgb('#292822')); px(42,34,rgb('#393a30')); px(45,35,rgb('#292822'));
+  px(41,37,rgb('#292822')); px(42,37,rgb('#292822')); px(42,38,rgb('#292822'));
+  px(44,38,rgb('#292822')); px(44,40,rgb('#624b3d')); px(43,41,rgb('#a0826a'));
+  for(let i=0;i<slots.length;i++) appearanceState.PAL.set(saved[i],slots[i]*3);
+  // the light: the tallow lamp's warm glow on the left, the window's cold slanting shaft with the bars' shadows, a vignette, Bayer-dithered
+  const BAY=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5], warm=rgb('#ff9e44'), cold=rgb('#b8c4bc');
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    if(winSky(x,y)) continue;
+    const i=y*w+x, b=(BAY[(y&3)*4+(x&3)]-7.5)/255, dxL=x-LAMP[0], dyL=(y-LAMP[1])*1.15, lamp=0.68/(1+(dxL*dxL+dyL*dyL)/520);
+    const wx=x+(y-WIN.y1)*0.55, inBeam=y>=WIN.y0&&wx>=WIN.x0-2&&wx<=WIN.x1+2;
+    const barSh=inBeam&&((Math.floor(wx-WIN.x0)%5===2)||Math.abs(y-15-(x-wx)*0.2)<0.8)?0.52:1;
+    const shaft=y>=WIN.y1?Math.exp(-((wx-102)**2)/(54+(y-WIN.y0)*1.6))*Math.max(0,1-(y-WIN.y0)/88)*barSh:0;
+    const vig=Math.max(0.42,1-Math.hypot((x-64)/92,(y-52)/68)*0.48), k=Math.max(0.28,Math.min(1.45,(0.52+lamp+shaft*0.42)*vig+b*0.6));
+    let c=shade(fb[i],k);
+    if(lamp>0.08) c=mix(c,warm,Math.min(0.28,lamp*0.32));
+    if(shaft>0.06) c=mix(c,cold,Math.min(0.24,shaft*0.35));
+    fb[i]=c;
+  }
 }
+
+/** The living layer of the wall (every frame): the lamp's flame and its smoke, dust turning in the window's shaft, and the exerciser's breath.
+ * @param {number} bx @param {number} by @param {number} burn */
+export function drawWardWallLive(bx,by,burn){
+  const fb=rendererState.fb, w=appearanceState.W, h=appearanceState.H, t=boxingState.tick;
+  const put=(/** @type {number} */ x,/** @type {number} */ y,/** @type {number} */ c,/** @type {number} */ a)=>{ x|=0; y|=0; if(x<0||y<0||x>=w||y>=h) return; fb[y*w+x]=a>=1?c:mix(fb[y*w+x],c,a); };
+  const lx=LAMP[0]+1, ly=LAMP[1]+2, fl=(h2(t>>2,5)%3)-1, fh=2+(h2(t>>2,9)&1);
+  for(let dx=-2;dx<=2;dx++) put(lx+dx,ly+1,LIVE.iron,1);
+  for(let k=0;k<fh;k++){ const sx=lx+(k>0?fl:0); put(sx,ly-k,k===0?LIVE.core:LIVE.flame,1); put(sx+(k&1?1:-1),ly-k,LIVE.edge,0.65); }
+  const pulse=0.12+0.04*Math.sin(t*0.23);
+  for(let dy=-6;dy<=6;dy++) for(let dx=-7;dx<=7;dx++){ const d=Math.hypot(dx,dy*1.2)/7; if(d<1) put(lx+dx,ly-1+dy,LIVE.glow,pulse*(1-d)*(1-d)); }
+  for(let k=0;k<5;k++){ const f=((t*0.015+k/5)%1), sx=lx+Math.sin(t*0.04+k*1.7)*f*3, sy=ly-fh-f*14; if(f<0.85) put(sx,sy,LIVE.smoke,0.45*(1-f)); }
+  for(let k=0;k<9;k++){   // motes in the shaft
+    const my=14+((h2(k,11)+t*0.12*(0.7+(k&3)*0.15))%62), mx=102-(my-20)*0.55+Math.sin(t*0.02+k*2.1)*6+(h2(k,17)%9)-4;
+    if(((mx+my+t)&1)===0) put(mx,my,LIVE.dust,0.35*(1-my/84));
+  }
+  const period=Math.max(36,Math.round(78-burn*36)), ph=t%period;   // a breath in the cold of the cell, quicker as he tires
+  if(ph<24&&bx>0){
+    const u=ph/24, cx=bx+u*4, cy=by+1-u*2.5, r=1.2+u*2.2;
+    for(let dy=-2;dy<=2;dy++) for(let dx=-3;dx<=3;dx++){ const d=Math.hypot(dx*0.8,dy)/r; if(d<1&&((dx+dy+t)&1)) put(cx+dx,cy+dy,LIVE.breath,0.28*(1-u)*(1-d)); }
+  }
+}
+/** Colours of the living layer, set by initialize(). */
+const LIVE=/** @type {Record<string,number>} */ ({});
 
 
 export function initialize(){
+  Object.assign(LIVE,{iron:rgb('#2a2622'),core:rgb('#fff2b8'),flame:rgb('#ff9c38'),edge:rgb('#c84a18'),glow:rgb('#ffb052'),smoke:rgb('#24201c'),dust:rgb('#d4d8c8'),breath:rgb('#c8ccc2')});
   Object.assign(C,{vault:rgb('#0a0908'),stone:rgb('#5e5646'),stoneD:rgb('#3e382e'),stoneT:rgb('#766c58'),joint:rgb('#1e1b16'),
     brick:[rgb('#4a2e24'),rgb('#3e261e'),rgb('#54362a')],mortar:rgb('#2a2420'),lime:[rgb('#7e7864'),rgb('#6a6452')],soot:rgb('#121010'),damp:rgb('#2e342a'),slime:rgb('#26301e'),
     ash:[rgb('#6a5d48'),rgb('#5a4f3d'),rgb('#7a6c54')],bed:rgb('#4e3c28'),bedH:rgb('#62503a'),bedF:rgb('#3a2c1c'),bedK:rgb('#1c150e'),under:rgb('#0e0a06'),

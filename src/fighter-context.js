@@ -74,7 +74,10 @@ export const CONTEXT_FIELDS = {
     "trVX",
     "trVY",
     "prevHX",
-    "prevHY"
+    "prevHY",
+    "torsoLagX",
+    "torsoLagVX",
+    "rdOn"
   ],
   "animation": [
     "moveRate",

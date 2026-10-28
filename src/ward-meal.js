@@ -8,7 +8,7 @@ import { rgb } from './appearance.js';
 import { state as roomsState, startActivity, goRoom, solidDraw } from './rooms.js';
 import { state as sparringState } from './sparring.js';
 import { state as progressionState, persist, showToast, addXP } from './progression.js';
-import { prisonSave, addRespekt, myRank, prisonGate, showCards, listCanteenOption } from './prison.js';
+import { prisonSave, prisonGate, showCards, listCanteenOption } from './prison.js';
 import { spendAction, simNudge } from './simulation.js';
 import { startArm } from './armwrestle.js';
 import { isShopDay, inmateRank, EXTRA_PORTION, weekday, OPINIA_GOOD, OPINIA_NO_SHOP, fmtMoney } from './prison-data.js';
@@ -50,9 +50,9 @@ function wrestle(O,stake){
     progressionState.save.train.count['arm']=today+1;
     const xp=Math.round((res==='win'?18:res==='draw'?10:7)*freshness(today));
     if(xp>0){ addXP('str',xp); addXP('end',Math.round(xp/4)); }
-    const up=inmateRank(O.rank)>myRank()?2:1, P=prisonSave();
-    if(res==='win'){ if(stake==='porcja'&&M){ M.extra+=EXTRA_PORTION; P.stol.dokladki++; showToast('Wygrana! Jego chleb jest twój.'); } addRespekt(stake==='sport'?1:up,'siłowanie na rękę'); }
-    else if(res==='loss'){ if(stake==='porcja'&&M){ M.tray=false; M.eaten=true; showToast('Przegrana. Oddajesz miskę.'); } addRespekt(stake==='sport'?-1:-2,'siłowanie na rękę'); }
+    const P=prisonSave();
+    if(res==='win'){ if(stake==='porcja'&&M){ M.extra+=EXTRA_PORTION; P.stol.dokladki++; showToast('Wygrana! Jego chleb jest twój.'); } }
+    else if(res==='loss'){ if(stake==='porcja'&&M){ M.tray=false; M.eaten=true; showToast('Przegrana. Oddajesz miskę.'); } }
     else showToast('Remis. Nikt nic nie traci.');
     P.stol.gry++; persist();
   }});
@@ -62,8 +62,8 @@ function wrestle(O,stake){
 export function mealDoorOptions(){
   const M=meal(); if(!M||gymState.hubRoom!=='cell') return [];
   /** @type {any[]} */ const out=[[M.tray||M.eaten?'Miska już odebrana':'Odbierz miskę przez klapę · '+M.label,()=>{ M.tray=true; showToast('Masz miskę i chleb. Zjedz na pryczy.'); },M.tray||M.eaten]];
-  const s=progressionState.save.sim, op=prisonSave().opinia, day=isShopDay(s.day)||(op>=OPINIA_GOOD&&weekday(s.day)===5);
-  if(M.label==='kolacja'&&day) out.push(op<=OPINIA_NO_SHOP?['Klucznik nie sprzedaje ci — za słaba opinia',()=>{},true]:['Handel przez klapę · na koncie '+fmtMoney(prisonSave().wypiska),()=>openShop()]);
+  const s=progressionState.save.sim, day=isShopDay(s.day);
+  if(M.label==='kolacja'&&day) out.push(['Handel przez klapę · na koncie '+fmtMoney(prisonSave().wypiska),()=>openShop()]);
   const L=listCanteenOption(); if(L) out.push(L);
   return out;
 }
@@ -82,7 +82,6 @@ export function mealMateOptions(idx){
   if(hold) out.push(['Siłowanie na rękę o porcję — '+O.title+' · bez akcji',()=>wrestle(O,'porcja')]);
   if(M) out.push(['Siłowanie na rękę dla sportu'+cost,()=>wrestle(O,'sport'),!!why]);
   if(hold&&!M.bought&&prisonSave().fajki>=2) out.push(['Odkup jego chleb za 2 prymki tytoniu',()=>{ prisonSave().fajki-=2; M.bought=true; M.extra+=EXTRA_PORTION; persist(); showToast(first+' chowa tytoń i podsuwa ci swój chleb.'); }]);
-  if(hold&&myRank()>=inmateRank(O.rank)+2&&!M.demand) out.push(['Zażądaj jego chleba (respekt)',()=>{ M.demand=true; M.extra+=EXTRA_PORTION; showToast(first+' bez słowa oddaje ci swój chleb.'); }]);
   return out;
 }
 
@@ -103,7 +102,7 @@ export const SHOP=[{id:'kawa',name:'Garść herbaty',price:3,note:'−1 zmęczen
 
 function openShop(){
   const P=prisonSave();
-  showCards([{kicker:'KLAPA W DRZWIACH',title:'Handel z klucznikiem',body:'<p>Na koncie: <b>'+fmtMoney(P.wypiska)+'</b>. Klucznik liczy na palcach i nie lubi czekać. Co kupisz, trafi do twojej skrzyni.</p>',
+  showCards([{kicker:'KLAPA W DRZWIACH',title:'Handel przez klapę',body:'<p>Na koncie: <b>'+fmtMoney(P.wypiska)+'</b>. Co kupisz, trafi pod twoją pryczę.</p>',
     choices:[...SHOP.map(o=>({label:o.name+' · '+fmtMoney(o.price),sub:o.note+(P.wypiska<o.price?' — za mało na koncie':''),fn:()=>{
       if(P.wypiska<o.price){ showToast('Za mało na koncie.'); return; }
       P.wypiska=Math.round((P.wypiska-o.price)*100)/100;

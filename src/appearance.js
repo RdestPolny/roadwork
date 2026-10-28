@@ -121,7 +121,7 @@ state.R_HBELT = 62;
 state.R_HSLIP = 63;
 state.R_SKX = 64;
 state.R_SKXF = 65;
-state.N_RAMPS = 226;   // Keep shared palette offsets; 66–95: Ward inmates, 176–195: hooded walkers, 216: Śmierdziel.
+state.N_RAMPS = 246;   // Keep shared palette offsets; 66–95: Ward inmates, 176–195: hooded walkers, 216: Śmierdziel.
 state.PAL = new Uint32Array(state.N_RAMPS*3);
 
 for(let i=0;i<state.RAMPS.length;i++)for(let j=0;j<3;j++)state.PAL[i*3+j]=rgb(state.RAMPS[i][j]);

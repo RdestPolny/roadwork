@@ -134,10 +134,6 @@ export function clock(m){ const x=((Math.round(m)%1440)+1440)%1440; return Strin
    RESPECT
    ===================================================================== */
 
-export const RESPEKT_RANKS = [{id:'swiezy',name:'Świeży',from:0},{id:'znany',name:'Znany',from:15},{id:'szanowany',name:'Szanowany',from:35},
-  {id:'twardziel',name:'Twardziel',from:60},{id:'legenda',name:'Legenda spacerniaka',from:85}];
-/** Rank index 0–4 of a respect value. @param {number} v */
-export function respektRank(v){ let r=0; for(let k=0;k<RESPEKT_RANKS.length;k++) if(v>=RESPEKT_RANKS[k].from) r=k; return r; }
 /** Where an inmate of a fighting rank stands among the prisoners (0–4). @param {number} fightRank */
 export function inmateRank(fightRank){ return fightRank<6?0:fightRank<10?1:fightRank<14?2:fightRank<18?3:4; }
 
@@ -154,12 +150,11 @@ export const MEAL_FOOD = 32, EXTRA_PORTION = 20;
  * @param {{myRank:number,oppRank:number,strLvl:number,endLvl:number,oppFight:number}} p
  */
 export function armSetup(p){
-  const diff=p.myRank-p.oppRank;
-  return {start:Math.max(-0.4,Math.min(0.4,0.1*diff)),
+  return {start:0,
     push:0.08*(0.8+0.03*(p.strLvl-1)),                // bar gained by a press on the beat (×1.6 perfect, ×0.35 off the beat)
     stamina:40+2*(p.endLvl-1),                         // presses before the arm tires
     oppForce:0.001*(0.8+0.04*p.oppFight),              // steady pull of the rival per tick
-    surgeGap:Math.round(150*(1+0.25*Math.max(0,diff))),   // ticks between surges; an intimidated rival surges less
+    surgeGap:150,   // ticks between surges; an intimidated rival surges less
     surge:0.006*(0.8+0.04*p.oppFight),                 // extra pull per tick during a surge (×0.3 when braced)
     brace:0.3, surgeLen:24, limit:20*60};
 }
@@ -202,29 +197,8 @@ export function workPay(norma){
    SUPERVISION: opinion, respect from fights, guard risk, reports
    ===================================================================== */
 
-/** Opinion change of a report and how long the report window is. */
-export const RAPORT_OPINIA = -15, RAPORT_WINDOW = 7;
-/** Opinion thresholds: a longer yard and an extra canteen window; no canteen window. */
+/** Opinion thresholds retained for the legacy paid-work scene. */
 export const OPINIA_GOOD = 70, OPINIA_NO_SHOP = 30;
-
-/**
- * Chance (0–1) that a guard catches a fight. @param {{venue:'cell'|'yard'|'canteen'|'laznia',night?:boolean,blind?:boolean,sec?:number,sunday?:boolean}} f
- * In the bath the steam and the noise of the water cover a fight (20%).
- */
-export function guardRisk(f){
-  if(f.sunday) return 0;
-  const base=f.venue==='cell'?(f.night?5:10):f.venue==='yard'?25:f.venue==='laznia'?20:(f.blind?15:60);
-  return Math.min(95,base+Math.floor((f.sec||0)/10))/100;
-}
-
-/** Respect from a fight. @param {{win:boolean,draw?:boolean,ko?:boolean,stars:number}} f */
-export function fightRespekt(f){
-  if(f.draw) return 0;
-  return f.win?Math.round(4*f.stars*(f.ko?1.5:1)):(-2*Math.max(0,4-f.stars))||0;
-}
-
-/** Reports in the last week (days day-6 … day). @param {number[]} raporty @param {number} day */
-export function recentRaports(raporty,day){ return raporty.filter(d=>d>day-RAPORT_WINDOW&&d<=day).length; }
 
 /* =====================================================================
    PROFESOR: fight notes and the daily task
@@ -257,7 +231,7 @@ export function fightNote(f){
 /** Daily tasks: a drill and the grade (or quota) to reach. */
 export const DAILY_TASKS = /** @type {Record<string,{text:string,drill:string,grade?:string,norma?:number,won?:boolean}>} */ ({
   'podciaganie-b':{text:'Minuta podciągania na kracie okna, na ocenę co najmniej B.',drill:'pullup',grade:'B'},
-  'pompki-b':{text:'Minuta pompek na gazetach, na ocenę co najmniej B.',drill:'pushup',grade:'B'},
+  'pompki-b':{text:'Minuta pompek, na ocenę co najmniej B.',drill:'pushup',grade:'B'},
   'cien-b':{text:'Dziesięć kombinacji z cieniem, na ocenę co najmniej B.',drill:'shadow',grade:'B'},
   'norma-100':{text:'W rzeźni wyrób normę. Sto procent, nie mniej.',drill:'work',norma:100},
 });
@@ -284,17 +258,17 @@ export function taskDone(id,r){
    need = respect rank index; when = extra condition; lesson = the bonus condition and its reward.
    ===================================================================== */
 
-/** @typedef {{n:number,rival:string,opp:string,name:string,where:string,need:number,when?:'evening'|'sunday',lesson:{key:string,text:string},reward:{respekt?:number,punkt?:boolean,cien?:number,spacerniak?:boolean,final?:boolean},rigged?:boolean}} ListEntry */
+/** @typedef {{n:number,rival:string,opp:string,name:string,where:string,need:number,when?:'evening'|'sunday',lesson:{key:string,text:string},reward:{punkt?:boolean,cien?:number,spacerniak?:boolean,final?:boolean},rigged?:boolean}} ListEntry */
 /** @type {ListEntry[]} */
 export const LISTA = [
-  {n:1,rival:'jack',opp:'yard:0',name:'Jack „Młody” Morley',where:'spacerniak',need:0,lesson:{key:'blocks8',text:'co najmniej 8 zablokowanych ciosów'},reward:{respekt:5}},
+  {n:1,rival:'jack',opp:'yard:0',name:'Jack „Młody” Morley',where:'spacerniak',need:0,lesson:{key:'blocks8',text:'co najmniej 8 zablokowanych ciosów'},reward:{}},
   {n:2,rival:'walter',opp:'yard:1',name:'Walter „Chudy” Pratt',where:'spacerniak',need:0,lesson:{key:'body40',text:'wygraj, pracując na korpus (co najmniej 40% trafień)'},reward:{punkt:true}},
-  {n:3,rival:'zeke',opp:'canteen:0',name:'Zeke „Kosa” Price',where:'Ward, przy posiłku',need:1,lesson:{key:'nocut',text:'nie daj się rozciąć'},reward:{respekt:5}},
+  {n:3,rival:'zeke',opp:'canteen:0',name:'Zeke „Kosa” Price',where:'Ward, przy posiłku',need:1,lesson:{key:'nocut',text:'nie daj się rozciąć'},reward:{}},
   {n:4,rival:'joseph',opp:'yard:2',name:'Joseph „Siwy” Marsh',where:'spacerniak',need:1,lesson:{key:'counters3',text:'co najmniej 3 kontry'},reward:{cien:2}},
   {n:5,rival:'albert',opp:'yard:3',name:'Albert „Ciężki” Rudd',where:'spacerniak',need:1,lesson:{key:'nokd',text:'wygraj bez nokdaunu'},reward:{punkt:true}},
   {n:6,rival:'silas',opp:'yard:4',name:'Silas „Cichy” Crane',where:'spacerniak',need:2,lesson:{key:'evades12',text:'co najmniej 12 uników (w rewanżu)'},reward:{cien:3},rigged:true},
   {n:7,rival:'reuben',opp:'cell:2',name:'Reuben „Kruk” Doyle',where:'Ward, wieczorem',need:2,when:'evening',lesson:{key:'evades8',text:'co najmniej 8 uników — uciekaj przed jego ładowanymi'},reward:{punkt:true}},
-  {n:8,rival:'ned',opp:'yard:5',name:'Ned „Dym” Coker',where:'spacerniak, w niedzielę',need:3,when:'sunday',lesson:{key:'sunday',text:'wygraj w niedzielnym biciu'},reward:{respekt:10}},
+  {n:8,rival:'ned',opp:'yard:5',name:'Ned „Dym” Coker',where:'spacerniak, w niedzielę',need:3,when:'sunday',lesson:{key:'sunday',text:'wygraj w niedzielnym biciu'},reward:{}},
   {n:9,rival:'dan',opp:'canteen:1',name:'Dan „Głaz” Mullins',where:'Ward, przy posiłku, przy wszystkich',need:3,lesson:{key:'ko',text:'nokaut'},reward:{spacerniak:true}},
   {n:10,rival:'szef',opp:'yard:7',name:'Szef spacerniaka',where:'spacerniak',need:4,lesson:{key:'none',text:'—'},reward:{final:true}},
 ];
@@ -308,8 +282,8 @@ export const LISTA = [
 /** @type {LadderEntry[]} */
 export const LADDER = [
   {rival:'harry',name:'Harry „Stary” Hobbs',stars:'★',where:'cela — współwięzień',tip:'zamyka się w gardzie i oddaje hak na żebra. Zwód, a nie cios w gardę.'},
-  {rival:'jack',name:'Jack „Młody” Morley',stars:'★',where:'spacerniak',tip:'bije ile wlezie, prawie się nie broni. Garda i unik, potem kontra.'},
-  {rival:'walter',name:'Walter „Chudy” Pratt',stars:'★',where:'spacerniak',tip:'ucieka i dziobie z daleka. Bij na korpus — ciężkie nogi go zatrzymają.'},
+  {rival:'jack',name:'Jack „Młody” Morley',stars:'★',where:'cela lub spacerniak',tip:'bije ile wlezie, prawie się nie broni. Garda i unik, potem kontra.'},
+  {rival:'walter',name:'Walter „Chudy” Pratt',stars:'★',where:'cela lub spacerniak',tip:'ucieka i dziobie z daleka. Bij na korpus — ciężkie nogi go zatrzymają.'},
   {rival:'bill',name:'Bill „Gruby” Bellamy',stars:'★',where:'Ward, przy posiłku — gdy zabiera miski',tip:'pcha pod ścianę. Nie odskakuj; Mijanka spod ściany.'},
   {rival:'zeke',name:'Zeke „Kosa” Price',stars:'★',where:'cela — współwięzień, albo przy posiłku',tip:'Kosa: długi prawy szybki jak jab. Unik pod prosty i wchodź.'},
   {rival:'joseph',name:'Joseph „Siwy” Marsh',stars:'★',where:'spacerniak',tip:'paruje proste. Mieszaj piętra, bij hakiem i na korpus.'},
@@ -318,7 +292,7 @@ export const LADDER = [
   {rival:'silas',name:'Silas „Cichy” Crane',stars:'★★',where:'spacerniak',tip:'czyta twój plan i blokuje ciężkie ciosy. Szybkie i nieregularne układy.'},
   {rival:'ned',name:'Ned „Dym” Coker',stars:'★★',where:'spacerniak, niedzielne bicie w południe',tip:'głowa, korpus, głowa. Drugi cios idzie na wątrobę — sparuj go.'},
   {rival:'dan',name:'Dan „Głaz” Mullins',stars:'★★',where:'Ward, przy posiłku, przy wszystkich',tip:'uppercut bez zamachu. Unik i ciosy na korpus.'},
-  {rival:'szef',name:'Szef spacerniaka',stars:'★★★',where:'spacerniak — gdy masz respekt',tip:'czyta i podmienia kartę, bije brudno. Zwody i trzymaj zdrowie.'},
+  {rival:'szef',name:'Szef spacerniaka',stars:'★★★',where:'spacerniak — lista Profesora',tip:'czyta i podmienia kartę, bije brudno. Zwody i trzymaj zdrowie.'},
 ];
 
 /** The next fighter to beat on the ladder (null when all are beaten). @param {Record<string,number>} pokonani */
@@ -424,7 +398,7 @@ export function bareBlock(id,s){
 
 /** Events of the day: where they can happen. At most one a day. */
 export const DAILY_EVENTS = /** @type {Record<string,{at:'apel'|'meal'|'yard',chance:number}>} */ ({
-  kipisz:{at:'apel',chance:0.5}, list:{at:'apel',chance:0.4}, uwaga:{at:'apel',chance:0.4}, donos:{at:'apel',chance:0.3},
+  list:{at:'apel',chance:0.4}, uwaga:{at:'apel',chance:0.4},
   taca:{at:'meal',chance:0.45}, przysluga:{at:'meal',chance:0.4},
   wyzwanie:{at:'yard',chance:0.5},
 });
@@ -444,7 +418,7 @@ export function pickDailyEvent(day,at,ctx){
 }
 
 /** The Sunday brawl: three fights of rising rank, to KO or 90 s, guards looking away. */
-export const BICIE_SEC = 90, BICIE_RESPEKT = 10;
+export const BICIE_SEC = 90;
 /**
  * Yard opponents of the brawl (indices into YARD_OPP), rising; on chapter 8 Ned is the last one.
  * @param {number} avgLvl @param {number} rozdzial @param {number[]} ranks ranks of YARD_OPP 0..6

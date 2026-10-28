@@ -123,7 +123,7 @@ function glow(cx,cy,rad,k,tint){
 /** Draw the Ward's tallow lamp after the lighting pass. */
 export function drawCellLights(){ drawLamp(); }
 
-/** The tallow lamp on its iron bracket by the door: a squat iron cup, the flame (lit or a smouldering wick), its halo and smoke. */
+/** The tallow lamp on its iron bracket by the door: a squat iron cup, the flame, its halo and smoke. */
 function drawLamp(){
   const t=boxingState.tick, K=gymState.ISO_K, lit=state.bulb>0.3, bi=LAMP.i, bj=LAMP.j, bz=LAMP.z;
   if(wardPainted()){ paintedFlame(t,lit,Math.round(isoX(bi,bj)),Math.round(isoY(bi,bj,bz))); return; }
@@ -134,13 +134,13 @@ function drawLamp(){
     for(let k=0;k<hgt;k++){ const sx=Math.round(fl*k/hgt); pset(x+sx,y-1-k,k<1?state.C_FLAME3:state.C_FLAME2); if(k<hgt-1) pset(x+sx+(k&1?1:-1),y-1-k,state.C_FLAME1); }
     glow(x,y-2*K,16*K,0.4*state.bulb,[1,0.62,0.28]);
     for(let k=0;k<6;k++){ const f=((t*0.012+k/6)%1), sx=x+Math.sin(t*0.05+k*1.3)*f*5*K, sy=y-hgt-f*18*K; if(f<0.9) pset(Math.round(sx),Math.round(sy),state.C_SMOKE); } }   // the greasy smoke
-  else pset(x,y-1,(t>>4)&1?state.C_FLAME1:state.C_SOCKET);                                 // a smouldering wick
+  else pset(x,y-1,state.C_SOCKET);
 }
 
 /** The painted lamp: a live flame over the painted one, a faint halo and greasy smoke; out, a dark wick.
  * @param {number} t @param {boolean} lit @param {number} x @param {number} y the cup under the flame */
 function paintedFlame(t,lit,x,y){
-  if(!lit){ for(let dy=-5;dy<=0;dy++) for(let dx=-1;dx<=1;dx++) pset(x+dx,y+dy,dx||dy<-3?state.C_SMOKE:state.C_CUP); if((t>>4)&1) pset(x,y-1,state.C_FLAME1); return; }
+  if(!lit){ for(let dy=-5;dy<=0;dy++) for(let dx=-1;dx<=1;dx++) pset(x+dx,y+dy,dx||dy<-3?state.C_SMOKE:state.C_CUP); return; }
   const fl=(h2(t>>2,3)%3)-1, hgt=3+((h2(t>>2,7)&1)?1:0);
   for(let k=0;k<hgt;k++){ const sx=Math.round(fl*k/hgt); pset(x+sx,y-1-k,k<2?state.C_FLAME3:state.C_FLAME2); if(k>0&&k<hgt-1) pset(x+sx+(k&1?1:-1),y-1-k,state.C_FLAME1); }
   glow(x,y-3,14,0.16*state.bulb,[1,0.62,0.28]);

@@ -1,3 +1,4 @@
+import { resumeThamesPort } from './thames-port.js';
 import { healerOpen } from './healers.js';
 import { openCharSheet } from './char-sheet.js';
 import { state as boxingState, setFlow, resetClock } from './boxing.js';
@@ -56,6 +57,9 @@ export function enterHub(st){
 
 }
 
+/** Transfer the port story to the prison cell. */
+export function enterPrisonFromPort(){ setRoomRaw('cell'); enterHub(null); }
+
 export function exitToHub(){
   if(boxingState.gstate==='crank'){ crankReturn(); return; }
   if(boxingState.gstate==='spar'&&isShadowboxing()){const st=sparringState.cellFightSt;setRoomRaw('cell');enterHub(st);return;}
@@ -64,6 +68,7 @@ export function exitToHub(){
   if(boxingState.gstate==='pushup'&&pushupsState.puVenue==='cell'){ const it=gymState.cellList.find(x=>x.t==='cfloor'); enterHub(it?stationOf(it):null); pushupsState.puVenue=''; return; }
   if(boxingState.gstate==='isofight'){
     const {idx,venue:room,won,station}=isoFightOutcome();
+    if(room==='port'){ stopIsoFight(); inputState.overEl.hidden=true; document.body.classList.remove('spar'); resumeThamesPort(); return; }
     if(gymState.hubRoom!==room) setRoomRaw(room);
     enterHub(station); if(room!=='canteen'&&room!=='laznia') finishPrisonFight(idx,won,room==='yard'); setRigged(false); setFightLimit(0);
     return; }
@@ -72,7 +77,7 @@ export function exitToHub(){
   gymState.hubTrans={kind:1,t:0,dur:26,zx:isoX(st.look[0],st.look[1]),zy:isoY(st.look[0],st.look[1],st.look[2]),fn};
 }
 
-export function stMenuOpen(st){ if(st&&st.id==='profesor'){ profOpen(); return; } if(st&&(st.id==='smierdziel'||st.id==='klucznik')){ healerOpen(st.id); return; } state.stCur=st; state.stOpts=stationOptions(st); state.stSel=0; stMenuRender(); state.stMenuEl.hidden=false; sfxChime(700); setInfo(); }
+export function stMenuOpen(st){ if(st&&st.id==='profesor'){ profOpen(); return; } if(st&&(st.id==='smierdziel')){ healerOpen(st.id); return; } state.stCur=st; state.stOpts=stationOptions(st); state.stSel=0; stMenuRender(); state.stMenuEl.hidden=false; sfxChime(700); setInfo(); }
 
 export function stMenuClose(){ if(state.stMenuEl) state.stMenuEl.hidden=true; state.stCur=null; }
 
@@ -117,7 +122,7 @@ export function hubKey(e,down){
 /** Match touch controls to the active prison activity. */
 export function setPanelMode(){
   document.body.classList.toggle('hub',boxingState.gstate==='hub'||boxingState.gstate==='menu');
-  for(const mode of ['work','arm']) document.body.classList.toggle(mode,boxingState.gstate===mode);
+  for(const mode of ['work','arm','port']) document.body.classList.toggle(mode,boxingState.gstate===mode);
   const pullup=boxingState.gstate==='pullup'||boxingState.gstate==='roach', pu=boxingState.gstate==='pushup';
   document.getElementById('menuBtn').textContent=boxingState.gstate==='spar'&&sparringState.sparVenue==='yard'?'Wróć na spacerniak':boxingState.gstate==='spar'&&sparringState.sparVenue==='laznia'?'Wróć do łaźni':'Wróć do Wardu';
   const labels=['1 · Jab','2 · Cross','3 · Hook','4 · Upper','Spacja · Blok'];

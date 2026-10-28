@@ -8,8 +8,8 @@ import { showCards, prisonSave, spendTobacco, spendMoney } from './prison.js';
 import { fmtMoney } from './prison-data.js';
 import { simNudge } from './simulation.js';
 
-/** Open the talk with a healer: 'smierdziel' (the Ward) or 'klucznik' (the yard). @param {string} id */
-export function healerOpen(id){ if(id==='smierdziel') stinkCard(); else guardCard(); }
+/** Open Śmierdziel's healing options in the Ward. @param {string} id */
+export function healerOpen(id){ if(id==='smierdziel') stinkCard(); }
 
 /** Kinds of injury the player carries that this healer can treat, with how many of each. @param {string[]} heals */
 function treatable(heals){
@@ -23,9 +23,9 @@ function stinkCard(){
   const body='<p>Siedzi na mokrych płytach przy kadzi, bez koszuli, skóra szara jak wapno pod sadzą. Nad głową brzęczą mu muchy, a smród kadzi nie wiadomo, gdzie się kończy, a gdzie zaczyna on sam.</p>'+
     (list.length?'<p>Wyciąga z kieszeni blaszane pudełko po tabace: w środku coś żółtego, pachnie łojem i czymś gorszym. — <i>Maść. Sam robię. Na łuk, na oko, na nos. Dwa prymki, tytoń z góry. Działa… przeważnie.</i></p>'
       :'<p>Podnosi na ciebie mętne oczy. — <i>Nic ci nie jest. Przyjdź, jak cię ktoś urządzi. Mam maść na łuk, na oko, na nos.</i></p>')+
-    (other?'<p class="hint">— <i>Kości nie skleję</i> — mówi, patrząc na żebra i kostki. — <i>Z tym do felczera. Klucznik na spacerniaku zna drogę, jak mu sypniesz srebrem.</i></p>':'');
+    (other?'<p class="hint">— <i>Kości nie skleję</i> — mówi, patrząc na żebra i kostki. — <i>Z tym do felczera. Felczer ci pomoże, jeśli masz środki na koncie.</i></p>':'');
   showCards([{kicker:'The Ward · przy kadzi',title:'Śmierdziel',body,stamp:'',button:'Odejdź',
-    choices:[...list.map(([id,k])=>({label:'Maść: '+LASTING[id].name.toLowerCase()+(k>1?' (×'+k+')':''),sub:H.price+' prymki tytoniu · masz '+P.fajki,fn:()=>buyOintment(id)})),
+    choices:[{label:'Do felczera',sub:'leczenie za środki na koncie',fn:()=>surgeonCard()},...list.map(([id,k])=>({label:'Maść: '+LASTING[id].name.toLowerCase()+(k>1?' (×'+k+')':''),sub:H.price+' prymki tytoniu · masz '+P.fajki,fn:()=>buyOintment(id)})),
       {label:'Odejdź',sub:'smród zostaje w nosie',fn:()=>{}}]}]);
 }
 
@@ -37,18 +37,18 @@ function buyOintment(id){
   healInjury(id); persist(); showToast(LASTING[id].name+' — zagojone. Szczypie jak diabli.',true);
 }
 
-function guardCard(){
+function surgeonCard(){
   const P=prisonSave(), H=HEALERS.felczer, list=treatable(H.heals);
-  const body='<p>Klucznik nie patrzy na ciebie, tylko na krąg zakapturzonych. Kołatka wisi mu u pasa.</p>'+
-    (list.length?'<p>— <i>Felczer przyjmuje w środy</i> — mówi w powietrze. — <i>Ale dla kogoś z pełną kieszenią i dziś znajdzie chwilę. '+fmtMoney(H.price)+' za jedną robotę. Kość, łuk, oko — wszystko jedno.</i></p>'
-      :'<p>— <i>Idź w krąg</i> — mruczy. — <i>Felczer jest dla połamanych, a ty jesteś cały.</i></p>');
-  showCards([{kicker:'The Exercise Yard · klucznik',title:'Do felczera',body,stamp:'',button:'Odejdź',
-    choices:[...list.map(([id,k])=>({label:'Felczer: '+LASTING[id].name.toLowerCase()+(k>1?' (×'+k+')':''),sub:'łapówka '+fmtMoney(H.price)+' · na koncie '+fmtMoney(P.wypiska),fn:()=>bribe(id)})),
-      {label:'Odejdź',sub:'klucznik już na ciebie nie patrzy',fn:()=>{}}]}]);
+  const body='<p>Śmierdziel wskazuje drogę do felczera.</p>'+
+    (list.length?'<p>— <i>Felczer znajdzie chwilę. '+fmtMoney(H.price)+' za jedną robotę. Kość, łuk, oko — wszystko jedno.</i></p>'
+      :'<p>— <i>Felczer jest dla połamanych, a ty jesteś cały.</i></p>');
+  showCards([{kicker:'The Ward · leczenie',title:'Do felczera',body,stamp:'',button:'Odejdź',
+    choices:[...list.map(([id,k])=>({label:'Felczer: '+LASTING[id].name.toLowerCase()+(k>1?' (×'+k+')':''),sub:'koszt '+fmtMoney(H.price)+' · na koncie '+fmtMoney(P.wypiska),fn:()=>bribe(id)})),
+      {label:'Odejdź',sub:'wróć do Wardu',fn:()=>{}}]}]);
 }
 
 /** @param {string} id */
 function bribe(id){
-  if(!spendMoney(HEALERS.felczer.price)){ showToast('Za mało na koncie. Klucznik udaje, że cię nie słyszał.'); return; }
+  if(!spendMoney(HEALERS.felczer.price)){ showToast('Za mało na koncie.'); return; }
   healInjury(id); persist(); showToast('Felczer — '+LASTING[id].name.toLowerCase()+': zszyte, nastawione, obandażowane.',true);
 }

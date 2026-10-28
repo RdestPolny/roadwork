@@ -2,10 +2,11 @@ import { state as appearanceState, rampIndex, rgb } from './appearance.js';
 import { oppSurface, sparClamp, prisonOut, bareTorsoOut, state as sparringState, stain, sparRaiseGuard, sparDashCost, sparEvadeCost, sparOnAttack, staF } from './sparring.js';
 import { wkSurf, drawCap, drawApron, redrawLeadLeg, wkStain, wkImpact } from './work.js';
 import { state as animationState, samplePose, isDash } from './animation.js';
-import { pset, taper, disc, state as rendererState, line, isSkinPx, shadowEll } from './renderer.js';
+import { pset, taper, disc, state as rendererState, line, isSkinPx, shadowEll, setLightVec } from './renderer.js';
 import { state as pushupsState } from './pushups.js';
 import { sfxFlow, sfxWhoosh, sfxLand } from './audio.js';
 import { setInfo } from './input.js';
+import { shadeC } from './gym.js';
 
 // Runtime values owned by boxing; initialized explicitly by main.js.
 export const state = {};
@@ -56,6 +57,8 @@ function solveArm(shx,shy,relx,rely,r,fl,isLead){
 }
 
 export function solve(){
+  if(state.rdOn&&(state.state===animationState.S_KD||state.state===animationState.S_KO)){ if(state.rd.stamp!==state.tick){ state.rd.stamp=state.tick; stepRagdoll(state.rd); } writeRagdoll(state.rd); return; }   // a knocked-down boxer is a Verlet ragdoll, not keyframes
+  state.rdOn=0; state.rdLying=false;
   const P=animationState.cur;
   const bx=appearanceState.BASE_X+(state.gstate==='spar'?sparClamp(animationState.posX+P[animationState.GX]):animationState.posX+P[animationState.GX]);
   const fy=appearanceState.FLOOR_Y+Math.round(P[animationState.GY]);
@@ -68,8 +71,9 @@ export function solve(){
   const leanAng=Math.max(-1.05,Math.min(1.05,lean/13));
   const sxfStand=hipXf+Math.sin(leanAng)*spineLen, syfStand=hipYf-Math.cos(leanAng)*spineLen;
   const sxfDown=hipXf+lean, syfDown=hipYf-appearanceState.TORSO-sq;
-  const sxf=sxfStand*(1-downBlend)+sxfDown*downBlend;
-  const syf=syfStand*(1-downBlend)+syfDown*downBlend;
+  const lag=state.torsoLagX*(1-downBlend);   // the chest lags behind a sudden hip move (updateShorts runs the spring)
+  const sxf=sxfStand*(1-downBlend)+sxfDown*downBlend+lag;
+  const syf=syfStand*(1-downBlend)+syfDown*downBlend+Math.abs(lag)*0.22;
 
   state.hipX=Math.round(hipXf); state.hipY=Math.round(hipYf);
   state.sx=Math.round(sxf); state.sy=Math.round(syf);
@@ -120,6 +124,78 @@ export function solve(){
     const dx=(state.lkx+state.rkx)*0.5-state.hipX, dy=(state.lky+state.rky)*0.5-state.hipY, d=Math.sqrt(dx*dx+dy*dy)||1;
     state.shDirX=dx/d; state.shDirY=dy/d;
   }
+}
+/* =====================================================================
+   RAGDOLL (S_KD / S_KO): Verlet points take over the joints the renderer reads.
+   Nodes: 0 hips, 1 shoulders, 2 head, 3/4 lead knee/ankle, 5/6 rear knee/ankle, 7/8 lead elbow/glove, 9/10 rear elbow/glove
+   ===================================================================== */
+const RD_N=11, RD_GRAV=0.22, RD_FRIC=0.80, RD_BOUNCE=0.22;
+function rdBones(){ const A=appearanceState; return [[0,1,A.TORSO],[1,2,6.2],[0,3,A.THIGH],[3,4,A.SHIN],[0,5,A.THIGH],[5,6,A.SHIN],[1,7,A.UPPER],[7,8,A.FORE],[1,9,A.UPPER],[9,10,A.FORE],[0,2,A.TORSO+5],[3,5,5.5]]; }   // the last two (spine-head, knee gap) only push apart
+
+/** Hand the joints to the ragdoll with a punch's impulse (+x = knocked back). @param {number} impX @param {number} impY @param {boolean} hitHigh */
+export function triggerRagdoll(impX,impY,hitHigh=true){
+  const rd=state.rd, pts=[[state.hipX,state.hipY],[state.sx,state.sy],[state.headX,state.headY],[state.lkx,state.lky],[state.lax,state.lay],[state.rkx,state.rky],[state.rax,state.ray],[state.lex,state.ley],[state.lgx,state.lgy],[state.rex,state.rey],[state.rgx,state.rgy]];
+  state.rdOn=1; rd.stamp=-1;
+  for(let i=0;i<RD_N;i++){ rd.x[i]=rd.px[i]=pts[i][0]; rd.y[i]=rd.py[i]=pts[i][1]; }
+  const hm=hitHigh?1.45:0.75;
+  rd.px[2]+=impX*hm; rd.py[2]-=impY*hm;
+  rd.px[1]+=impX*0.95; rd.py[1]-=impY*0.8;
+  rd.px[0]+=impX*0.45; rd.py[0]-=(impY*0.3-0.7);   // the hips are taken out from under him
+  rd.px[8]+=impX*1.15; rd.py[8]+=1.4;
+  rd.px[10]+=impX*0.75; rd.py[10]+=1.1;
+}
+
+/** Return control to the keyframes: he gets up where the hips came to rest. */
+export function stopRagdoll(){
+  if(!state.rdOn) return;
+  state.rdOn=0; state.rdLying=false;
+  const pos=state.rd.x[0]-appearanceState.BASE_X-animationState.cur[animationState.BX];
+  animationState.posX=state.gstate==='spar'?sparClamp(pos):Math.max(animationState.POS_MIN,Math.min(animationState.POS_MAX,pos));
+  animationState.cur[animationState.GX]=0;
+}
+
+function stepRagdoll(rd){
+  const A=appearanceState, W=A.W, bones=rdBones();
+  for(let i=0;i<RD_N;i++){
+    const vx=(rd.x[i]-rd.px[i])*0.985, vy=(rd.y[i]-rd.py[i])*0.985+RD_GRAV;
+    rd.px[i]=rd.x[i]; rd.py[i]=rd.y[i]; rd.x[i]+=vx; rd.y[i]+=vy;
+  }
+  for(let it=0;it<4;it++){
+    for(let b=0;b<bones.length;b++){
+      const [i,j,len]=bones[b], dx=rd.x[j]-rd.x[i], dy=rd.y[j]-rd.y[i], d=Math.hypot(dx,dy)||0.001;
+      if(b>=10&&d>=len) continue;
+      const diff=(len-d)/d*0.5;
+      rd.x[i]-=dx*diff; rd.y[i]-=dy*diff; rd.x[j]+=dx*diff; rd.y[j]+=dy*diff;
+    }
+    for(const [h,k,a] of [[0,3,4],[0,5,6]]) if(rd.y[k]>Math.max(rd.y[h],rd.y[a])+1.2) rd.y[k]-=0.65;   // knees don't fold the wrong way
+    for(let i=0;i<RD_N;i++){
+      const fy=A.FLOOR_Y-(i===2?3:1.5);
+      if(rd.y[i]>fy){
+        const vx=rd.x[i]-rd.px[i], vy=rd.y[i]-rd.py[i];
+        rd.y[i]=fy; rd.py[i]=fy+vy*RD_BOUNCE; rd.px[i]=rd.x[i]-vx*RD_FRIC;
+        if(i<3&&vy>1.35&&it===0){ sfxLand(Math.min(1.6,vy*0.55)); for(let q=0;q<3;q++) spawn(state.P_DUST,rd.x[i]+(Math.random()-0.5)*6,A.FLOOR_Y-1,(Math.random()-0.5)*1.1,-0.2-Math.random()*0.25,14,A.C_DUST); }
+      }
+      if(rd.x[i]<12){ rd.x[i]=12; rd.px[i]=12; } else if(rd.x[i]>W-12){ rd.x[i]=W-12; rd.px[i]=W-12; }
+    }
+  }
+}
+
+/** Copy the ragdoll nodes into the joints drawBoxer reads. */
+function writeRagdoll(rd){
+  const R=Math.round;
+  state.hipX=R(rd.x[0]); state.hipY=R(rd.y[0]); state.torsoX=state.hipX;
+  state.sx=R(rd.x[1]); state.sy=R(rd.y[1]); state.lsx=state.sx+1; state.lsy=state.sy; state.rsx=state.sx-1; state.rsy=state.sy;
+  state.headX=R(rd.x[2]); state.headY=R(rd.y[2]);
+  state.lhx=state.hipX+1; state.lhy=state.hipY; state.rhx=state.hipX-1; state.rhy=state.hipY;
+  state.lkx=R(rd.x[3]); state.lky=R(rd.y[3]); state.lax=R(rd.x[4]); state.lay=R(rd.y[4]);
+  state.rkx=R(rd.x[5]); state.rky=R(rd.y[5]); state.rax=R(rd.x[6]); state.ray=R(rd.y[6]);
+  state.lex=R(rd.x[7]); state.ley=R(rd.y[7]); state.lgx=R(rd.x[8]); state.lgy=R(rd.y[8]);
+  state.rex=R(rd.x[9]); state.rey=R(rd.y[9]); state.rgx=R(rd.x[10]); state.rgy=R(rd.y[10]);
+  state.lhex=state.lax-2; state.lhey=state.lay+1; state.ltx=state.lax+2; state.lty=state.lay+1;
+  state.rhex=state.rax-2; state.rhey=state.ray+1; state.rtx=state.rax+2; state.rty=state.ray+1;
+  const dx=(state.lkx+state.rkx)*0.5-state.hipX, dy=(state.lky+state.rky)*0.5-state.hipY, d=Math.hypot(dx,dy)||1;
+  state.shDirX=dx/d; state.shDirY=dy/d;
+  state.rdLying=Math.abs(state.sy-state.hipY)<6.5;
 }
 function trailRecord(){
   const m=state.state>=0?animationState.MOVES[state.state]:null, punching=m&&m.glove>=0&&m.apex>=0&&state.stateT<=m.times[m.apex]+3;
@@ -277,6 +353,7 @@ export function updateShorts(){
   const hxf=state.gstate==='pushup'?pushupsState.puHipX:appearanceState.BASE_X+animationState.posX+animationState.cur[animationState.GX]+animationState.cur[animationState.BX], hyf=state.gstate==='pushup'?pushupsState.puHipY:appearanceState.HIP_Y0+animationState.cur[animationState.BY]+animationState.cur[animationState.GY];
   let vx=hxf-state.prevHX, vy=hyf-state.prevHY; state.prevHX=hxf; state.prevHY=hyf;
   if(vx>3||vx<-3)vx=0; if(vy>3||vy<-3)vy=0;
+  state.torsoLagVX+=(-vx*1.55-state.torsoLagX*0.28)-state.torsoLagVX*0.34; state.torsoLagX=Math.max(-2.2,Math.min(2.2,state.torsoLagX+state.torsoLagVX));
   state.trVX+=(-vx*2.4-state.trX)*0.3-state.trVX*0.26; state.trX+=state.trVX;
   state.trVY+=(-vy*1.8-state.trY)*0.3-state.trVY*0.26; state.trY+=state.trVY;
   if(state.trX>2.5)state.trX=2.5; else if(state.trX<-2.5)state.trX=-2.5; if(state.trY>2)state.trY=2; else if(state.trY<-2)state.trY=-2;
@@ -364,7 +441,10 @@ function drawChestHair(){
 export function drawBoxer(){
   const PU=state.gstate==='pushup', PO=prisonOut(), BARE=bareTorsoOut(), SHIRT=PO&&!BARE, WO=state.workOutfit||PO, GLV=!(PU||WO);
   if(GLV) trailRecord();
-  if(PU) shadowEll(Math.round((state.lax+pushupsState.PU_HANDX)*0.5),appearanceState.FLOOR_Y,15,1);
+  if(PU){   // the shadow under the man follows his height and his launch
+    const h=pushupsState.puVisH??pushupsState.puH, lift=pushupsState.puLift||0;
+    shadowEll(Math.round((state.lax+pushupsState.PU_HANDX)*0.5+1),appearanceState.FLOOR_Y,Math.max(10,Math.round(16-2.5*h-0.45*lift)),h<0.35&&lift<0.2?2:1);
+  }
   else if(state.gstate!=='spar') shadowEll(state.hipX,appearanceState.FLOOR_Y,Math.round(animationState.cur[animationState.ST]*0.5+6+animationState.cur[animationState.GY]*0.8),1);   // (spar: shadows go on the floor buffer)
   const SS=appearanceState.PAL[appearanceState.R_SKIN*3], SH=appearanceState.PAL[appearanceState.R_SKIN*3+2];
   // In the crank side view the far arm is occluded by the torso and the near arm.
@@ -386,7 +466,7 @@ export function drawBoxer(){
   const TSK=(state.workOutfit||SHIRT)?appearanceState.R_SHIRT:appearanceState.R_SKIN, TTR=WO?appearanceState.R_PANT:appearanceState.R_TRUNK, TTT=WO?appearanceState.R_PANT:appearanceState.R_TT;
   for(let p=0;p<2;p++){
     if(BARE) taper(state.torsoX,state.hipY-3,3.5,state.sx,state.sy+2,6.1,p,TSK,0,-9,-9,0,0.35);
-    else taper(state.torsoX,state.hipY+1,PU?3.3:3.9,state.sx,state.sy+2,(PU||state.gstate==='crank')?4.6:6.1,p,TSK,TTR,0.28,0.38,TTT,PU?0:0.35);
+    else taper(state.torsoX,state.hipY+1,PU?4.0:3.9,state.sx,state.sy+2,PU?5.4:state.gstate==='crank'?4.6:6.1,p,TSK,TTR,0.28,0.38,TTT,PU?0:0.35);
   }
   if(BARE){
     // Lead arm and lead leg share the far side; the rear leg overlaps at the hip.
@@ -439,6 +519,41 @@ export function drawBoxer(){
   if(PU||WO) drawHand(state.rgx,state.rgy,state.rex,state.rey,false); else drawGlove(state.rgx,state.rgy,state.rgr,state.rex,state.rey,false,state.flashR>0);
   const SHOW_TRAIL = !PU && (GLV || state.gstate === 'spar' || prisonOut());
   if(SHOW_TRAIL && drawTrails()){ if(GLV) drawGlove(state.rgx,state.rgy,state.rgr,state.rex,state.rey,false,state.flashR>0); else drawHand(state.rgx,state.rgy,state.rex,state.rey,false); }   // smear over the body, glove crisp on top
+  if(state.lightStrength>0.01) applyDirectionalBodyLight();
+}
+
+/* =====================================================================
+   SCENE LIGHT: one source (a window, a lamp) in picture coordinates; each fighter is shaded in his own frame,
+   so a mirrored fighter gets the x of the light flipped. Off (strength 0) outside the scenes that set it.
+   ===================================================================== */
+/** Place the scene's light. @param {number} wx @param {number} wy @param {number} strength */
+export function setVenueLight(wx,wy,strength){ state.lightWX=wx; state.lightWY=wy; state.lightStrength=strength; }
+
+/** Back to the default top-front light of every other mode. */
+export function clearVenueLight(){ state.lightStrength=0; state.lightDir=1; setLightVec(0.42,-0.91); }
+
+/** Aim taper() shading and the body pass at the light for the fighter about to be drawn. @param {number} worldX where he stands in the picture @param {boolean} mirrored whether his buffer is flipped when composited */
+export function setupFighterLight(worldX,mirrored){
+  let dx=state.lightWX-worldX, dy=state.lightWY-(appearanceState.HIP_Y0-appearanceState.TORSO*0.5);
+  const d=Math.hypot(dx,dy)||1; dx/=d; dy/=d;
+  state.lightDir=mirrored?-dx:dx; setLightVec(state.lightDir,dy);
+}
+
+/** After the body is drawn: a rim light on the edge facing the light, the lit half brighter and the far half darker. */
+function applyDirectionalBodyLight(){
+  const str=state.lightStrength, dir=state.lightDir>=0?1:-1, W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb, C_OUT=appearanceState.C_OUT, C_SHADOW=appearanceState.C_SHADOW;
+  const cx=Math.round((state.hipX+state.sx)*0.5), x0=Math.max(1,cx-20), x1=Math.min(W-2,cx+20), y0=Math.max(1,Math.min(state.headY,state.sy)-10), y1=Math.min(H-2,appearanceState.FLOOR_Y+1);
+  for(let y=y0;y<=y1;y++){
+    const row=y*W;
+    for(let x=x0;x<=x1;x++){
+      const c=fb[row+x]; if(!c||c===C_OUT||c===C_SHADOW) continue;
+      const u=Math.max(-1,Math.min(1,((x-cx)/9.5)*dir));   // > 0: the side facing the light
+      const nbr=fb[row+x+dir];
+      if(u>0.1&&(nbr===0||nbr===C_OUT)&&y<state.hipY+3) fb[row+x]=shadeC(c,1+str*0.55);
+      else if(u>0.2) fb[row+x]=shadeC(c,1+(u-0.2)*str*0.35);
+      else if(u<-0.05) fb[row+x]=shadeC(c,Math.max(0.5,1+(u+0.05)*str*0.85));
+    }
+  }
 }
 
 // Cheap integer hash for procedural textures and deterministic scene details.
@@ -455,16 +570,23 @@ export function spawn(type,x,y,vx,vy,life,col){
 /** Clear particles when starting a fresh fight so old drops cannot stain new clothes. */
 export function clearParticles(){ state.pL.fill(0); }
 
+function isBloodC(c){ return c===sparringState.C_BLOOD||c===sparringState.C_BLOOD2||c===state.C_BLOOD_DARK||c===state.C_BLOOD_MID||c===state.C_BLOOD_BRIGHT; }
+
 export function updateParticles(){
   for(let i=0;i<state.MAXP;i++){
     if(state.pL[i]<=0)continue;
     state.pL[i]--;
     const t=state.pT[i];
-    if(t===state.P_SWEAT||t===state.P_BIT){
-      const x0=state.pX[i],y0=state.pY[i],blood=t===state.P_BIT&&(state.pC[i]===sparringState.C_BLOOD||state.pC[i]===sparringState.C_BLOOD2);
-      state.pVY[i]+=0.09;state.pX[i]+=state.pVX[i];state.pY[i]+=state.pVY[i];
-      if(state.pY[i]>=appearanceState.FLOOR_Y-(t===state.P_BIT&&state.gstate==='work'?(i%5):0)){
-        if(blood){if(state.gstate==='spar')stain(state.pX[i]);else if(state.gstate==='work')wkStain(state.pX[i],state.pY[i]);}
+    if(t===state.P_SWEAT||t===state.P_BIT||t===state.P_DRIP){
+      const age=state.pM[i]-state.pL[i], heavy=t!==state.P_SWEAT;
+      if(t===state.P_DRIP&&age<13){ state.pY[i]+=0.16; state.pX[i]+=state.pVX[i]*0.12; }   // viscous phase: the drop slides before it lets go
+      else{ state.pVX[i]*=heavy?0.96:0.88; state.pVY[i]=state.pVY[i]*0.98+(heavy?0.13:0.055); state.pX[i]+=state.pVX[i]; state.pY[i]+=state.pVY[i]; }   // mist loses its push quickly, heavy drops fall steeply
+      const floorY=appearanceState.FLOOR_Y-(t===state.P_BIT&&state.gstate==='work'?(i%5):0);
+      if(state.pY[i]>=floorY){
+        if(isBloodC(state.pC[i])){
+          if(state.gstate==='spar')stain(state.pX[i]);else if(state.gstate==='work')wkStain(state.pX[i],state.pY[i]);
+          if(state.pVY[i]>1.35&&Math.random()<0.55) spawn(state.P_SWEAT,state.pX[i],floorY-1,(Math.random()-0.5)*1.0,-0.35-Math.random()*0.35,7,state.C_BLOOD_DARK);   // a small splash off the boards
+        }
         state.pL[i]=0;
       }
     }
@@ -484,8 +606,11 @@ export function drawParticles(smearPass){
     if(state.pL[i]<=0)continue;
     const t=state.pT[i]; if((t===state.P_SMEAR)!==smearPass)continue;
     const x=Math.round(state.pX[i]), y=Math.round(state.pY[i]), age=state.pM[i]-state.pL[i];
-    if(t===state.P_BIT){pset(x,y,state.pC[i]);}
-    else if(t===state.P_SWEAT){pset(x,y,appearanceState.C_SWEAT); if(age<6)pset(Math.round(state.pX[i]-state.pVX[i]),Math.round(state.pY[i]-state.pVY[i]),appearanceState.C_WHITE);}
+    if(t===state.P_BIT||t===state.P_DRIP){
+      pset(x,y,state.pC[i]);
+      if(isBloodC(state.pC[i])&&Math.hypot(state.pVX[i],state.pVY[i])>1.75) pset(Math.round(state.pX[i]-state.pVX[i]*0.55),Math.round(state.pY[i]-state.pVY[i]*0.55),state.C_BLOOD_DARK);   // only a fast blood drop drags a dark 1px tail
+    }
+    else if(t===state.P_SWEAT){ if(state.pL[i]>6||((x+y+state.tick)&1)) pset(x,y,state.pC[i]); }   // one pixel, dithered out at the end of its life: no white fringe
     else if(t===state.P_SPARK){line(x,y,Math.round(state.pX[i]-state.pVX[i]*2),Math.round(state.pY[i]-state.pVY[i]*2),age<3?appearanceState.C_WHITE:state.pC[i],age<3?appearanceState.C_WHITE:state.pC[i]);}
     else if(t===state.P_DUST){ if(state.pL[i]>4||((x+y)&1)) pset(x,y,state.pC[i]); }
     else if(t===state.P_STAR){
@@ -545,6 +670,7 @@ export function commitWalk(){   // bake the travelled distance into posX so pose
 
 export function startMove(id,t0){
   t0=t0||0;
+  if(state.rdOn&&id!==animationState.S_KD&&id!==animationState.S_KO) stopRagdoll();   // before commitWalk: the ragdoll already decided where he lies
   if(state.state>=0&&animationState.MOVES[state.state].walk) commitWalk();
   animationState.fromPose.set(animationState.cur); state.state=id; state.stateT=t0||0; state.frameIdx=-1; state.fired=0; state.curGrade=state.bufferedGrade; state.buffered=-1;
   const m=animationState.MOVES[id];
@@ -557,6 +683,7 @@ export function startMove(id,t0){
   if(state.gstate==='spar'&&isDash(id)){ sparDashCost(sparringState.ctxF,id); sfxWhoosh(0.35); }
   if(state.gstate==='spar'&&(id===animationState.M_SLIPL||id===animationState.M_SLIPR||id===animationState.M_DODGE)) sparEvadeCost(sparringState.ctxF,id);
   if(state.gstate==='spar'&&id===animationState.S_BLOCK&&t0===0) sparRaiseGuard(sparringState.ctxF);   // raising the guard isn't free either
+  if(id===animationState.S_KD||id===animationState.S_KO){ const ko=id===animationState.S_KO; triggerRagdoll(ko?2.6+Math.random()*0.8:1.7+Math.random()*0.5,ko?-1.4:-0.8,true); }
   if(m.walk) return;
   if(state.gstate==='spar'&&m.glove>=0) sparOnAttack(id);
   if(m.glove>=0) sfxWhoosh((0.5+m.weight*0.5)*(state.flow?1.4:1)); else sfxWhoosh(0.3);
@@ -575,7 +702,10 @@ export function handleEvents(m,ev){
 
 export function spawnSweat(n){
   if(state.gstate==='spar'&&sparringState.ctxF) n=Math.round(n*(0.2+1.3*(1-staF(sparringState.ctxF))));   // sparring: sweat follows fatigue
-  for(let j=0;j<n;j++) spawn(state.P_SWEAT,state.headX-2+Math.random()*3,state.headY-3+Math.random()*2,-0.4-Math.random()*0.9,-0.6-Math.random()*0.9,40,appearanceState.C_SWEAT);
+  for(let j=0;j<n;j++){
+    const drop=Math.random()<0.35;   // a third of the sweat is heavy drops that run down and fall, the rest is a fine mist
+    spawn(drop?state.P_DRIP:state.P_SWEAT,state.headX-2+Math.random()*4,state.headY-2+Math.random()*4,(-0.3-Math.random()*0.6)*(drop?0.4:1),drop?0.05:-0.4-Math.random()*0.6,drop?48:16+(Math.random()*8|0),drop?state.C_SWEAT_DROP:state.C_SWEAT_MIST);
+  }
 } function impact(m){
   if(state.gstate==='work'){ wkImpact(m); return; }
 }
@@ -665,6 +795,15 @@ state.rTipRaw = 0;
 state.lSurf = 999;
 state.rSurf = 999;
 state.torsoX = 0;
+state.lightWX = 0;
+state.lightWY = 0;
+state.lightStrength = 0;
+state.lightDir = 1;
+state.torsoLagX = 0;
+state.torsoLagVX = 0;
+state.rdOn = 0;
+state.rdLying = false;
+state.rd = {stamp:-1,x:new Float32Array(11),y:new Float32Array(11),px:new Float32Array(11),py:new Float32Array(11)};
 state.shDirX = 0;
 state.shDirY = 1;
 
@@ -732,6 +871,9 @@ state.P_DUST = 5;
 state.P_BIT = 6;
 state.P_BURST = 7;
 state.P_RING = 8;
+state.P_DRIP = 9;   // a drop that first creeps down the skin, then falls
+state.C_SWEAT_DROP = rgb('#9ab4c2'); state.C_SWEAT_MIST = rgb('#647a88');
+state.C_BLOOD_DARK = rgb('#4a0810'); state.C_BLOOD_MID = rgb('#7a101c'); state.C_BLOOD_BRIGHT = rgb('#a81c28');
    // BURST = big white impact star, RING = shine on a parried punch
 state.C_TRL = rgb('#f6ecdf');
 state.C_TRL2 = rgb('#cdbba8');

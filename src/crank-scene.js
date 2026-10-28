@@ -1,10 +1,10 @@
 /* The shed baked from code, a wooden resistance box on an iron pedestal, and the original boxer skeleton. */
 import { state as A, rgb } from './appearance.js';
-import { state as B, h2 } from './boxing.js';
+import { state as B, h2, setVenueLight, clearVenueLight, setupFighterLight } from './boxing.js';
 import { state as R, setFramebuffer, pset, line } from './renderer.js';
-import { makeFig, pose, drawFig, saveJoints, restoreJoints } from './cast.js';
+import { makeFig, flushed, pose, drawFig, saveJoints, restoreJoints } from './cast.js';
 import { state as progression } from './progression.js';
-import { isRising, crankOffset } from './crank-rules.js';
+import { isRising, crankOffset, TAU } from './crank-rules.js';
 import { vnoise, fbm } from './noise.js';
 
 const cl = (/** @type {number} */ v)=>v<0?0:v>255?255:Math.round(v);
@@ -81,70 +81,143 @@ export async function loadCrankScene(){
   }
   plate=out;
 }
+/** Secondary motion of the body, the sweat, the breath and the dust of the shed (visual only: the rules never read it). */
+const anim={lean:4,leanV:0,squat:0.15,squatV:0,headLag:0,headV:0,jolt:0,prevSpeed:0,tick:0,
+  /** @type {{dx:number,dy:number,vx:number,vy:number,creep:number,age:number,x:number,y:number}[]} */ drops:[],
+  /** @type {{x:number,y:number,vx:number,vy:number,age:number,life:number}[]} */ puffs:[],
+  /** @type {{x:number,y:number,ph:number}[]} */ motes:[]};
+const RIM=rgb('#d8d4c2'), DROP=rgb('#8a9aa2'), DROP_TAIL=rgb('#526068'), BREATH=rgb('#b8beb6'), DUST=rgb('#b8b6a2'), FLAME=rgb('#fff6c8'), FLAME_LOW=rgb('#ffae42');
+
 /** Snapshot the player's appearance with the existing prison outfit. */
-export function prepareCrankScene(){figure=makeFig(progression.save.look);sprite=new Uint32Array(A.W*A.H);}
+export function prepareCrankScene(){
+  figure=makeFig(progression.save.look); sprite=new Uint32Array(A.W*A.H);
+  Object.assign(anim,{lean:4,leanV:0,squat:0.15,squatV:0,headLag:0,headV:0,jolt:0,prevSpeed:0,tick:0,drops:[],puffs:[]});
+  anim.motes=Array.from({length:16},(_,k)=>({x:138+h2(k,3)/255*64,y:16+h2(k,7)/255*152,ph:k*1.3}));
+}
 /** One physical grip target drives the iron handle and both hands, around the bearing. @param {any} c */
 function grip(c){
   const offset=crankOffset(c.angle,RADIUS);
   return {x:HUB.x+offset.x,y:HUB.y+offset.y};
 }
-/** Pose hands through the shared IK and keep the main fighter's joints intact. @param {any} c */
+/** Pose hands through the shared IK and keep the main fighter's joints intact; the body leans, sags and trails the pull on springs, the heel
+ * drives on the way up, the skin flushes with the work and the window lights him from the side. @param {any} c */
 export function prepareCrankFrame(c){
-  const keep=saveJoints(),g=grip(c),strain=Math.sin(c.angle)*.13;
+  const keep=saveJoints(), g=grip(c), rising=isRising(c), stalled=c.elapsed>0&&c.speed===0&&c.held!==rising;
+  anim.tick++;
+  if(stalled&&anim.prevSpeed>0.2) anim.jolt=1.4;   // the shoulders jerk when the crank suddenly stops
+  else if(stalled) anim.jolt=Math.max(anim.jolt,0.35*Math.sin(anim.tick*0.7));
+  else anim.jolt*=0.82;
+  anim.prevSpeed=c.speed;
+  const tired=Math.min(1,c.elapsed/24), pullPhase=rising?Math.sin(c.angle%Math.PI):0, dropPhase=!rising?Math.sin(c.angle%Math.PI):0;
+  const breath=Math.sin(anim.tick*(0.08+tired*0.07))*(0.35+0.65*tired);
+  const targetLean=3.6+Math.max(0,(140-g.x)*0.17)+pullPhase*1.6-dropPhase*0.6+anim.jolt*1.4;
+  const targetSquat=0.13+(c.held?0.11:0.02)+dropPhase*0.09-pullPhase*0.05+Math.abs(anim.jolt)*0.06;
+  anim.leanV+=(targetLean-anim.lean)*0.26; anim.leanV*=0.64; anim.lean+=anim.leanV;
+  anim.squatV+=(targetSquat-anim.squat)*0.28; anim.squatV*=0.65; anim.squat+=anim.squatV;
+  const targetHead=-anim.leanV*2.4+pullPhase*1.8+tired*1.4+anim.jolt*2.2+breath*0.6;
+  anim.headV+=(targetHead-anim.headLag)*0.22; anim.headV*=0.68; anim.headLag+=anim.headV;
   try{
-    personX=Math.round(PERSON-Math.max(0,HUB.x-g.x)*.5);
-    const hx=50+(personX-g.x)/2,hy=86+(g.y-FLOOR)/2;
-    // Lean into the far half of the circle so the hands remain within arm reach.
-    pose({x:50,lean:4+Math.max(0,(140-g.x)*.16)+strain,squat:.15+(c.held?.12:0),bob:Math.sin(c.angle)*.35,
-      near:[hx,hy],far:[hx,hy],feet:[58,44],headDx:-5});
+    personX=Math.round(PERSON-Math.max(0,HUB.x-g.x)*0.52-pullPhase*1.5+Math.round(anim.jolt));
+    const hx=50+(personX-g.x)/2, hy=86+(g.y-FLOOR)/2;
+    const liftNear=rising&&c.held?Math.round(pullPhase*2.2):0, liftFar=!rising&&c.speed>0.5?Math.round(dropPhase*1.1):0;   // the heel comes off the flags as he pulls
+    pose({x:50,lean:anim.lean,squat:anim.squat,bob:Math.sin(c.angle)*0.45+breath*0.25,near:[hx,hy],far:[hx+0.6,hy-0.4],feet:[58,44],lift:[liftNear,liftFar],
+      headDx:-5+Math.round(anim.headLag*0.35),headDy:Math.round(anim.headLag*0.65)});
     head=[personX+(50-B.headX)*2,FLOOR+(B.headY-86)*2];
-    sprite.fill(0);drawFig(figure,{into:sprite});
-  }finally{restoreJoints(keep);}
+    sprite.fill(0);
+    setVenueLight(80,26,0.48); setupFighterLight(50,true);   // the window beyond his shoulder; the picture is flipped when he is blitted
+    drawFig(tired>0.15?flushed(figure,tired*0.55):figure,{into:sprite});
+  }finally{ clearVenueLight(); restoreJoints(keep); }
 }
 /** Fill a small solid rectangle in the current pixel buffer. @param {number} x @param {number} y @param {number} w @param {number} h @param {number} colour */
 function rect(x,y,w,h,colour){for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)pset(xx,yy,colour);}
 /** Shaded rivet or shaft cap. @param {number} x @param {number} y */
 function rivet(x,y){rect(x-1,y-1,3,3,C.dark);pset(x,y,C.light);pset(x-1,y-1,C.shine);}
-/** Reference-shaped wooden box with straps, access panel, resistance screw and a heavy bolted pedestal. */
-function machine(){
-  // Static wood and metal stay at whole pixels; the crank is the only moving machine part.
-  rect(85,171,63,7,C.dark);line(85,171,143,171,C.light,C.iron);line(88,178,148,178,C.iron,C.dark);
-  rect(106,117,21,54,C.dark);rect(110,119,12,51,C.iron);line(110,122,110,168,C.light,C.iron);
-  for(let y=128;y<169;y+=8)line(111,y,121,y,C.iron,C.dark);
-  rivet(91,174);rivet(139,174);
-  // Broad side wall faces the camera; the axle starts in its centre, as in the sketch.
-  rect(103,90,38,38,C.dark);rect(105,92,34,34,C.wood);
-  for(let y=94;y<125;y+=4){
-    line(106,y,138,y,C.grain,C.wood);
-    line(108,y+1,119,y+2,C.wood,C.edge);
+/** The wooden resistance box on its iron pedestal: oak staves with grain, forged straps and rivets, a brass revolution counter, the set screw,
+ * a greased bearing, and a slight shiver of the box when the crank is jammed. @param {any} c */
+function machine(c){
+  const jx=anim.jolt>0.2?((anim.tick&1)?1:0):0;
+  rect(84,171,65,7,C.dark); line(85,171,147,171,C.light,C.iron); line(84,178,149,178,C.dark,C.dark);
+  rect(105,117,23,54,C.dark); rect(109,119,14,51,C.iron);
+  line(109,120,109,169,C.shine,C.light); line(122,120,122,169,C.dark,C.edge);
+  for(let y=126;y<169;y+=7){ line(110,y,121,y,C.light,C.iron); line(110,y+1,121,y+1,C.dark,C.dark); }
+  rivet(91,174); rivet(116,174); rivet(141,174);
+  const bx=103+jx, by=90;
+  rect(bx-1,by+2,39,38,C.dark);
+  rect(bx,by,38,38,C.dark); rect(bx+2,by+2,34,34,C.wood);
+  for(let y=by+3;y<by+35;y++){
+    const plank=((y-by)/5)|0, seam=(y-by)%5===0;
+    for(let x=bx+2;x<bx+36;x++){
+      if(seam){ pset(x,y,C.dark); continue; }
+      const g=vnoise(x*0.18+plank*3,y*0.6), col=g>0.62?C.wood:g<0.35?C.edge:C.grain;
+      pset(x,y,x<bx+7?mixc(col,C.shine,0.14):x>bx+31?mulc(col,0.78):col);
+    }
   }
-  line(103,90,140,90,C.light,C.wood);
-  rect(105,96,34,2,C.iron);rect(105,120,34,3,C.iron);
-  for(const x of [108,136])for(const y of [97,121])rivet(x,y);
-  rect(116,85,14,4,C.dark);rect(121,82,4,4,C.iron);line(116,82,130,82,C.light,C.iron);
-  // Circular bearing seen from the side, with the long crank projecting toward the hands.
-  for(let y=-8;y<=8;y++)for(let x=-8;x<=8;x++){
-    const d=x*x+y*y;if(d>64)continue;
-    pset(HUB.x+x,HUB.y+y,d>42?C.dark:d>30?(x+y<0?C.shine:C.iron):C.iron);
+  line(bx,by,bx+37,by,C.shine,C.light);
+  rect(bx+1,by+6,36,3,C.iron); line(bx+1,by+6,bx+36,by+6,C.light,C.iron);
+  rect(bx+1,by+30,36,3,C.iron); line(bx+1,by+30,bx+36,by+30,C.light,C.iron);
+  for(const x of [bx+5,bx+33]) for(const y of [by+7,by+31]) rivet(x,y);
+  for(let y=HUB.y+6;y<by+35;y++) pset(HUB.x+(y&1),y,C.dark);   // grease running from the bearing
+  const dx0=bx+9, dy0=by+14;   // the brass counter
+  for(let dy=-3;dy<=3;dy++) for(let dx=-3;dx<=3;dx++){ const d2=dx*dx+dy*dy; if(d2<=10) pset(dx0+dx,dy0+dy,d2>6?C.dark:C.gold); }
+  const dial=((c?.turns||0)+(c?.angle||0)/TAU)*0.6;
+  pset(dx0+Math.round(Math.sin(dial)*2),dy0-Math.round(Math.cos(dial)*2),C.dark);
+  rect(bx+13,85,14,5,C.dark); rect(bx+18,80,4,6,C.iron);   // the set screw
+  for(let y=81;y<=85;y+=2) line(bx+18,y,bx+21,y,C.shine,C.dark);
+  line(bx+13,80,bx+27,80,C.shine,C.iron);
+  for(let y=-8;y<=8;y++) for(let x=-8;x<=8;x++){
+    const d=x*x+y*y; if(d>64) continue;
+    pset(HUB.x+x,HUB.y+y,d>46?C.dark:d>30?(x+y<-2?C.shine:x+y>4?C.dark:C.light):C.iron);
   }
   rivet(HUB.x,HUB.y);
 }
-/** Blit the original figure at 2× so hands and the iron grip remain readable. */
+/** Blit the original figure at 2× with a soft corner and a cold rim from the window; the back side is a little deeper in shadow. */
 function person(){
   for(let sy=20;sy<96;sy++)for(let sx=15;sx<100;sx++){
-    const c=sprite[sy*144+sx];if(!c)continue;
-    const x=personX+(50-sx)*2,y=FLOOR+(sy-86)*2;
+    const c=sprite[sy*144+sx]; if(!c) continue;
+    const x=personX+(50-sx)*2, y=FLOOR+(sy-86)*2, u=sprite[(sy-1)*144+sx], d=sprite[(sy+1)*144+sx], l=sprite[sy*144+sx+1], r=sprite[sy*144+sx-1];
     rect(x,y,2,2,c);
+    if(c!==A.C_OUT){
+      if(!r&&!d) pset(x+1,y+1,mulc(c,0.78));
+      if(!l&&!u&&sx>48) pset(x,y,mixc(c,RIM,0.16));
+    }
   }
 }
-/** Animate sweat from the head, as the worker keeps turning the crank. @param {any} c */
+/** Sweat and breath in the cold shed: drops first creep down the temple and chin, then fall (no white fringe); a puff of breath now and then. @param {any} c */
 function sweat(c){
-  if(c.elapsed<1)return;
-  for(let i=0;i<3;i++){
-    const t=(c.elapsed*.9+i*.41)%1;
-    if(t>.8)continue;
-    const x=Math.round(head[0]-5+(i%3)*5+(i%2?-1:1)*t*8),y=Math.round(head[1]+3+t*25);
-    pset(x,y,C.sweat);pset(x,y+1,C.light);
+  const tired=Math.min(1,c.elapsed/20);
+  if(c.elapsed>1.5&&c.speed>0.4&&anim.drops.length<10&&Math.random()<(0.04+0.08*tired))
+    anim.drops.push({dx:-3+Math.random()*6,dy:2,vx:(-0.18-Math.random()*0.22)*(isRising(c)?1.2:0.5),vy:0.08,creep:10+(Math.random()*8|0),age:0,x:0,y:0});
+  if(c.elapsed>0.5&&(anim.tick%Math.max(38,Math.round(95-tired*48)))===0&&anim.puffs.length<4) anim.puffs.push({x:head[0]-8,y:head[1]+4,vx:-0.28-Math.random()*0.12,vy:-0.18,age:0,life:44});
+  for(const d of anim.drops){
+    d.age++;
+    if(d.creep>0){ d.creep--; d.dy+=0.18; d.x=head[0]+d.dx; d.y=head[1]+d.dy; }
+    else{ d.vy+=0.09; d.vx*=0.96; d.x+=d.vx; d.y+=d.vy; }
+    const x=Math.round(d.x), y=Math.round(d.y);
+    if(y<FLOOR-1){ pset(x,y,DROP); if(d.creep===0&&d.vy>0.45) pset(x,y-1,DROP_TAIL); }
+  }
+  anim.drops=anim.drops.filter(d=>d.y<FLOOR-1&&d.age<90);
+  for(const p of anim.puffs){
+    p.age++; p.x+=p.vx; p.y+=p.vy;
+    const k=p.age/p.life, r=2+k*5, a=0.28*(1-k);
+    for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+      if(dx*dx+dy*dy>r*r||((dx+dy+anim.tick)&1)) continue;
+      const px=Math.round(p.x+dx), py=Math.round(p.y+dy);
+      if(px>=0&&px<W&&py>=0&&py<H) R.fb[py*W+px]=mixc(R.fb[py*W+px],BREATH,a);
+    }
+  }
+  anim.puffs=anim.puffs.filter(p=>p.age<p.life);
+}
+/** The living layer of the shed: the norm chalked on the wall, the lantern's flame, dust turning in the window's shaft. @param {any} c */
+function shedLive(c){
+  const t=anim.tick, marks=Math.min(15,c.turns||0);
+  for(let m=0;m<marks;m++){ const gx=104+Math.floor(m/5)*11+(m%5)*2; if(m%5<4) line(gx,72,gx,77,C.chalk,C.light); else line(gx-7,76,gx+1,72,C.chalk,C.light); }   // tallies in fives
+  const fl=(h2(t>>2,11)%3)-1;
+  pset(LAMP.x+fl,LAMP.y-2,FLAME); pset(LAMP.x,LAMP.y-1,FLAME_LOW);
+  for(const m of anim.motes){
+    m.x+=Math.sin(t*0.015+m.ph)*0.08-0.02; m.y+=0.06+Math.cos(t*0.012+m.ph)*0.03;
+    if(m.y>168){ m.y=WIN.y1+2; m.x=WIN.x0+2+(h2(m.ph*7|0,t)&31); }
+    const x=m.x|0, y=m.y|0;
+    if(x>=130&&x<205&&y>=WIN.y1&&y<168&&((x+y+t)&1)===0){ const beam=Math.exp(-((x-172+(y-WIN.y1)*0.08)**2)/210)*(1-(y-WIN.y1)/140); if(beam>0.12) R.fb[y*W+x]=mixc(R.fb[y*W+x],DUST,beam*0.38); }
   }
 }
 /** Draw the machine and worker with a full revolution around the box bearing. @param {any} c */
@@ -152,15 +225,19 @@ export function renderCrankScene(c){
   const previous=setFramebuffer(R.FB_MAIN),g=grip(c);
   try{
     R.FB_MAIN.set(plate);
-    for(let x=81;x<211;x++)for(let y=176;y<181;y++)if(((x-146)/66)**2+((y-178)/3)**2<1)pset(x,y,C.dark);
-    machine();
+    shedLive(c);
+    for(let x=78;x<214;x++)for(let y=174;y<182;y++){ const q=((x-146)/68)**2+((y-178)/3.8)**2; if(q<1&&(q<0.65||((x+y)&1))) R.fb[y*W+x]=mulc(R.fb[y*W+x],q<0.55?0.45:0.68); }   // the machine's and the man's shadow on the flags
+    machine(c);
     person();
-    // A rigid crank turns a full circle around the bearing in the box wall.
-    line(HUB.x,HUB.y,Math.round(g.x),Math.round(g.y),C.dark,C.dark);
-    line(HUB.x,HUB.y-1,Math.round(g.x),Math.round(g.y)-1,C.shine,C.iron);
+    const gx=Math.round(g.x), gy=Math.round(g.y);
+    line(HUB.x+2,HUB.y+3,gx+2,gy+3,C.dark,C.dark);   // the crank's shadow on the box
+    line(HUB.x,HUB.y+1,gx,gy+1,C.dark,C.dark);
+    line(HUB.x,HUB.y,gx,gy,C.iron,C.dark);
+    line(HUB.x,HUB.y-1,gx,gy-1,C.shine,C.light);
     rivet(HUB.x,HUB.y);
-    line(Math.round(g.x)-1,Math.round(g.y)-1,Math.round(g.x)+4,Math.round(g.y)+1,C.dark,C.iron);
-    pset(Math.round(g.x)+3,Math.round(g.y),C.shine);
+    line(gx-2,gy-1,gx+4,gy+1,C.dark,C.wood);
+    line(gx-1,gy-2,gx+4,gy,C.light,C.shine);
+    pset(gx+4,gy,C.shine);
     sweat(c);
     if(c.held!==isRising(c)&&c.elapsed>0){pset(HUB.x,HUB.y,C.rust);}
   }finally{setFramebuffer(previous);}

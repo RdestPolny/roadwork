@@ -8,7 +8,7 @@ import { DEBUG } from './config.js';
 import { PERK_CARDS } from './card-data.js';
 import { setPaused, clearHeldInput } from './input.js';
 import { dlgClose } from './dialog.js';
-import { BARE_PERKS, BARE_TIER_RANK, BARE_RESPEC_FAJKI, RESPEKT_RANKS, bareBlock } from './prison-data.js';
+import { BARE_PERKS, BARE_TIER_RANK, BARE_RESPEC_FAJKI, bareBlock } from './prison-data.js';
 import { bareInfo, buyBare, respecBare } from './prison.js';
 
 /* Profesor's dialog: the Cechy of the three attributes (PERKI.md) — pick an open slot, change a chosen trait for
@@ -74,7 +74,7 @@ export function openSkillTree(){
   { const k=dialog.querySelector('.skill-kicker'), c=document.getElementById('skillClose'), i=document.getElementById('skillIntro');
     if(k) k.textContent='ROADWORK / CELA · PROFESOR';
     if(c) c.innerHTML='Wróć do celi <kbd>Esc</kbd>';
-    if(i) i.textContent='Na poziomach 5, 10 i 15 każdego atrybutu wybierasz jedną z dwóch Cech; działają zawsze. Tutaj możesz zmienić wybraną Cechę za tytoń. Punkty z awansów idą na ciosy (karta postaci, zakładka Ciosy). Spacerniak kupujesz za respekt.'; }
+    if(i) i.textContent='Na poziomach 5, 10 i 15 każdego atrybutu wybierasz jedną z dwóch Cech; działają zawsze. Tutaj możesz zmienić wybraną Cechę za tytoń. Punkty z awansów idą na ciosy (karta postaci, zakładka Ciosy). Punkty Spacerniaka zdobywasz na liście Profesora.'; }
   notice.textContent='';
   dialog.showModal();
   document.body.classList.add('skillopen');
@@ -135,16 +135,16 @@ function barePanel(){
   const rows=[1,2,3].map(tier=>{
     const nodes=BARE_PERKS.filter(p=>p.tier===tier).map(p=>{
       const own=I.unlocked.includes(p.id), why=own?'':bareBlock(p.id,I);
-      const text=own?'Wykupiony · zawsze aktywny':why==='rank'?'Od rangi '+RESPEKT_RANKS[BARE_TIER_RANK[tier]].name:why==='choice'?'Zablokowane · wybrano inny perk progu III':why==='points'?'Kup · '+p.cost+' pkt (brakuje '+(p.cost-free)+')':'Kup · '+p.cost+' pkt';
+      const text=own?'Wykupiony · zawsze aktywny':why==='rank'?'Dalszy postęp na liście Profesora':why==='choice'?'Zablokowane · wybrano inny perk progu III':why==='points'?'Kup · '+p.cost+' pkt (brakuje '+(p.cost-free)+')':'Kup · '+p.cost+' pkt';
       const cls=own?'learned':why==='points'?'available short':why?'locked':'available', st=own?'always':why?'locked':'buy';
       return '<button type="button" class="skill-node '+cls+'" data-skill="'+p.id+'" data-branch="bare" data-state="'+st+'" aria-pressed="'+own+'"'+(why&&!own?' aria-disabled="true"':'')+'><span class="skill-node-heading"><span class="skill-emblem">'+skillIcon(p.id)+'</span><b>'+p.name+'<small class="skill-path-name">'+p.tag+'</small></b><span class="skill-switch" aria-hidden="true"></span></span><span class="skill-description">'+perkText(p.id)+'</span><span class="skill-state">'+text+'</span></button>';
     }).join('');
     const open=I.rank>=BARE_TIER_RANK[tier];
-    return '<div class="skill-tier'+(open?'':' closed')+'" data-tier="'+tier+'"><h3><span>Próg '+['','I','II','III'][tier]+'</span> · '+['','Znany','Szanowany','Twardziel · jeden z trzech'][tier]+'<small>od rangi '+RESPEKT_RANKS[BARE_TIER_RANK[tier]].name+' · '+tier+' pkt</small></h3><div class="skill-grid">'+nodes+'</div></div>';
+    return '<div class="skill-tier'+(open?'':' closed')+'" data-tier="'+tier+'"><h3><span>Próg '+['','I','II','III'][tier]+'</span> · '+['','Podstawy','Rozwinięcie','Jeden z trzech'][tier]+'<small>lista Profesora · '+tier+' pkt</small></h3><div class="skill-grid">'+nodes+'</div></div>';
   }).join('');
   const respec='<div class="skill-respec"><button type="button" data-bare-respec="1"'+(I.unlocked.length?'':' disabled')+'>Zmień build u Profesora · '+BARE_RESPEC_FAJKI+' prymek tytoniu (masz '+I.fajki+')</button></div>';
-  return '<section id="skill-panel-bare" class="skill-branch" role="tabpanel" aria-labelledby="skill-tab-bare"><header><div class="skill-branch-title"><h2>Spacerniak</h2><span class="skill-branch-note">Triki, przetrwanie i czytanie ludzi. Punkty z respektu, perki zawsze aktywne.</span></div>'+
-    '<div class="skill-points"><b>'+free+'</b> wolnych z '+I.points+' pkt · ranga '+RESPEKT_RANKS[I.rank].name+'</div></header>'+respec+rows+'</section>';
+  return '<section id="skill-panel-bare" class="skill-branch" role="tabpanel" aria-labelledby="skill-tab-bare"><header><div class="skill-branch-title"><h2>Spacerniak</h2><span class="skill-branch-note">Triki, przetrwanie i czytanie ludzi. Punkty z listy Profesora, perki zawsze aktywne.</span></div>'+
+    '<div class="skill-points"><b>'+free+'</b> wolnych z '+I.points+' pkt'+'</div></header>'+respec+rows+'</section>';
 }
 
 /** @param {string} text */

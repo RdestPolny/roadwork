@@ -86,6 +86,14 @@ export async function checkShadowboxing(page){
   assert.equal(current.fighters[1].manual,true,'the reflection cannot attack by AI');
   assert.equal(current.sequence.combos.length,10);
   assert.equal(await page.locator('#shadowSteps li').count(),current.sequence.current.length);
+  const idleJumps=await page.evaluate(async()=>{
+    const {state:s}=await import('/src/sparring.js');
+    const {state:a}=await import('/src/animation.js');
+    const values=[];
+    for(let i=0;i<90;i++){ window.__boxer.step(1); values.push(s.FA.cur[a.BX]); }
+    return Math.max(...values.slice(1).map((value,i)=>Math.abs(value-values[i])));
+  });
+  assert.ok(idleJumps<0.06,`idle weight transfer should move smoothly, largest step ${idleJumps}`);
   await checkLayout();
   await page.screenshot({path:'artifacts/shadowboxing-desktop.png'});
 

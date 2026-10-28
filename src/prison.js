@@ -15,8 +15,8 @@ import { state as navigationState, stMenuClose } from './navigation.js';
 import { simUI } from './simulation.js';
 import { sfxBell, initAudio } from './audio.js';
 import { DEBUG } from './config.js';
-import { PRISON_ROOMS, isWorkDay, respektRank, RESPEKT_RANKS, WORK_TARGET, workStage, workPay, fmtMoney,
-  weekday, isShopDay, inmateRank, pickDailyEvent, bicieOpponents, BICIE_SEC, BICIE_RESPEKT, fightNote, BARE_PERKS, barePoints, bareSpent, bareBlock, BARE_RESPEC_FAJKI, LISTA, lessonText, listEntry, lessonOk, MEMORIES, AMBU_DAYS, AMBU_RENTA, REVENGE_DAYS, RAPORT_OPINIA, OPINIA_GOOD, guardRisk, fightRespekt } from './prison-data.js';
+import { PRISON_ROOMS, isWorkDay, WORK_TARGET, workStage, workPay, fmtMoney,
+  weekday, isShopDay, pickDailyEvent, bicieOpponents, BICIE_SEC, fightNote, BARE_PERKS, barePoints, bareSpent, bareBlock, BARE_RESPEC_FAJKI, LISTA, lessonText, listEntry, lessonOk, MEMORIES, AMBU_DAYS, AMBU_RENTA, REVENGE_DAYS } from './prison-data.js';
 import { startWork } from './work.js';
 import { startCrank } from './crank.js';
 import { onSessionEnd } from './training-session.js';
@@ -54,19 +54,6 @@ export function spendTobacco(n){ const P=prisonSave(); if(P.fajki<n) return fals
 
 /** Pay shillings from the account; false when there is not enough. @param {number} x */
 export function spendMoney(x){ const P=prisonSave(); if(P.wypiska<x) return false; P.wypiska=Math.round((P.wypiska-x)*100)/100; return true; }
-
-export function myRank(){ return respektRank(prisonSave().respekt); }
-
-/** Change respect; announces the change and a new rank. @param {number} n @param {string} [why] */
-export function addRespekt(n,why){
-  const P=prisonSave(), before=respektRank(P.respekt);
-  P.respekt=Math.max(0,Math.min(100,P.respekt+n));
-  const after=respektRank(P.respekt);
-  for(let k=1;k<=after;k++) P.flagi['ranga-'+k]=true;              // the highest rank reached gives Spacerniak points for good
-  if(after!==before) showToast((after>before?'Nowa ranga: ':'Spadasz do rangi: ')+RESPEKT_RANKS[after].name,true);
-  else if(n) showToast('Respekt '+(n>0?'+':'')+n+(why?' · '+why:''));
-  persist(); simUI();
-}
 
 /* ---------- story cards: full-screen text cards that pause the game ---------- */
 
@@ -129,7 +116,7 @@ export function startIntake(){
   const P=prisonSave(); if(P.przyjecie) return;
   P.przyjecie=1; P.zegar=phaseKey(); persist();
   showCards([{kicker:'NEWGATE 1868 · DZIEŃ 1 · PONIEDZIAŁEK',title:'Przyjęcie',stamp:'PRZYJĘTO',
-    body:'<p>Old Bailey zostaje za plecami; wąskie przejście prowadzi prosto tutaj. Spis rzeczy, kubeł zimnej wody, sukienny kaftan z numerem. Klucznik z pękiem kluczy prowadzi cię kamiennym korytarzem i odsuwa rygiel. Za murem bije dzwon St Sepulchre — ktoś mówi, że na jutrzejszego wisielca.</p><p>Ward na kilku. Gaduła na skraju pryczy, ponury typ pod oknem i stary człowiek w drewnianym fotelu na kółkach, który nawet nie podnosi wzroku.</p><p class="hint">E rozmowa · W/A/S/D ruch · Esc pauza · P karta. Plan dnia widać w rogu ekranu.</p>',button:'Wejdź'}]);
+    body:'<p>Old Bailey zostaje za plecami; wąskie przejście prowadzi prosto tutaj. Spis rzeczy, kubeł zimnej wody, sukienny kaftan z numerem. Kamienny korytarz prowadzi do ciężkich drzwi Wardu. Za murem bije dzwon St Sepulchre — ktoś mówi, że na jutrzejszego wisielca.</p><p>Ward na kilku. Gaduła na skraju pryczy, ponury typ pod oknem i stary człowiek w drewnianym fotelu na kółkach, który nawet nie podnosi wzroku.</p><p class="hint">E rozmowa · W/A/S/D ruch · Esc pauza · P karta. Plan dnia widać w rogu ekranu.</p>',button:'Wejdź'}]);
 }
 
 /* ---------- the day: three phases of two actions (simulation.js owns the needs) ---------- */
@@ -164,7 +151,7 @@ export function gateOptions(st,opts){
 }
 
 /** A guard announcement: toast, bell. @param {string} text */
-function guard(text){ initAudio(); sfxBell(1); showToast('Klucznik: '+text); }
+function guard(text){ initAudio(); sfxBell(1); showToast(text); }
 
 /** Move the player to the cell (from the yard or the bath) before the next phase. */
 function toCell(){ if(gymState.hubRoom!=='cell') goRoom('cell',0); }
@@ -180,13 +167,13 @@ export function workDue(){ const s=progressionState.save.sim; return isWorkDay(s
 function phaseStart(){
   const s=progressionState.save.sim;
   if(s.faza===0){
-    weekCheck(); daySnapshot();
+    daySnapshot();
     debtCheck();
     guard('Pobudka i apel! Śniadanie przez klapę.'+(isWorkDay(s.day)?' Zbiórka do korby — przed końcem poranka.':''));
     return dailyEvent('apel');
   }
   if(s.faza===1){
-    guard(weekday(s.day)===6?'Długi spacerniak — pod murem niedzielne bicie.':prisonSave().flagi['zakaz-spaceru']?'Spacerniak — ty zostajesz, zakaz po raporcie.':'Spacerniak otwarty do wieczora.');
+    guard(weekday(s.day)===6?'Długi spacerniak — pod murem niedzielne bicie.':'Spacerniak otwarty do wieczora.');
     return dailyEvent('yard');
   }
   guard('Kolacja przez klapę. Łaźnia otwarta.');
@@ -196,7 +183,7 @@ function phaseStart(){
 /** The phase is over: a skipped shift is a report, everybody back to the cell; after the evening the day closes. */
 function phaseEnd(){
   const s=progressionState.save.sim, P=prisonSave();
-  if(s.faza===0&&workDue()){ settleWork(); addRaport('odmowa pracy'); }
+  if(s.faza===0&&workDue()) settleWork();
   if(s.faza===1){ delete P.flagi['zakaz-spaceru']; if(gymState.hubRoom==='yard') guard('Koniec spaceru! Wszyscy do cel.'); }
   if(s.faza===2&&gymState.hubRoom==='laznia') guard('Koniec łaźni! Ubierać się i do cel.');
   toCell();
@@ -210,7 +197,7 @@ export function endPhaseNow(){ if(!isPrison()) return; phaseEnd(); }
 /** Work shift: the walk to the market, then hauling half carcasses (work.js); it takes one action of the morning. */
 function workShift(){
   const P=prisonSave(), stage=workStage(P.zmiany,P.opinia), target=WORK_TARGET[stage];
-  showCards([{kicker:'KONWÓJ · RANO',title:'Na Smithfield',body:'<p>Skuci po dwóch, pod okiem klucznika, sto kroków od bramy Newgate na tyły targu. Bruk lepki od krwi, para z koni, krzyk rzeźników przez mgłę.</p><p>Majster pokazuje wóz pełen półtusz: <b>'+target+' na haki</b>.'+(stage>1?' Majster zna cię już: przydział '+stage+'.':'')+'</p><p class="hint">Półtusza waży więcej niż ty. Upuszczona to strata dla majstra — i dla ciebie.</p>',
+  showCards([{kicker:'KONWÓJ · RANO',title:'Na Smithfield',body:'<p>Skuci po dwóch, sto kroków od bramy Newgate na tyły targu. Bruk lepki od krwi, para z koni, krzyk rzeźników przez mgłę.</p><p>Majster pokazuje wóz pełen półtusz: <b>'+target+' na haki</b>.'+(stage>1?' Majster zna cię już: przydział '+stage+'.':'')+'</p><p class="hint">Półtusza waży więcej niż ty. Upuszczona to strata dla majstra — i dla ciebie.</p>',
     choices:[{label:'Do roboty',fn:()=>startWork({target,minutes:0,returnSt:doorStation(),onEnd:r=>workDone(r)})}]}]);
 }
 
@@ -221,10 +208,8 @@ function crankShift(){
     settleWork();spendAction('praca');
     const strength=r.turns*2,endurance=r.turns*2;
     if(strength)addXP('str',strength);if(endurance)addXP('end',endurance);
-    if(r.won)addRespekt(2,'norma przy korbie');
-    if(r.aborted)addOpinia(-1,'przerwana praca przy korbie');
     persist();
-    return [['Praca','1 akcja · bez zapłaty'],['Trening','+'+strength+' XP siły · +'+endurance+' XP wytrzymałości'],['Respekt',r.won?'+2':'bez zmiany']];
+    return [['Praca','1 akcja · bez zapłaty'],['Trening','+'+strength+' XP siły · +'+endurance+' XP wytrzymałości']];
   }});
 }
 
@@ -241,31 +226,14 @@ function workDone(r){
       (r.punches?'<span>Boksowanie mięsa</span><span>'+r.punches+' ciosów</span>':'')+
       '<span>Zarobek</span><span>'+fmtMoney(pay.zl)+' (na handel '+fmtMoney(pay.wypiska)+', depozyt '+fmtMoney(pay.depozyt)+')</span>'+
       '<span>Trening</span><span>ocena '+r.grade+' · '+(r.gained||'bez XP')+'</span></div>'+
-      (pay.skarga?'<p>Majster spisuje cię w zeszycie. „Leniów kontraktor nie potrzebuje”.</p>':pay.przodownik?'<p>Majster rzuca ci kawałek łoju do kieszeni: „Z ciebie byłby rzeźnik”. Klucznik udaje, że nie widzi.</p>':'')}]);
-}
-
-/** A report: −15 opinion and the next yard lost; reports remain in the weekly record. @param {string} why */
-export function addRaport(why){
-  const P=prisonSave(), day=Math.max(1,progressionState.save.sim.day);
-  P.raporty.push(day); if(P.raporty.length>20) P.raporty.shift();
-  addOpinia(RAPORT_OPINIA,why); P.flagi['zakaz-spaceru']=true;
-  showToast(why+' · −'+(-RAPORT_OPINIA)+' opinii · zakaz najbliższego spaceru',true,'RAPORT');
-  persist();
-}
-
-/** Monday morning: a week without a report raises the opinion. */
-function weekCheck(){
-  const P=prisonSave(), day=progressionState.save.sim.day;
-  if(weekday(day)!==0||day<8) return;
-  if(!P.raporty.some(d=>d>day-7)) addOpinia(5,'tydzień bez raportu');
+      (pay.skarga?'<p>Majster spisuje cię w zeszycie. „Leniów kontraktor nie potrzebuje”.</p>':pay.przodownik?'<p>Majster rzuca ci kawałek łoju do kieszeni: „Z ciebie byłby rzeźnik”.</p>':'')}]);
 }
 
 /** Is this fight the current name on Profesor's list (and is the player allowed to take it now)? @param {string} venue @param {number} idx */
 export function listMatch(venue,idx){
   const P=prisonSave(), e=listEntry(P.lista.rozdzial), s=progressionState.save.sim;
   if(!e||e.opp!==venue+':'+idx) return {entry:null,why:''};
-  if(myRank()<e.need) return {entry:null,why:'Profesor: „Jeszcze nie. Najpierw zostań kimś — '+RESPEKT_RANKS[e.need].name+'”.'};
-  if(e.when==='evening'&&s.faza!==2) return {entry:null,why:'Profesor: „Reubena bierzemy wieczorem, kiedy klucznik siedzi przy kolacji”.'};
+  if(e.when==='evening'&&s.faza!==2) return {entry:null,why:'Profesor: „Reubena bierzemy wieczorem”.'};
   if(e.when==='sunday'&&!sundayFight()) return {entry:null,why:'Profesor: „Ned bije się tylko w niedzielę, przy wszystkich”.'};
   return {entry:e,why:''};
 }
@@ -277,12 +245,7 @@ const PLATE_VENUE = {cell:['BÓJKA W CELI','w celi'],yard:['BÓJKA NA SPACERNIAK
 /** Opening plate of a bare-knuckle fight: where, who, and how often the guard looks. @param {string} venue @param {string} name */
 export function showFightPlate(venue,name){
   const el=document.getElementById('fightPlate'), V=PLATE_VENUE[venue]; if(!el||!V) return;
-  const s=progressionState.save.sim, sunday=sundayFight();
-  let risk='';
-  if(isPrison()){
-    const r=guardRisk({venue,night:s.faza===2,blind:false,sunday,sec:0});
-    risk=state.friendly?'sparing za tytoń · klucznik dostał swoje':sunday?'niedzielne bicie · bez kluczników':'klucznik widzi 1 na '+Math.max(1,Math.round(1/r))+' bójek '+V[1];
-  }
+  const risk=state.friendly?'sparing za tytoń':'';
   /** @type {HTMLElement} */ (el.querySelector('#fpKicker')).textContent=V[0]+' · GOŁE PIĘŚCI · DO KO';
   /** @type {HTMLElement} */ (el.querySelector('#fpName')).textContent=name;
   /** @type {HTMLElement} */ (el.querySelector('#fpRisk')).textContent=risk;
@@ -323,7 +286,6 @@ export function listCanteenOption(){
 /** Reward of a lesson. @param {import('./prison-data.js').ListEntry} e */
 function lessonReward(e){
   const R=e.reward;
-  if(R.respekt) addRespekt(R.respekt,'lekcja Profesora');
   if(R.punkt){ const st=progressionState.save.stats, k=/** @type {'str'|'spd'|'end'} */ (['str','spd','end'].reduce((a,b)=>st[b].lvl<st[a].lvl?b:a)); grantPerkPoint(k); }
   if(R.cien) showToast('Cień z Profesorem: odblokowany stopień '+['I','II','III'][R.cien-1],true);
   if(R.spacerniak) prisonSave().flagi['spacerniak-punkt']=true;
@@ -336,21 +298,18 @@ function lessonReward(e){
 export function prisonFightEnd(f){
   if(!isPrison()) return '';
   const P=prisonSave(), s=progressionState.save.sim, venue=/** @type {'cell'|'yard'|'canteen'|'laznia'} */ (f.venue==='yard'?'yard':f.venue==='canteen'?'canteen':f.venue==='laznia'?'laznia':'cell');
-  const night=s.faza===2, sunday=sundayFight(), idx=f.opp??-1, m=listMatch(venue,idx), e=m.entry;
+  const sunday=sundayFight(), idx=f.opp??-1, m=listMatch(venue,idx), e=m.entry;
   if(state.bicie) simNudge('zm',1); else spendAction('walka');   // a fight takes an action (the Sunday brawl took its one at the start)
   if(state.dayStart) state.dayStart.fights++;
   if(state.friendly){ state.friendly=false; persist();
-    return '<span>Sparing za tytoń</span><span>bez respektu i bez ryzyka — klucznik dostał swoje</span>'; }
+    return '<span>Sparing za tytoń</span><span>trening z Reubenem</span>'; }
   const betRow=settleBet(f), bicieRow=state.bicie?.inFight?bicieResult(f):'';
   if(f.win&&f.rival&&!f.rigged) P.pokonani[f.rival]=Math.min(1e4,(P.pokonani[f.rival]||0)+1);   // the ladder on the character sheet
   if(state.tacaFight){ state.tacaFight=false; const M=currentMeal(); if(M&&!f.win){ M.tray=false; M.eaten=true; showToast('Miska przepadła.'); } }
   if(f.rigged){                                                  // #6: the knuckle-duster; not a real loss
-    setRigged(false); P.ambulatorium.zdarzenie=true; P.flagi['do-ambulatorium']=true; addRespekt(5,'wszyscy widzieli kastet'); persist();
-    return '<span>Lista Profesora</span><span>#6 '+(e?e.name:'')+' — to nie była uczciwa walka</span><span>Respekt</span><span>+5 · '+P.respekt+'</span><span>Klucznik</span><span>„nic nie widział” — ludzie Szefa</span>';
+    setRigged(false); P.ambulatorium.zdarzenie=true; P.flagi['do-ambulatorium']=true; persist();
+    return '<span>Lista Profesora</span><span>#6 '+(e?e.name:'')+' — to nie była uczciwa walka</span>';
   }
-  const risk=guardRisk({venue,night,blind:venue==='canteen'&&!!e,sunday,sec:f.sec});
-  let r=fightRespekt(f); if(venue==='canteen'&&f.win) r=Math.round(r*1.5);   // everybody saw it
-  if(r) addRespekt(r,f.win?'wygrana bójka':'przegrana bójka');
   if(f.stats){ const note=fightNote(f.stats); P.profesor.uwaga=note; }   // Profesor's note waits for the next talk
   // Profesor's list: the next name, and lessons that can be made up in a rematch
   const st=f.stats||{}, lf={cards:!!st.cards,win:f.win,ko:f.ko,blocks:st.blocks||0,landed:st.landed||0,body:st.body||0,cuts:st.cuts||0,counters:st.counters||0,kdTaken:st.kdTaken||0,evades:st.evades||0,sunday};
@@ -361,11 +320,8 @@ export function prisonFightEnd(f){
   for(const L of LISTA) if(L.opp===venue+':'+idx&&P.lista.wygrane[String(L.n)]&&!P.lista.lekcje[String(L.n)]&&L.lesson.key!=='none'){
     if(lessonOk(L.lesson.key,lf)){ P.lista.lekcje[String(L.n)]=true; lessonReward(L); list+=(list?' · ':'')+'lekcja zaliczona: '+lessonText(L,lf.cards); }
     else if(e&&e.n===L.n) list+=' · lekcja do poprawienia: '+lessonText(L,lf.cards); }
-  const caught=Math.random()<risk;
-  if(caught) addRaport(venue==='cell'?'bójka w celi':venue==='yard'?'bójka na spacerniaku':venue==='laznia'?'bójka w łaźni':'bójka przy posiłku');
   persist();
-  return bicieRow+betRow+(list?'<span>Lista Profesora</span><span>'+list+'</span>':'')+'<span>Respekt</span><span>'+(r>0?'+':'')+r+' · '+P.respekt+' ('+RESPEKT_RANKS[respektRank(P.respekt)].name+')</span>'+
-    '<span>Klucznik</span><span>'+(caught?'<b style="color:#ff6a5a">widział — raport</b>':'nic nie widział')+' · ryzyko '+Math.round(risk*100)+'%'+(sunday?' (niedzielne bicie)':'')+(venue==='canteen'&&e?' (dyżur Cobba)':'')+(venue==='laznia'?' (para i szum wody)':'')+'</span>';
+  return bicieRow+betRow+(list?'<span>Lista Profesora</span><span>'+list+'</span>':'');
 }
 
 /* ---------- daily events, the Sunday brawl, bets and favours ---------- */
@@ -374,35 +330,29 @@ export function prisonFightEnd(f){
 function dailyEvent(at){
   const P=prisonSave(), day=progressionState.save.sim.day;
   if(P.zdarzenia.ostatnie===day) return false;
-  const id=pickDailyEvent(day,at,{fajki:P.fajki,rank:myRank(),inCanteen:gymState.hubRoom==='cell'}); if(!id) return false;   /* the meal is in the Ward now */
+  const id=pickDailyEvent(day,at,{fajki:P.fajki,rank:0,inCanteen:gymState.hubRoom==='cell'}); if(!id) return false;   /* the meal is in the Ward now */
   const card=EVENT_CARDS[id]?.(); if(!card) return false;
   P.zdarzenia.ostatnie=day; persist(); showCards([card]); return true;
 }
 
 /** @type {Record<string,()=>any>} */
 const EVENT_CARDS={
-  kipisz:()=>({kicker:'ZDARZENIE · APEL',title:'Rewizja',body:'<p>Trzech kluczników przewraca Ward do góry nogami. Sienniki na podłodze, słoma wszędzie, ktoś dostaje kluczami po żebrach. Twój tytoń leży w skarpecie pod pryczą.</p>',
-    choices:[{label:'Oddaj nadwyżkę',sub:'zostaje ci 15 prymek',fn:()=>{ prisonSave().fajki=15; persist(); showToast('Klucznik chowa tytoń do kieszeni. „Nadwyżka”.'); }},
-             {label:'Zaryzykuj',sub:'połowa szans na raport za kontrabandę',fn:()=>{ if(Math.random()<0.5) addRaport('kontrabanda przy rewizji'); else showToast('Nie znaleźli. Skarpeta zostaje skarpetą.'); }}]}),
   list:()=>({kicker:'ZDARZENIE · APEL',title:'List z domu',body:'<p>Kapelan rzuca kopertę na pryczę. Rozcięta, przeczytana przez naczelnika, ale twoja. Kilka zdań, które trzymają cię przy pionie cały dzień.</p>',
     button:'Schowaj list',done:()=>{ simNudge('zm',-2); simUI(); showToast('List z domu: −2 zmęczenia'); }}),
   uwaga:()=>({kicker:'ZDARZENIE · APEL',title:'Uwaga Profesora',body:'<p>Profesor łapie cię za nadgarstek, zanim wstaniesz z pryczy. „Łokieć ci ucieka przy prostym. Pokażę ci to raz”.</p><p class="hint">Najbliższa sesja cienia: +50% XP.</p>',
     button:'Dzięki',done:()=>{ prisonSave().flagi['uwaga-cien']=true; persist(); }}),
-  donos:()=>({kicker:'ZDARZENIE · APEL',title:'Rozmowa z kapelanem',body:'<p>Kapelan zamyka drzwi zakrystii i kładzie ci dłoń na ramieniu. „Kto się bije na spacerniaku, synu? Powiesz — zapiszę ci to w opinii, a Pan zapisze w niebie”.</p>',
-    choices:[{label:'Wskaż kilku',sub:'+8 opinii, −10 respektu, jeśli się wyda',fn:()=>{ addOpinia(8,'współpraca'); addRespekt(-10,'kapuś'); }},
-             {label:'Nic nie wiem',sub:'+2 respektu',fn:()=>addRespekt(2,'nie sypie')}]}),
   taca:()=>{ const M=currentMeal(); if(!M) return null;
     return {kicker:'ZDARZENIE · POSIŁEK',title:'Miska',body:'<p>Bill „Gruby” Bellamy z drugiego końca pryczy kładzie łapę na twojej misce. „Ty już jadłeś, młody”.</p>',
-      choices:[{label:'Oddaj miskę',sub:'bez posiłku, −3 respektu',fn:()=>{ M.tray=false; M.eaten=true; addRespekt(-3,'oddana miska'); }},
-               {label:'Walcz',sub:'bójka przy posiłku — klucznik patrzy przez klapę (60%)',fn:()=>{ M.tray=true; state.tacaFight=true; prisonFightStart('canteen',2); startSpar(2,'canteen',doorStation()); }}]}; },
-  przysluga:()=>({kicker:'ZDARZENIE · POSIŁEK',title:'Przysługa',body:'<p>Przez kratę w drzwiach szepcze Tully, chudy chłopak z sąsiedniego wardu. „Pożycz pięć prymek. Oddam, jak klucznik będzie handlował przez klapę, z górką, słowo”.</p>',
+      choices:[{label:'Oddaj miskę',sub:'bez posiłku',fn:()=>{ M.tray=false; M.eaten=true; }},
+               {label:'Walcz',sub:'bójka przy posiłku',fn:()=>{ M.tray=true; state.tacaFight=true; prisonFightStart('canteen',2); startSpar(2,'canteen',doorStation()); }}]}; },
+  przysluga:()=>({kicker:'ZDARZENIE · POSIŁEK',title:'Przysługa',body:'<p>Przez kratę w drzwiach szepcze Tully, chudy chłopak z sąsiedniego wardu. „Pożycz pięć prymek. Oddam, przy najbliższym handlu, z górką, słowo”.</p>',
     choices:[{label:'Pożycz 5 prymek',sub:'może odda 8, a może nic',fn:()=>{ const P=prisonSave(); P.fajki-=5; P.flagi.dlug=true; persist(); }},
              {label:'Odmów',sub:'nic się nie dzieje',fn:()=>{}}]}),
-  wyzwanie:()=>{ const idx=sparringState.YARD_OPP.findIndex(/** @param {any} O @param {number} i */ (O,i)=>i<7&&inmateRank(O.rank)>myRank()); if(idx<0) return null;
+  wyzwanie:()=>{ const idx=sparringState.YARD_OPP.findIndex(/** @param {any} O @param {number} i */ (O,i)=>i<7); if(idx<0) return null;
     const O=sparringState.YARD_OPP[idx];
     return {kicker:'ZDARZENIE · SPACERNIAK',title:'Wyzwanie',body:'<p>'+O.title+' stoi przy kracie i patrzy prosto na ciebie. „Na spacerniak. Zobaczymy, ile jesteś wart”.</p>',
-      choices:[{label:'Przyjmij',sub:'+1 respektu za odwagę, walka od razu',fn:()=>{ addRespekt(1,'przyjęte wyzwanie'); goRoom('yard',5); prisonFightStart('yard',idx); startSpar(idx,'yard',doorStation()); }},
-               {label:'Odmów',sub:'−5 respektu',fn:()=>addRespekt(-5,'odmowa wyzwania')}]}; },
+      choices:[{label:'Przyjmij',sub:'walka od razu',fn:()=>{ goRoom('yard',5); prisonFightStart('yard',idx); startSpar(idx,'yard',doorStation()); }},
+               {label:'Odmów',sub:'bez walki',fn:()=>{}}]}; },
 };
 
 /** A loan comes back (or not) on a day the turnkey trades at the flap. */
@@ -429,8 +379,8 @@ function settleBet(f){
 export function prisonFightExtras(yard,idx,go,station){
   if(!isPrison()) return [];
   const P=prisonSave(), out=[];
-  if(yard&&myRank()>=2) for(const n of [5,10]) if(P.fajki>=n) out.push(['… z zakładem: '+n+' prymek (wygrana: '+2*n+')',()=>{ if(placeBet(n)) go(); }]);
-  if(!yard&&idx===2&&progressionState.save.sim.faza!==2) out.push(['Sparing z Reubenem za 3 prymki · bez respektu i ryzyka wpadki'+(P.fajki<3?' — za mało tytoniu':''),()=>friendlySpar(station()),P.fajki<3]);
+  if(yard) for(const n of [5,10]) if(P.fajki>=n) out.push(['… z zakładem: '+n+' prymek (wygrana: '+2*n+')',()=>{ if(placeBet(n)) go(); }]);
+  if(!yard&&idx===2&&progressionState.save.sim.faza!==2) out.push(['Sparing z Reubenem za 3 prymki'+(P.fajki<3?' — za mało tytoniu':''),()=>friendlySpar(station()),P.fajki<3]);
   return out;
 }
 
@@ -455,7 +405,7 @@ function bicieTick(){
   /** @type {any[]} */ const ch=[{label:'Wchodzę',sub:'bez zakładu',fn:()=>startBicie(opps,0)}];
   for(const n of [5,10]) if(P.fajki>=n) ch.push({label:'Wchodzę · zakład '+n+' prymek',sub:'wygrana całego bicia: '+(2*n+5)+' prymek',fn:()=>startBicie(opps,n)});
   ch.push({label:'Patrzę z boku',sub:'bez walki',fn:()=>{}});
-  showCards([{kicker:'NIEDZIELA · POŁUDNIE',title:'Niedzielne bicie',body:'<p>Klucznicy znikają w stróżówce przy bramie, „na łyk ginu”. Kaptury idą w górę, pod murem robi się krąg. Trzy walki, do nokautu albo 90 sekund: <b>'+names+'</b>.</p><p class="hint">Bez ryzyka raportu. Wygrana: +'+BICIE_RESPEKT+' respektu'+(P.bicie.wygrane?'':' i pierwszy punkt Spacerniaka')+'.</p>',choices:ch}]);
+  showCards([{kicker:'NIEDZIELA · POŁUDNIE',title:'Niedzielne bicie',body:'<p>Kaptury idą w górę, pod murem robi się krąg. Trzy walki, do nokautu albo 90 sekund: <b>'+names+'</b>.</p><p class="hint">Wygrana'+(P.bicie.wygrane?'':' · pierwszy punkt Spacerniaka')+'.</p>',choices:ch}]);
   return true;
 }
 
@@ -476,7 +426,7 @@ function bicieResult(f){
   if(!f.win){ state.bicie=null; persist(); return '<span>Niedzielne bicie</span><span>runda '+n+'/3 — odpadasz'+(B.bet?' · zakład przepada':'')+'</span>'; }
   if(n<3){ B.round++; B.next='fight'; return '<span>Niedzielne bicie</span><span>runda '+n+'/3 wygrana · następny: '+sparringState.YARD_OPP[B.opps[B.round]].title+'</span>'; }
   state.bicie=null; P.bicie.wygrane++; const pay=B.bet?2*B.bet+5:0; P.fajki+=pay;
-  addRespekt(BICIE_RESPEKT,'wygrane niedzielne bicie'); persist();
+  persist();
   return '<span>Niedzielne bicie</span><span><b>wygrane!</b>'+(pay?' · +'+pay+' prymek':'')+(P.bicie.wygrane===1?' · punkt Spacerniaka':'')+'</span>';
 }
 
@@ -484,7 +434,7 @@ function bicieResult(f){
 
 function daySnapshot(){
   const P=prisonSave(), st=progressionState.save.stats;
-  state.dayStart={day:progressionState.save.sim.day,respekt:P.respekt,opinia:P.opinia,fajki:P.fajki,konto:P.wypiska+P.depozyt,xp:xpSum(st),lv:st.str.lvl+st.spd.lvl+st.end.lvl,fights:0};
+  state.dayStart={day:progressionState.save.sim.day,fajki:P.fajki,konto:P.wypiska+P.depozyt,xp:xpSum(st),lv:st.str.lvl+st.spd.lvl+st.end.lvl,fights:0};
 }
 /** @param {any} st */
 function xpSum(st){ let x=0; for(const k of ['str','spd','end']){ for(let l=1;l<st[k].lvl;l++) x+=xpNeed(l); x+=st[k].xp; } return x; }
@@ -493,7 +443,7 @@ function xpSum(st){ let x=0; for(const k of ['str','spd','end']){ for(let l=1;l<
 function dayReport(){
   const D=state.dayStart, s=progressionState.save.sim; if(!D||D.day!==s.day) return;
   const P=prisonSave(), st=progressionState.save.stats, sg=(/** @type {number} */ n)=>(n>0?'+':'')+Math.round(n);
-  const rows=[['Respekt',sg(P.respekt-D.respekt)+' · '+Math.round(P.respekt)],['Opinia',sg(P.opinia-D.opinia)+' · '+Math.round(P.opinia)],['Doświadczenie',sg(xpSum(st)-D.xp)+' XP'+((st.str.lvl+st.spd.lvl+st.end.lvl)>D.lv?' · awans!':'')],
+  const rows=[['Doświadczenie',sg(xpSum(st)-D.xp)+' XP'+((st.str.lvl+st.spd.lvl+st.end.lvl)>D.lv?' · awans!':'')],
     ['Walki',String(D.fights)],['Konto',(P.wypiska+P.depozyt-D.konto>=1/24?'+':'')+fmtMoney(P.wypiska+P.depozyt-D.konto)],['Tytoń',sg(P.fajki-D.fajki)+' · '+P.fajki]];
   state.dayStart=null;
   showCards([{kicker:'APEL WIECZORNY',title:'Kreska na ścianie · dzień '+s.day,body:'<div class="card-stats">'+rows.map(r=>'<span>'+r[0]+'</span><span>'+r[1]+'</span>').join('')+'</div>',button:'Dalej'}]);
@@ -505,7 +455,7 @@ function dayReport(){
 function toAmbulatorium(){
   const M=MEMORIES['6'];
   showCards([
-    {kicker:'IZBA CHORYCH',title:'Ciemność',body:'<p>Szum w uszach. Ktoś krzyczy „Klucznik!”, ktoś inny się śmieje. Zapach karbolu, łoju i mokrego kamienia.</p>'},
+    {kicker:'IZBA CHORYCH',title:'Ciemność',body:'<p>Szum w uszach. Ktoś krzyczy, ktoś inny się śmieje. Zapach karbolu, łoju i mokrego kamienia.</p>'},
     {kicker:'IZBA CHORYCH · DZIEŃ 1',title:'Chirurg',body:'<p>„Sześć szwów na łuku. Szczęście, że oko całe” — więzienny chirurg nawleka igłę przy świecy, nie podnosząc wzroku. „Upadłeś na schodach, prawda? Wszyscy tu upadają na schodach”.</p>'},
     {kicker:'IZBA CHORYCH · DZIEŃ 3',title:'Harry przywozi Profesora',body:'<p>Skrzypienie drewnianych kół na korytarzu. Harry stawia fotel Profesora przy łóżku i wychodzi zakurzyć. Profesor długo patrzy na twój opatrunek.</p>'},
     {kicker:'IZBA CHORYCH · NOC',title:M.title,body:'<p>'+M.body+'</p><p>„Lista to nie trening, chłopcze. To rachunek. A na końcu rachunku stoi Szef spacerniaka”.</p>'},
@@ -532,9 +482,9 @@ export function countFight(key){ const P=progressionState.save.prison; if(!P) re
 /** Points, spending and gates of the tree. */
 export function bareInfo(){
   const save=progressionState.save, P=save.prison;
-  const maxRank=[4,3,2,1].find(k=>P.flagi['ranga-'+k])||0;
+  const maxRank=Math.max([4,3,2,1].find(k=>P.flagi['ranga-'+k])||0,[3,5,8,10].filter(n=>P.lista.rozdzial>n).length);
   const points=barePoints({maxRank,bicie:P.bicie.wygrane>0,glaz:!!P.flagi['spacerniak-punkt']});
-  return {points,spent:bareSpent(save.bare.unlocked),unlocked:save.bare.unlocked,rank:respektRank(P.respekt),prison:isPrison(),fajki:P.fajki};
+  return {points,spent:bareSpent(save.bare.unlocked),unlocked:save.bare.unlocked,rank:maxRank,prison:isPrison(),fajki:P.fajki};
 }
 
 /** Buy a perk of the tree. @param {string} id @returns {string} why not ('' = bought) */
@@ -581,15 +531,14 @@ function nextName(){ const f=simPhase(); return f===2?'sen, nowy dzień':PHASES[
 
 /** The cell door in prison: work in the morning, the yard at noon, the bath in the evening, ending the phase. @param {(room:string,min?:number)=>void} go */
 export function cellDoorOptions(go){
-  const P=prisonSave(), f=simPhase();
+  const f=simPhase();
   /** @type {any[]} */ const out=[];
   if(workDue()){ const why=prisonGate();
     out.push(['Żelazna korba · 30 sekund · bez zapłaty · 1 akcja'+(why?' — '+why:''),()=>crankShift(),!!why,'act']);
-    out.push(['Odmów pracy · raport',()=>{ settleWork(); guard('Odmowa zanotowana.'); addRaport('odmowa pracy'); }]); }
-  if(f===1&&P.flagi['zakaz-spaceru']) out.push(['Zakaz spaceru — kara za raport',()=>{},true]);
-  else if(f===1) out.push(['Wyjdź na spacerniak',()=>go('yard',0)]);
+    out.push(['Pomiń pracę',()=>{ settleWork(); persist(); }]); }
+  if(f===1) out.push(['Wyjdź na spacerniak',()=>go('yard',0)]);
   if(f===2) out.push(['Idź do łaźni',()=>go('laznia',0)]);
-  out.push(['Zakończ: '+PHASES[f]+' → '+nextName()+(workDue()?' — bez pracy to raport':'')+(actionsLeft()?' · zostało akcji: '+actionsLeft():''),()=>endPhaseNow(),false,'act']);
+  out.push(['Zakończ: '+PHASES[f]+' → '+nextName()+(actionsLeft()?' · zostało akcji: '+actionsLeft():''),()=>endPhaseNow(),false,'act']);
   return out;
 }
 
@@ -597,7 +546,7 @@ export function cellDoorOptions(go){
 export function yardDoorOptions(go){
   /** @type {any[]} */ const out=[['Wróć do celi',()=>go('cell',0)]];
   const e=listEntry(prisonSave().lista.rozdzial);
-  if(e&&e.opp==='yard:7'){ const m=listMatch('yard',7); out.push(['Szef spacerniaka czeka pod murem — walka z listy (#10)'+(m.entry?'':' — '+RESPEKT_RANKS[e.need].name+' najpierw'),()=>startListFight(doorStation()),!m.entry||!!prisonGate()]); }
+  if(e&&e.opp==='yard:7'){ const m=listMatch('yard',7); out.push(['Szef spacerniaka czeka pod murem — walka z listy (#10)'+(m.entry?'':' — '+m.why),()=>startListFight(doorStation()),!m.entry||!!prisonGate()]); }
   out.push(['Zakończ: '+PHASES[simPhase()]+' → '+nextName(),()=>endPhaseNow(),false,'act']);
   return out;
 }
@@ -632,7 +581,7 @@ export function lockerOptions(st,run){
   /** @type {any[]} */ const out=GOODS.filter(g=>Z[g[0]]>0).map(g=>[g[1]+' ('+Z[g[0]]+') · '+g[2]+' · bez akcji',()=>{   // from the chest: no action
     Z[g[0]]--; persist(); run(st,{kind:'eat',label:g[1].toLowerCase(),min:0,pose:0,at,face,order:'before',pop:-1,after:()=>simNudge(g[3],g[4])}); },false,'act']);
   if(Z.mydlo>0) out.push(['Mydło: '+Z.mydlo+' (5 myć na kostkę)',()=>{},true]);
-  if(!out.length) out.push(['Pusto. Klucznik handluje przez klapę w poniedziałek i czwartek przy kolacji.',()=>{},true]);
+  if(!out.length) out.push(['Pusto. Handel przez klapę odbywa się w poniedziałek i czwartek przy kolacji.',()=>{},true]);
   return out;
 }
 

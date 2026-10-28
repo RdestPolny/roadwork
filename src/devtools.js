@@ -26,6 +26,7 @@ import { leaveMode } from './navigation.js';
 import { startArm } from './armwrestle.js';
 import { startCrank } from './crank.js';
 import { initAudio } from './audio.js';
+import { startThamesPort } from './thames-port.js';
 
 export const state = {};
 const DEV_DOORS=['cdoor','ydoor','ldoor'];
@@ -47,6 +48,7 @@ function step(n){ for(let i=0;i<n;i++){ boxingState.simNow+=appearanceState.STEP
 
 /** Switch to a target scene or minigame directly for testing. @param {string} scene */
 export function devSwitchScene(scene){
+  if(scene==='port'&&!DEBUG) return;
   optsToggle(false);
   sysClose();
   stMenuClose();
@@ -60,6 +62,9 @@ export function devSwitchScene(scene){
     case 'cell':
       goRoom(scene, 0);
       setInfo();
+      break;
+    case 'port':
+      startThamesPort();
       break;
     case 'work':
       startWork();

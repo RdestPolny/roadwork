@@ -87,6 +87,34 @@ async function check(name, run) {
 try {
   await check('isometric fight: keys, stamina, body blows, block, slip, steps, AI, knockdown, pause and result',()=>checkIsoFight(page));
   await check('isometric fight in the yard and the bath rooms',()=>checkIsoFightRooms(page));
+  await check('the unlit Ward lamp has no blinking ember', async () => {
+    const colors=await page.evaluate(async()=>{
+      const R=await import('/src/renderer.js'), L=await import('/src/cell-light.js'), G=await import('/src/gym.js'), W=await import('/src/ward.js'), B=await import('/src/boxing.js'), A=await import('/src/appearance.js');
+      return R.withHD(()=>{
+        const buf=new Uint32Array(A.state.W*A.state.H), old=R.setFramebuffer(buf), tick=B.state.tick, bulb=L.state.bulb;
+        try{
+          const x=Math.round(G.isoX(W.LAMP.i,W.LAMP.j)), y=Math.round(G.isoY(W.LAMP.i,W.LAMP.j,W.LAMP.z))-1, samples=[];
+          L.state.bulb=0;
+          for(const t of [0,16,32]){ buf.fill(0); B.state.tick=t; L.drawCellLights(); samples.push(buf[y*A.state.W+x]); }
+          L.state.bulb=1; buf.fill(0); L.drawCellLights();
+          return {samples,socket:L.state.C_SOCKET,lit:buf[y*A.state.W+x],flame:L.state.C_FLAME3};
+        } finally { R.setFramebuffer(old); B.state.tick=tick; L.state.bulb=bulb; }
+      });
+    });
+    assert.deepEqual(colors.samples,[colors.socket,colors.socket,colors.socket]);
+    assert.equal(colors.lit,colors.flame);
+  });
+  await check('cell Profesor rolls to Harry and keeps his chair and station together', async () => {
+    const result=await page.evaluate(async () => {
+      const b=window.__boxer, N=await import('/src/npcs.js'), G=await import('/src/gym.js');
+      b.pause(); const p=N.state.PROF, h=N.state.CN.find(c=>c.name==='Harry'), chair=G.state.cellList.find(x=>x.t==='cwheel');
+      h.step={k:'sit',s:{c:[4.6,2.15],a:[4.6,2.95],f:[0,1]},d:99999}; h.t=0;
+      p.visit={kind:'harry',i:4.6,j:3.8,target:h}; p.path=null; p.t=0;
+      b.step(900);
+      return {arrived:p.visit?.arrived,distance:Math.hypot(p.i-4.6,p.j-3.8),chair:Math.hypot(p.i-(chair.i+chair.w/2),p.j-(chair.j+chair.h/2-0.05)),station:G.stationOf(chair).look};
+    });
+    assert.ok(result.arrived); assert.ok(result.distance<0.03); assert.ok(result.chair<0.001); assert.ok(Math.abs(result.station[0]-4.6)<0.03);
+  });
   await check('Newgate start and pause clock', async () => {
     await mkdir('artifacts', { recursive: true });
     assert.deepEqual(await page.evaluate(() => [window.__boxer.gstate, window.__boxer.room, window.__boxer.phase]), ['hub','cell','prison']);
@@ -246,11 +274,10 @@ try {
     await page.waitForFunction(() => !!window.__boxer);
     await page.evaluate(() => { window.__boxer.newGame(); window.__boxer.pause(); document.getElementById('storyCard').hidden=true; window.__boxer.step(1); });
     await page.locator('#sysBtn').click();
-    await page.locator('[data-a="keys"]').click();
-    assert.match(await page.locator('#sys').textContent(), /F10|Esc/);
-    await page.locator('[data-a="back"]').click();
+    assert.equal(await page.locator('[data-a="keys"]').count(),0);
     await page.locator('[data-a="opts"]').click();
     assert.equal(await page.locator('#opts').isVisible(),true);
+    assert.equal(await page.locator('#optCardAuto').count(),0);
     assert.equal(await page.locator('#crt, #optCrt, #optRows, #optPre, #optReset').count(),0,'legacy display settings cannot restore the removed filter');
     assert.doesNotMatch(await page.locator('#opts').textContent(),/CRT|Scanlines|Maska RGB/);
     await page.keyboard.press('c');
@@ -263,21 +290,176 @@ try {
     assert.equal(await page.locator('#opts').isVisible(),false,'the close button still works');
     await page.evaluate(() => window.__boxer.pause());
   });
-    await check('prison day in phases: meals, work, the yard, the bath, sleep, a report for a missed shift', () => checkPrisonDay(page));
+    await check('prison day in phases: meals, work, the yard, the bath, sleep', () => checkPrisonDay(page));
     await check('the Ward at a meal: the bowl, arm wrestling a cellmate, eating on the guard-bed', () => checkCanteenArm(page));
     await check('crank labour: hold/release rhythm, keyboard, pause and prison shift', () => checkCrank(page));
     await check('the evening bath: towels, showers, a fight in the steam and the way back', () => checkBath(page));
     await check('developer mode: any door to any room at any hour, no schedule, no autosave', () => checkDevMode(page));
     await check('developer scene switcher in options: switches locations and activities', () => checkDevSceneSwitcher(page));
+
+    await check('Thames port developer preview, animation and return', async () => {
+      const result=await page.evaluate(() => {
+        document.querySelector('[data-dev-scene="port"]').click();
+        const b=window.__boxer;
+        b.step(1);
+        const before=document.querySelector('#stage canvas')?.toDataURL() || document.querySelector('canvas').toDataURL();
+        b.step(60);
+        const after=document.querySelector('#stage canvas')?.toDataURL() || document.querySelector('canvas').toDataURL();
+        return {state:b.gstate, changed:before!==after};
+      });
+      assert.equal(result.state,'port');
+      assert.equal(result.changed,true,'barge and water animate as the simulation advances');
+      const player=()=>page.evaluate(async()=>(await import('/src/thames-port.js')).thamesPlayer());
+      const initial=await player();
+      assert.ok(Math.hypot(initial.i-initial.sack.i,initial.j-initial.sack.j)<1.4,'player starts near the sack');
+      assert.equal(await page.locator('#prompt').isVisible(),true,'pickup hint appears near the sack');
+      const promptPosition=await page.locator('#prompt').evaluate(el=>({top:el.getBoundingClientRect().top,bottom:el.parentElement.getBoundingClientRect().bottom}));
+      assert.ok(promptPosition.top<promptPosition.bottom-150,'pickup hint is placed in the scene rather than below it');
+      const obstacles=await page.evaluate(async()=>{ const {thamesBlocked}=await import('/src/thames-port.js'); return [[20.9,8.5],[19.8,7.6],[18,2.7],[21,12.1],[21.6,4.4],[8,4.5],[26.8,11.25],[15,8]].map(([i,j])=>thamesBlocked(i,j)); });
+      assert.deepEqual(obstacles,[true,true,true,true,true,true,true,false],'sacks, crates, lamps, barrels, carriage and crane block movement, open ground does not');
+      await page.keyboard.down('ArrowUp');
+      await page.evaluate(()=>window.__boxer.step(50));
+      await page.keyboard.up('ArrowUp');
+      const stopped=await player();
+      assert.ok(Math.hypot(stopped.i-stopped.sack.i,stopped.j-stopped.sack.j)>=.48,'player cannot walk into the sack');
+      await page.evaluate(async()=>(await import('/src/thames-port.js')).startThamesPort());
+      await page.keyboard.press('e');
+      await page.evaluate(()=>window.__boxer.step(1));
+      assert.equal(await page.locator('#prompt').isVisible(),false,'pickup hint disappears while lifting');
+      assert.ok((await player()).lift>=0,'E starts the lifting animation');
+      await page.keyboard.down('ArrowRight');
+      await page.evaluate(()=>window.__boxer.step(60));
+      const lifting=await player();
+      assert.ok(lifting.lift>=0&&lifting.lift<120&&!lifting.carrying,'the sack is lifted before it is carried');
+      assert.equal(lifting.i,initial.i,'player stays in place while lifting');
+      await page.evaluate(()=>window.__boxer.step(60));
+      await page.keyboard.up('ArrowRight');
+      assert.equal((await player()).carrying,true,'E picks up the nearby sack');
+      await page.keyboard.down('ArrowRight');
+      await page.evaluate(()=>window.__boxer.step(100));
+      await page.keyboard.up('ArrowRight');
+      const carried=await player();
+      assert.equal(carried.carrying,true);
+      assert.ok(Math.abs(Math.hypot(carried.i-initial.i,carried.j-initial.j)-1.56)<.15,'carrying speed is 20% faster than the docker’s pace: '+JSON.stringify([carried.i,carried.j,initial.i,initial.j]));
+      await page.keyboard.press('e');
+      const dropped=await player();
+      assert.equal(dropped.carrying,false,'E puts the sack down');
+      assert.ok(Math.hypot(dropped.sack.i-initial.sack.i,dropped.sack.j-initial.sack.j)>1,'sack stays at the new location');
+      await page.keyboard.press('e');
+      await page.evaluate(()=>window.__boxer.step(120));
+      assert.equal((await player()).carrying,true,'the dropped sack can be picked up again');
+      const horseAnimated=await page.evaluate(async()=>{
+        const b=window.__boxer, {state}=await import('/src/renderer.js');
+        const head=()=>{const pixels=[];for(let y=48;y<88;y++) for(let x=242;x<285;x++) pixels.push(state.hd.fb[y*288+x]);return pixels.join(',');};
+        const before=head();b.step(45);return before!==head();
+      });
+      assert.equal(horseAnimated,true,'the horse moves its head independently of the water');
+      const beforePan=await page.locator('#stage canvas').first().evaluate(c=>c.toDataURL());
+      await page.keyboard.down('ArrowRight');
+      await page.evaluate(()=>window.__boxer.step(20));
+      await page.keyboard.up('ArrowRight');
+      const afterPan=await page.locator('#stage canvas').first().evaluate(c=>c.toDataURL());
+      assert.notEqual(afterPan,beforePan,'arrow keys move the player and the view across the port');
+      await page.evaluate(async()=>(await import('/src/thames-port.js')).startThamesPort());
+      assert.match(await page.locator('#portStory').innerText(),/Jeszcze kilka worków/);
+      await page.evaluate(()=>window.__boxer.step(240));
+      assert.match(await page.locator('#portStory').innerText(),/Przenieś worki do magazynu.*0\/3/);
+      for(let n=1;n<=2;n++){
+        await page.keyboard.press('e');
+        await page.evaluate(()=>window.__boxer.step(120));
+        assert.equal((await player()).carrying,true);
+        await page.keyboard.down('ArrowUp');
+        for(let steps=0;steps<1000&&!(await player()).job.entry;steps+=20) await page.evaluate(()=>window.__boxer.step(20));
+        await page.keyboard.up('ArrowUp');
+        const entering=await player();
+        assert.ok(entering.job.entry&&entering.carrying,'player enters the gate with the sack before delivery');
+        await page.evaluate(()=>window.__boxer.step(170));
+        assert.equal((await player()).job.delivered,n,'one delivery is counted at the warehouse gate');
+        assert.equal((await player()).carrying,false);
+        assert.equal((await player()).job.entry,null,'player returns from the warehouse');
+        if(n===1) assert.ok(Math.abs((await player()).j-1.15)<.01,'player reappears outside the gate');
+        if(n<2){
+          await page.keyboard.down('ArrowDown');
+          await page.evaluate(()=>window.__boxer.step(180));
+          await page.keyboard.up('ArrowDown');
+        }
+      }
+      assert.ok((await player()).story,'story begins after the second delivery');
+      /* scenes: advance the simulation to scene tick n without drawing every step, then draw once */
+      const sceneAt=n=>page.evaluate(async n=>{ const T=await import('/src/thames-port.js'), b=window.__boxer; for(let k=0;k<3000&&T.thamesPlayer().story&&T.thamesPlayer().story.tick<n;k++) b.sparStep(1); b.step(0); return T.thamesPlayer(); },n);
+      const bubble=()=>page.evaluate(()=>{ const el=document.getElementById('npcSay'), r=el.getBoundingClientRect(), c=document.getElementById('screen').getBoundingClientRect(); return {text:el.hidden?'':el.textContent,inside:r.top>c.top&&r.bottom<c.bottom&&r.left>=c.left&&r.right<=c.right}; });
+      const lines=[[640,null],[830,/Nie rzygaj przy workach/],[960,/wypierdolę/],[1100,/Policjancie! Pomocy/],[1230,/zajęty/]];
+      for(const [n,text] of lines){ const p=await sceneAt(n), say=await bubble();
+        if(text){ assert.match(say.text,text,`line at scene tick ${n}`); assert.ok(say.inside,'the line is spoken in a bubble over the picture, not outside it'); }
+        else { assert.equal(say.text,'','no bubble between lines'); assert.ok(p.zoom>1.7,'the camera closes in on the drunk being sick: '+p.zoom); } }
+      assert.equal(await page.locator('#portStory').isVisible(),false,'the task line gives way to the scene');
+      await sceneAt(1340);
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'isofight');
+      assert.equal(await page.evaluate(()=>document.getElementById('npcSay').hidden),true,'the bubble goes when the brawl starts');
+      const brawl=await page.evaluate(async()=>{ const I=await import('/src/iso-fight.js'), S=await import('/src/port-story.js'); return {venue:I.state.venue,P:[I.state.P.i,I.state.P.j],O:[I.state.O.i,I.state.O.j],at:S.PORT_BRAWL}; });
+      assert.equal(brawl.venue,'port');
+      assert.deepEqual([brawl.P,brawl.O],[brawl.at.hero,brawl.at.drunk],'the brawl starts where the scene left the two');
+      const portPointer=await page.evaluate(async()=>{
+        const I=await import('/src/iso-fight.js'), T=await import('/src/thames-port.js'), G=await import('/src/gym.js'), R=await import('/src/renderer.js'), S=I.state;
+        S.O.aiAt=Infinity; window.__boxer.step(60); const C=S.cam, W=R.state.hd.W, H=R.state.hd.H, z=C.z;
+        const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
+        const [x,y]=T.withThamesCamera(()=>[(W/2+(G.isoX(S.P.i,S.P.j)-cx)*z)/2,(H/2+(G.isoY(S.P.i,S.P.j,0)-cy)*z)/2]);
+        const start=[S.P.i,S.P.j]; S.pointer={x,y}; window.__boxer.step(12);
+        const idle=Math.hypot(S.P.i-start[0],S.P.j-start[1]); S.pointer={x:x+20,y}; window.__boxer.step(12);
+        return {idle,di:S.P.i-start[0],dj:S.P.j-start[1]};
+      });
+      assert.ok(portPointer.idle<.01,'pointer at player does not cause movement in the port: '+JSON.stringify(portPointer));
+      assert.ok(portPointer.di>0&&portPointer.dj<0,'player follows pointer in the correct screen direction');
+      const drunk=await page.evaluate(async()=>{
+        const I=await import('/src/iso-fight.js'), S=I.state, b=window.__boxer;
+        I.startIsoFight(0,'port'); b.step(45); S.O.aiAt=0;
+        const start=[S.O.i,S.O.j]; b.step(8); const distance=Math.hypot(S.O.i-start[0],S.O.j-start[1]);
+        let pids=[], first=null;
+        for(let n=0;n<250;n++){ b.step(1); if(S.O.pk){ pids.push(S.O.pk.pid); if(first===null&&S.O.pk.t>0) first=S.O.pk.t; } }
+        return {distance,pids,first};
+      });
+      assert.ok(drunk.distance>0&&drunk.distance<.14,'drunk opponent walks at half speed');
+      assert.ok(drunk.pids.length>0&&drunk.pids.every(pid=>pid===0),'drunk opponent throws only jabs');
+      assert.ok(Math.abs(drunk.first-1/120)<.002,'drunk jab animation runs at half speed');
+      await page.evaluate(async()=>{ const I=await import('/src/iso-fight.js'); I.isoFightFinish(0); window.__boxer.step(400); });
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'port','victory starts the port aftermath');
+      assert.equal((await player()).story.kind,'after');
+      const van=await page.evaluate(async()=>{ const T=await import('/src/thames-port.js'), S=await import('/src/port-story.js'), b=window.__boxer, at=n=>{ while(T.thamesPlayer().story.tick<n) b.sparStep(1); };
+        at(700); const open=S.storyVanDoor(); at(830); return {open,shut:S.storyVanDoor()}; });
+      assert.ok(van.open>.9&&van.shut===0,'the constable opens the van door, puts the drunk in and shuts it: '+JSON.stringify(van));
+      for(const [n,text] of [[850,/Pomocy/],[930,/Trzymaj się/],[1180,/aresztowany/]]){ await sceneAt(n); assert.match((await bubble()).text,text,`line at scene tick ${n}`); }
+      await sceneAt(1320);
+      assert.match(await page.locator('#portStory').innerText(),/Kilka godzin później/);
+      await page.evaluate(()=>window.__boxer.step(200));
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'hub','aftermath transfers the hero to prison');
+      assert.equal(await page.evaluate(async()=>(await import('/src/gym.js')).state.hubRoom),'cell');
+      await page.evaluate(async()=>(await import('/src/iso-fight.js')).startIsoFight(0,'port'));
+      await page.keyboard.press('Escape');
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'port','fight returns to the port');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'hub','Escape returns to the previous room');
+      const normal=await context.newPage();
+      await normal.goto(`http://127.0.0.1:${port}/`);
+      const restricted=await normal.evaluate(async()=>{
+        const {devSwitchScene}=await import('/src/devtools.js');
+        const {state}=await import('/src/boxing.js');
+        devSwitchScene('port');
+        return {state:state.gstate, visible:getComputedStyle(document.querySelector('[data-dev-scene="port"]')).display!=='none', debug:!!window.__boxer};
+      });
+      assert.notEqual(restricted.state,'port');
+      assert.equal(restricted.visible,false);
+      assert.equal(restricted.debug,false);
+      await normal.close();
+    });
     await check('cell vermin: rats scurry around the cell and react to the boxer', () => checkWardRats(page));
     await check('the character sheet and the one hero: fixed look, needs, trees, perks, fight record', () => checkCharSheet(page));
-    await check('supervision: fight respect and guard risk, reports stay in the Ward', () => checkSupervision(page));
+    await check('fight and yard access without respect or reports', () => checkSupervision(page));
     await check('Profesor: talk, notes, daily task, prison cap and the level-10 trial', () => checkProfesor(page));
     await check('Profesor\'s list: meal and yard boss fights, memories, the rigged fight and the infirmary', () => checkProfesorList(page));
-    await check('Spacerniak: respect points, the tree tab, T tricks, jaw, stomach and yard memory', () => checkSpacerniak(page));
+    await check('Spacerniak: list points, the tree tab, tricks and yard memory', () => checkSpacerniak(page));
     await check('daily events, the Sunday brawl, bets and favours', () => checkSundayAndEvents(page));
     await check('cell shadowboxing combos, input cadence, queued pivots and XP', () => checkShadowboxing(page));
-    await check('healers: Śmierdziel\'s ointment by the tub, the turnkey\'s surgeon on the yard', () => checkHealers(page, port));
+    await check('healers: Śmierdziel and the surgeon in the Ward', () => checkHealers(page, port));
     await check('Victorian slaughterhouse lifts, carries, hangs and returns with its previous palette', async () => {
       const outfitBefore=await page.evaluate(async()=>{const {state:a}=await import('/src/appearance.js');return Array.from(a.PAL.slice(a.R_SHIRT*3,(a.R_PANTF+1)*3));});
       await page.evaluate(()=>{window.__boxer.startWork();window.__boxer.step(90);window.__boxer.workTap();window.__boxer.step(15);});
@@ -387,7 +569,7 @@ try {
       });
       assert.deepEqual(reloaded.traits,saved.traits);
     });
-    await check('pull-up from behind: fists stay on the cross bar, arms keep their length, the body blocks more light at the top', async () => {
+    await check('pull-up from behind: fists stay on the cross bar, elbows stay under the grips, the body blocks more light at the top', async () => {
       const result=await page.evaluate(async () => {
         window.__boxer.goRoom('cell');
         const {startPullups,solvePullup}=await import('/src/pullups.js');
@@ -399,25 +581,40 @@ try {
         try {
           for(let step=0;step<=100;step+=5){
             S.posePullup(step/100);const P=S.state.pose;
-            frames.push({step,light:S.state.light,headY:P.hy,arms:[P.l,P.r].map((A,k)=>({
+            const shoulderJoined=Array.from({length:Math.ceil(P.r.sx-P.l.sx)},(_,k)=>{
+              const x=Math.floor(P.l.sx)+k, t=(x+0.5-P.l.sx)/(P.r.sx-P.l.sx);
+              const shoulderY=P.l.sy+(P.r.sy-P.l.sy)*t;
+              const y=Math.floor(shoulderY+(P.ty+3-shoulderY)*(1-Math.abs(2*t-1)));
+              return S.state.z[y*a.W+x]>-1e8;
+            }).every(Boolean);
+            const headRow=Math.floor(P.hy-3), headWidth=Array.from({length:a.W},(_,x)=>S.state.mat[headRow*a.W+x]===2&&S.state.z[headRow*a.W+x]>-1e8).filter(Boolean).length;
+            frames.push({step,shoulderJoined,headWidth,light:S.state.light,headY:P.hy,nape:P.ty-P.hy,shoulderY:(P.l.sy+P.r.sy)/2,arms:[P.l,P.r].map((A,k)=>({
               grip:Math.hypot(A.gx-(72+(k?1:-1)*S.GRIP.x),A.gy-S.GRIP.y),
               upper:Math.hypot(A.ex-A.sx,A.ey-A.sy),fore:Math.hypot(A.gx-A.ex,A.gy-A.ey),
-              elbowDown:A.ey>S.BAR_Y,elbowOut:(k?1:-1)*(A.ex-A.sx)>-1}))});
+              elbowOffset:(k?1:-1)*(A.ex-A.gx),elbowY:A.ey-A.gy}))});
           }
           S.state.ps=1;S.state.pv=0;S.renderPullupScene();
           const fist=[-1,1].map(s=>Math.round(S.GRIP.y-1)*a.W+Math.round(72+s*S.GRIP.x));
-          return {frames,fistSkin:fist.every(i=>S.state.z[i]>-1e8&&S.state.mat[i]===5&&r.fb[i]!==S.state.bg[i]),ARM:S.ARM,BAR:S.BAR_Y};
+          return {frames,GRIP:S.GRIP,fistSkin:fist.every(i=>S.state.z[i]>-1e8&&S.state.mat[i]===5&&r.fb[i]!==S.state.bg[i]),ARM:S.ARM,BAR:S.BAR_Y};
         } finally {solvePullup();window.__boxer.step(0);}
       });
       for(const f of result.frames) for(const arm of f.arms){
         assert.ok(arm.grip<0.01,`fist on the bar at ${f.step}%`);
-        assert.ok(Math.abs(arm.upper-result.ARM.upper)<0.6&&Math.abs(arm.fore-result.ARM.fore)<0.6,`arm lengths at ${f.step}%: ${JSON.stringify(arm)}`);
-        assert.ok(arm.elbowDown&&arm.elbowOut,`elbow below the bar and outward at ${f.step}%`);
+        assert.ok(Math.abs(arm.elbowY-result.ARM.fore)<0.01&&arm.elbowOffset>=0&&arm.elbowOffset<=1.21,`elbow stays at the same height and moves only slightly outward at ${f.step}%`);
       }
       const hang=result.frames[0],top=result.frames.at(-1);
+      for(let k=0;k<2;k++) assert.ok(hang.arms[k].elbowOffset<0.01&&top.arms[k].elbowOffset>1,'elbows move outward as the body rises');
+      for(const f of result.frames){
+        assert.ok(f.nape<12,`the head stays close to the shoulder girdle at ${f.step}%`);
+        assert.ok(f.shoulderJoined,`no background slit between the neck and shoulders at ${f.step}%`);
+        assert.ok(f.headWidth>=11,`the head keeps its reference width at ${f.step}%: ${f.headWidth}`);
+      }
+      assert.ok(Math.abs(top.shoulderY-result.BAR)<5,'at the top the shoulders reach the bar');
+      assert.ok(Math.abs((hang.shoulderY-result.BAR)/(2*result.GRIP.x)-0.89)<0.04,'hang shoulder height follows the reference grip span');
+      assert.ok(hang.headWidth/(2*result.GRIP.x)>0.26&&hang.headWidth/(2*result.GRIP.x)<0.35,'head width follows the reference grip span');
       assert.ok(hang.headY-8>result.BAR,'at the dead hang the head hangs below the bar');
       assert.ok(top.headY+4<result.BAR,'at the top the chin is over the bar');
-      assert.ok(top.light<hang.light-0.25,`the body blocks the window: ${hang.light} → ${top.light}`);
+      assert.ok(top.light<hang.light-0.19,`the body blocks the window: ${hang.light} → ${top.light}`);
       for(let k=1;k<result.frames.length;k++) assert.ok(result.frames[k].light<=result.frames[k-1].light+0.02,'the room darkens as he rises');
       assert.equal(result.fistSkin,true,'the fists are drawn over the bar (material 5 = hand)');
     });
@@ -531,9 +728,9 @@ try {
       assert.deepEqual(await page.evaluate(() => window.__boxer.stats),stats,'XP waits for the end of the session');
       // Nothing under the knuckles: pain, a pause, and the next click does nothing until the hand obeys again.
       const miss=await page.evaluate(async () => {const b=window.__boxer;const {state,roachStrike}=await import('/src/roaches.js');b.step(20);state.roaches=[];
-        b.resume();roachStrike();b.pause();b.step(7+6+10);const cool=state.phase,pain=state.pain;b.resume();roachStrike();b.pause();const blocked=state.phase;b.step(160);return {cool,pain,blocked,after:state.phase,misses:state.misses};});
+        const wall=(await import('/src/roach-scene.js')).state,before=wall.wet.slice();b.resume();roachStrike();b.pause();b.step(7);const blood=wall.wet.some((v,i)=>v>0.69&&v>before[i]);b.step(6+10);const cool=state.phase,pain=state.pain;b.resume();roachStrike();b.pause();const blocked=state.phase;b.step(160);return {cool,pain,blocked,after:state.phase,misses:state.misses,blood};});
       assert.equal(miss.cool,'cool');assert.ok(miss.pain>=10,`knuckles on stone hurt: ${miss.pain}`);assert.equal(miss.blocked,'cool','no punch while the hand shakes');
-      assert.equal(miss.after,'aim');assert.equal(miss.misses,1);
+      assert.equal(miss.after,'aim');assert.equal(miss.misses,1);assert.equal(miss.blood,true,'a miss leaves blood on the wall');
       await page.keyboard.press('Escape');await page.keyboard.press('Escape');
       assert.equal(await page.locator('#over').isVisible(),true);
       assert.ok((await page.evaluate(() => window.__boxer.stats)).spd.xp>stats.spd.xp,'the aborted session pays speed for its part');
@@ -571,7 +768,7 @@ try {
       await page.evaluate(async () => {(await import('/src/pullups.js')).startPullups();window.__boxer.step(0);});
       assert.equal((await meterRows()).zone.end-(await meterRows()).zone.top,9);
     });
-    await check('cell push-ups use three printed newspapers and leave tiles uncovered', async () => {
+    await check('cell push-ups use the bare floor', async () => {
       await page.evaluate(async () => { const b = window.__boxer; b.goRoom('cell'); b.step(120);
         const it = (await import('/src/gym.js')).state.gymItems.find(x => x.t === 'cfloor'); b.hubSet(it.i + 1.3, it.j + 1.4); b.step(30); });   // the free floor for push-ups
       await page.keyboard.press('KeyE');
@@ -579,17 +776,15 @@ try {
       const result = await page.evaluate(async () => {
         window.__boxer.step(60);
         const { state } = await import('/src/pushups.js');
-        const { NEWSPAPER_COLORS } = await import('/src/rooms.js');
-        const { state: dimensions } = await import('/src/appearance.js');
+        const R = await import('/src/renderer.js'), W = await import('/src/ward-wall.js');
+        const original = R.state.fb, wall = new Uint32Array(state.bgPU.length);
+        R.state.fb = wall; W.wardWallBg(); R.state.fb = original;
         return {
-          mode: window.__boxer.gstate, venue: state.puVenue,
-          editions: NEWSPAPER_COLORS.paper.map(color => state.bgPU.includes(color)),
-          uncovered: !Object.values(NEWSPAPER_COLORS).flat().includes(state.bgPU[85*dimensions.W+110])
+          mode: window.__boxer.gstate, venue: state.puVenue, bare: wall.slice(78*144).every((pixel, i) => pixel === state.bgPU[78*144+i]), breath: state.bgPU.reduce((n, pixel, i) => n + (pixel !== state.bgPUBreath[i]), 0)
         };
       });
-      assert.equal(result.mode, 'pushup'); assert.equal(result.venue, 'cell');
-      assert.deepEqual(result.editions, [true,true,true]); assert.equal(result.uncovered, true);
-      await page.screenshot({ path: 'artifacts/newspapers-pushups.png' });
+      assert.equal(result.mode, 'pushup'); assert.equal(result.venue, 'cell'); assert.equal(result.bare, true); assert.ok(result.breath > 0 && result.breath < 100, 'only the seated figure moves with each breath');
+      await page.screenshot({ path: 'artifacts/pushups-floor.png' });
       await page.keyboard.press('Escape');
       assert.equal(await page.evaluate(() => window.__boxer.room), 'cell');
     });
@@ -651,9 +846,45 @@ try {
       const r = await page.evaluate(async () => {
         const b = window.__boxer; b.goRoom('cell'); b.step(120);
         const G = await import('/src/gym.js'), L = await import('/src/cell-light.js'), P = await import('/src/progression.js');
-        const B = await import('/src/boxing.js'), R = await import('/src/renderer.js');
+        const B = await import('/src/boxing.js'), R = await import('/src/renderer.js'), W = await import('/src/ward.js');
         const types = G.state.gymItems.map(it => it.t), sink = G.state.gymItems.find(it => it.t === 'csink');
         const wash = G.stationOptions(G.stationOf(sink)).map(o => typeof o[0] === 'function' ? o[0]() : o[0]).join(' | ');
+        const N = await import('/src/npcs.js'), savedRandom = Math.random, savedMin = P.state.save.sim.min;
+        P.state.save.sim.min = 720; let randomIndex=0; Math.random = () => [0.1,0.4,0.7,0.9][randomIndex++%4]; N.cnEnter();
+        const pair = N.state.CN.filter(c => c.name === 'Reuben' || c.name === 'Walter');
+        const sparring = pair.map(c => [c.name,c.step.k,c.act,G.hubBlocked(c.i,c.j)]);
+        const punches = [], steps = [], reactions=[]; for(let k=0;k<1200;k++){ b.step(1); punches.push(pair.map(c => c.pk)); steps.push(pair.map(c => c.i)); reactions.push(pair.map(c=>[c.sparDodge,c.step.fighter?.hurtT||0])); }
+        const bothPunch = pair.map((c,i) => punches.some(p => p[i]));
+        const dodged=pair.map((c,i)=>reactions.some(r=>r[i][0])), hurt=pair.map((c,i)=>reactions.some(r=>r[i][1]>0));
+        const punchKinds=[...new Set(punches.flat().filter(Boolean))].sort(), stepped=pair.every((c,i)=>Math.max(...steps.map(p=>p[i]))-Math.min(...steps.map(p=>p[i]))>0.1);
+        const combinations=[];
+        for(const random of [0.6,0.8]){
+          Math.random=()=>random; const owner=pair.find(c=>c.name==='Reuben'); delete owner.step.exchange;
+          const groups=[]; let lastTurn=-1;
+          for(let k=0;k<500&&groups.length<3;k++){ b.step(1); const e=owner.step.exchange; if(!e||e.turn===lastTurn) continue; lastTurn=e.turn;
+            let group=groups.at(-1); if(!group||group.attacker!==e.attacker) groups.push(group={attacker:e.attacker,kinds:[]}); group.kinds.push(e.kind);
+          }
+          combinations.push(groups.slice(0,2).map(g=>g.kinds));
+        }
+        Math.random=()=>0.1;
+        const interrupted=pair[1].step; pair[1].step={k:'idle',d:999}; b.step(1); const waiting=[pair[0].act,pair[0].pk]; pair[1].step=interrupted;
+        Math.random=()=>0.049; let koSeen=false, helped=false, resumed=false, ragdollMoved=false, blended=false, initialHead;
+        for(let k=0;k<2000;k++){ b.step(1); if(pair.some(c=>c.act==='sparDown')){ const down=pair.find(c=>c.act==='sparDown'), F=down.step.fighter; koSeen=true; helped=pair.some(c=>c.act==='sparHelp'); const head=F.rd.nodes[2].z; if(initialHead===undefined) initialHead=head; if(Math.abs(head-initialHead)>1) ragdollMoved=true; if(F.sparDownJoints) blended=true; Math.random=()=>0.1; } if(koSeen&&pair.every(c=>c.act==='guard')){ resumed=true; break; } }
+        Math.random=()=>0.1;
+        P.state.save.sim.min = 1380; N.cnEnter(); const nightRest = pair.map(c => c.step.k);
+        const bed=G.state.gymItems.find(it=>it.t==='bunk'), Z=P.state.save.prison.zapasy, previous=Z.kawa;
+        Z.kawa=1; const supplies=G.stationOptions(G.stationOf(bed)).some(o=>typeof o[0]==='string'&&o[0].includes('Zaparz herbatę')); Z.kawa=previous;
+        P.state.save.sim.min = 720; Math.random = () => 0.95; N.state.CN.find(c => c.name === 'Jack').routine = 4; N.cnEnter();
+        const jack = N.state.CN.find(c => c.name === 'Jack'), toilet = [jack.step.k,jack.act,jack.res,G.hubBlocked(jack.i,jack.j),jack.i,jack.j,jack.fi,jack.fj];
+        const routine = [jack.step.k];
+        for(let n=0;n<30000 && routine.length<8;n++){ b.step(1); const k=jack.step?.k; if(k && k!=='go' && k!=='idle' && k!==routine.at(-1)) routine.push(k); }
+        jack.routine=4; N.cnEnter();
+        const A = await import('/src/appearance.js');
+        R.withHD(() => { R.state.fb.fill(0); N.cnToiletStream(); });
+        const firstStream = R.state.hd.fb.slice(), streamPixels = firstStream.filter(c => c === A.rgb('#cec4a1') || c === A.rgb('#afa383')).length;
+        jack.t += 19; R.withHD(() => { R.state.fb.fill(0); N.cnToiletStream(); });
+        const animatedStream = firstStream.some((c,i) => c !== R.state.hd.fb[i]);
+        Math.random = savedRandom; P.state.save.sim.min = savedMin; N.cnEnter();
         const frame = min => {   // render only: stepping would let the schedule move the player
           P.state.save.sim.min = min; G.hubRebake(); G.renderHub(); B.state.tick += 40; G.renderHub();
           const fb = R.state.hd.fb;   // the cell is drawn into the 2× frame
@@ -661,11 +892,30 @@ try {
           return { bulb: L.state.bulb, sun: L.state.sun, light: sum / fb.length };
         };
         const hd = { size: [R.state.hd.W, R.state.hd.H], native: [(await import('/src/appearance.js')).state.W, (await import('/src/appearance.js')).state.H], k: G.state.ISO_K };
-        return { types, wash, hd, noon: frame(12 * 60), evening: frame(20 * 60), night: frame(23 * 60) };
+        return { types, wash, toilet, routine, combinations, waiting, koSeen, helped, resumed, ragdollMoved, blended, streamPixels, animatedStream, sparring, bothPunch, punchKinds, stepped, dodged, hurt, nightRest, supplies, sinkPosition:[sink.i,sink.j], washSpot:W.WARD_WASH, washBlocked:G.hubBlocked(...W.WARD_WASH.p), hd, noon: frame(12 * 60), evening: frame(20 * 60), night: frame(23 * 60) };
       });
-      for (const t of ['cwash', 'cnews', 'cradio', 'ctable', 'cstool', 'crad', 'ccurt']) assert.equal(r.types.includes(t), false, t + ' is gone (Newgate)');
-      for (const t of ['cfloor', 'cshadow', 'ccom', 'csink', 'cwc', 'bunk', 'bunk2', 'cwheel', 'cdoor']) assert.equal(r.types.includes(t), true, t);
+      for (const t of ['cwash', 'cnews', 'cradio', 'ctable', 'cstool', 'crad', 'ccurt', 'ccom']) assert.equal(r.types.includes(t), false, t + ' is gone (Newgate)');
+      for (const t of ['cfloor', 'cshadow', 'csink', 'cwc', 'bunk', 'bunk2', 'cwheel', 'cdoor']) assert.equal(r.types.includes(t), true, t);
       assert.match(r.wash, /Umyj się przy beczce z wodą/);
+      assert.deepEqual(r.sparring,[['Reuben','spar','guard',false],['Walter','spar','guard',false]]);
+      assert.deepEqual(r.bothPunch,[true,true]);
+      assert.deepEqual(r.punchKinds,['cross','hook','jab','upper']);
+      assert.equal(r.stepped,true);
+      assert.deepEqual(r.dodged,[true,true]);
+      assert.deepEqual(r.hurt,[true,true]);
+      assert.deepEqual(r.combinations.map(groups=>groups.map(kinds=>kinds.length)),[[2,2],[3,3]]);
+      assert.ok(r.combinations.flat().every(kinds=>new Set(kinds).size===kinds.length));
+      assert.deepEqual(r.waiting,['rest',null]);
+      assert.equal(r.koSeen,true); assert.equal(r.helped,true); assert.equal(r.resumed,true); assert.equal(r.ragdollMoved,true); assert.equal(r.blended,true);
+      assert.deepEqual(r.nightRest,['sleep','sleep']);
+      assert.equal(r.supplies,true,'supplies remain available at the bunk');
+      assert.deepEqual(r.toilet,['toilet','toilet','toilet',false,1.9,4.95,-0.68,0.73]);
+      assert.deepEqual(r.routine,['toilet','wash','sleep','pushup','squat','pushup','squat','toilet']);
+      assert.ok(r.streamPixels >= 8, 'the stream is drawn visibly above the tub');
+      assert.equal(r.animatedStream,true,'the stream changes over time');
+      assert.deepEqual(r.sinkPosition,[11.05,4.15]);
+      assert.deepEqual(r.washSpot,{p:[10.55,4.45],f:[1,0]});
+      assert.equal(r.washBlocked,false,'the washing place is accessible');
       assert.deepEqual(r.hd, { size: [288, 192], native: [144, 96], k: 1 }, 'the cell has a 2× frame; outside a frame the game stays native');
       assert.equal(r.noon.bulb, 0, 'no tallow by day');
       assert.ok(r.evening.bulb > 0.5, 'the tallow lamp burns in the evening'); assert.equal(r.evening.sun, 0);
@@ -690,7 +940,7 @@ try {
       });
       assert.deepEqual([r.onRing, r.moved, r.inStep, r.hooded], [true, true, true, true], 'on the ring, walking, in step, hooded');
       assert.equal(r.halted, true, 'the whole column stops for the hero');
-      assert.equal(r.guards, 2, 'two turnkeys watch');
+      assert.equal(r.guards, 0, 'the yard has no turnkeys');
       for (const t of ['ybench', 'yhoop', 'ybar']) assert.equal(r.items.includes(t), false, t + ' is gone (Newgate)');
     });
     await check('corrupt autosave remains intact until explicit new game', async () => {

@@ -72,7 +72,7 @@ function vnoise(x,y){ const X=Math.floor(x), Y=Math.floor(y), fx=x-X, fy=y-Y, sx
   return (n(X,Y)*(1-sx)+n(X+1,Y)*sx)*(1-sy)+(n(X,Y+1)*(1-sx)+n(X+1,Y+1)*sx)*sy; }
 
 /** The setts, the three rings of flags, the drain; wet and dark at the walls. @param {number} x @param {number} y */
-function floorCol(x,y){
+export function floorCol(x,y){
   const a=(x-gymState.HUB_OX)/6, b=(y-gymState.HUB_OY)/3, i=(a+b)/2, j=(b-a)/2;
   if(i<0||j<0||i>YW||j>YH) return 0;
   const r=Math.hypot(i-RING_C[0],j-RING_C[1]), ang=Math.atan2(j-RING_C[1],i-RING_C[0]);

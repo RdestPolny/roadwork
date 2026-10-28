@@ -50,7 +50,7 @@ export async function checkCrank(page){
     b.step(0);return {before,c:C.state.crank,actions:P.state.save.sim.akcje,respect:P.state.save.prison.respekt,flag:P.state.save.prison.flagi['praca-2']};
   });
   assert.equal(result.c.elapsed,30);assert.ok(result.c.turns>=10,JSON.stringify(result));
-  assert.equal(result.actions,result.before.actions+1);assert.equal(result.respect,result.before.respect+2);assert.equal(result.flag,true);
+  assert.equal(result.actions,result.before.actions+1);assert.equal(result.respect,result.before.respect);assert.equal(result.flag,true);
   await page.screenshot({path:'artifacts/crank-result.png'});
   await page.evaluate(()=>window.__boxer.step(120));assert.equal(await page.evaluate(()=>window.__boxer.sim.akcje),result.actions);
   await page.locator('#crBack').click();assert.equal(await page.evaluate(()=>window.__boxer.gstate),'hub');assert.equal(await page.locator('#simCard').isVisible(),true);
