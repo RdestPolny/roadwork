@@ -7,12 +7,9 @@ import { PORT_BRAWL } from './port-story.js';
 
 import { state as boxingState, popup, drawText } from './boxing.js';
 import { state as appearanceState, rgb } from './appearance.js';
-import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, shadeC, setFightSpectators } from './gym.js';
+import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, setFightSpectators } from './gym.js';
 import { state as rendererState, zoomBlit, screenToView, setFramebuffer } from './renderer.js';
 import { mix } from './cast.js';
-import { floorCol as wardFloor } from './ward.js';
-import { floorCol as yardFloor } from './exercise-yard.js';
-import { floorCol as bathFloor } from './bath.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -27,6 +24,7 @@ import { doneToday, takeFightTrial } from './training-session.js';
 import { prisonFightEnd, countFight, showFightPlate, hideFightPlate } from './prison.js';
 import { hungerLevel, tiredness } from './simulation.js';
 import { lastingSpec } from './card-data.js';
+import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, drawKnockdownComic, knockdownComicOnScreen } from './knockdown-comic.js';
 
 // Runtime values owned by iso-fight; the fight is reset by startIsoFight().
 export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
@@ -266,10 +264,13 @@ function moveClinch(di,dj,scale){
 
 /** One tap towards getting up from the boards. @param {any} F */
 function mash(F){
-  if(state.t-F.kdLast<0.09) return;
-  F.kdLast=state.t; F.kdMash++;
+  if(state.uiT-F.kdLast<0.09) return;   // the real clock: the knockdown's slow motion does not swallow the taps
+  F.kdLast=state.uiT; F.kdMash++;
   if(F.kdMash&1) popup(sparringState.T_RISE,hx(F),hy(F)-12,appearanceState.C_SPARK,1,18);
 }
+
+/** Taps the player needs to rise from this knockdown. @param {any} F */
+function riseTaps(F){ return 4+F.kdN*3; }
 
 /** @param {any} F */
 function busy(F){ return F.grab||F.ko||F.down||F.stagger>0||F.pk||(state.t-F.slipSince<TUNING.slipActive); }
@@ -536,7 +537,7 @@ function tickFight(){
   if(S.freeze>0){ S.freeze--; return; }
   const rawDt=1/60, scale=S.kdSlow>0?(S.kdSlow>3?0.85:S.kdSlow>1.8?0.35:0.16):(S.phase==='fight'?timeScale():1), dt=rawDt*scale, P=S.P, O=S.O;
   S.scale=scale; if(S.kdSlow>0) S.kdSlow=Math.max(0,S.kdSlow-rawDt); if(S.slowMo>0) S.slowMo=Math.max(0,S.slowMo-rawDt);
-  if(S.banner&&--S.banner.t<=0) S.banner=null;
+  if(S.banner&&S.kdSlow<=0&&--S.banner.t<=0) S.banner=null;   // the knockdown's words wait for the comic to end
   tickFeet(P,scale); tickFeet(O,scale); tickParts(scale);
   for(const F of [P,O]){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/27)>=1) F.rise=null; }
   if(S.kdSlow>3) recordKnockdownFrame();
@@ -579,7 +580,7 @@ function tickFight(){
     if(F.down&&!F.ko){   /* the count: the player gets up with enough taps, the rival on his own */
       const down=now-F.downAt;
       if(F===P){
-        if(F.kdMash>=4+F.kdN*3&&down>=1.2){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); say('Wstałeś z desek! Trzymaj gardę'); }
+        if(F.kdMash>=riseTaps(F)&&down>=1.2){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); say('Wstałeś z desek! Trzymaj gardę'); }
         else if(down>=3.4){ if(F.kdN===1&&F.kdMash>=2){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); } else { F.down=false; F.ko=true; F.rt.hp=0; endBout(O,'KO'); return; } }
       } else if(down>=2.3+F.kdN*0.45){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); }
     }
@@ -876,7 +877,7 @@ function startIsoRagdoll(F,A,pid,ko){
     return {i:w.i,j:w.j,z,pi:w.i-vi,pj:w.j-vj,pz:z-vz};
   });
   const len=RD_PAIRS.map(([p,q],k)=>{ const d=Math.hypot(loc[q][0]-loc[p][0],loc[q][1]-loc[p][1],loc[q][2]-loc[p][2]); return k>=10?d*0.85:d; });
-  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A){ state.kdSlow=3.8; state.kdPanels=[]; state.kdFrames=[]; recordKnockdownFrame(); }
+  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A){ state.kdSlow=3.8; startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); }
 }
 
 /** One 60 Hz step of the ragdoll. @param {any} F */
@@ -1040,9 +1041,9 @@ function camera(){
   zoomBlit(z,cx,cy);
 }
 
-/** Desaturate the scene during an ideal evade while keeping strongly red blood visible. */
+/** Desaturate the scene during an ideal evade and around the knockdown comic while keeping strongly red blood visible. */
 function applySlowMoTint(){
-  const w=slowMoEffect(); if(w<=0) return;
+  const w=Math.max(slowMoEffect(),knockdownZoom()); if(w<=0) return;
   const fb=rendererState.fb, N=appearanceState.W*appearanceState.H;
   for(let p=0;p<N;p++){
     const c=fb[p], r=c&255, g=(c>>8)&255, b=(c>>16)&255;
@@ -1052,62 +1053,27 @@ function applySlowMoTint(){
   }
 }
 
-/** Save a presentation-only snapshot so later angles can replay the same fall. */
+/** Save a presentation-only snapshot so the comic can replay the same fall. */
 function recordKnockdownFrame(){
-  state.kdFrames.push([state.P,state.O].map(F=>({
+  recordKnockdownComicFrame([state.P,state.O].map(F=>({
     C:{i:F.i,j:F.j,fi:F.fi,fj:F.fj}, look:F.look, wrap:F.wrap,
     joints:F.rd?ragdollJoints(F):fighterJoints(F), tilt:!!F.rd||!!F.pk?.low||F.pk?.pid===2
   })));
 }
 
-/** Draw three successive views of the recorded knockdown against dark comic panels. */
-function drawKnockdownPanels(){
-  const S=state, W=appearanceState.W, H=appearanceState.H, elapsed=3.8-S.kdSlow;
-  const count=elapsed<0.8?1:elapsed<2?2:3, dest=rendererState.fb;
-  const scratch=new Uint32Array(W*H), angles=[-0.9,0.25,1.35];
-  const floorCol=gymState.hubRoom==='yard'?yardFloor:gymState.hubRoom==='laznia'?bathFloor:wardFloor;
-  dest.fill(rgb('#100e10'));
-  if(count>1&&elapsed-(count===2?0.8:2)<0.035){ dest.fill(rgb('#f4eee2')); return; }
-  const panels=[[12,42,94,110,1.55],[65,20,136,100,2.15],[142,62,132,116,1.3]];
-  for(let n=0;n<count;n++){
-    const [x,y,pw,ph,zoom]=panels[n];
-    if(n<count-1&&S.kdPanels[n]){
-      const saved=S.kdPanels[n];
-      for(let py=0;py<ph;py++) dest.set(saved.subarray(py*pw,(py+1)*pw),(y+py)*W+x);
-      continue;
-    }
-    const progress=n===0?1:n===1?(elapsed-0.8)/1.2:(elapsed-2)/1.8;
-    const frame=S.kdFrames[Math.min(S.kdFrames.length-1,Math.max(0,Math.floor(progress*(S.kdFrames.length-1))))];
-    const midI=(frame[0].C.i+frame[1].C.i)/2, midJ=(frame[0].C.j+frame[1].C.j)/2;
-    const cx=isoX(midI,midJ), cy=isoY(midI,midJ,9);
-    scratch.fill(0); const a=angles[n], co=Math.cos(a), si=Math.sin(a);
-    const figures=frame.map(F=>{
-      const di=F.C.i-midI,dj=F.C.j-midJ;
-      return {F,C:{...F.C,i:midI+di*co-dj*si,j:midJ+di*si+dj*co,fi:F.C.fi*co-F.C.fj*si,fj:F.C.fi*si+F.C.fj*co}};
-    }).sort((a,b)=>a.C.i+a.C.j-b.C.i-b.C.j);
-    const prev=setFramebuffer(scratch);
-    try { for(const {F,C} of figures){
-      F.wrap(()=>figureHD(C,F.joints,F.look,{noShadow:true,tilt:F.tilt}));
-    } } finally { setFramebuffer(prev); }
-    const border=rgb('#d2c4a7'), background=rgb('#242025'), saved=new Uint32Array(pw*ph);
-    for(let py=0;py<ph;py++) for(let px=0;px<pw;px++){
-      const edge=px<2||px>=pw-2||py<2||py>=ph-2;
-      const sx=Math.floor(cx+(px-pw/2)/zoom), sy=Math.floor(cy+(py-ph/2)/zoom);
-      const c=sx>=0&&sx<W&&sy>=0&&sy<H?scratch[sy*W+sx]:0;
-      const floor=floorCol(sx/gymState.ISO_K,sy/gymState.ISO_K);
-      const radius=Math.hypot((sx-cx)/70,(sy-(cy+18))/35);
-      const light=0.16+0.84*Math.max(0,1-radius)**2;
-      saved[py*pw+px]=dest[(y+py)*W+x+px]=edge?border:(c||(floor?shadeC(floor,light):background));
-    }
-    S.kdPanels[n]=saved;
-  }
+/** The comic's closing words: the knockdown or the stoppage, the count, and the taps the player still needs to rise. */
+function comicCaption(){
+  const S=state, V=comicState.victim===0?S.P:S.O;
+  if(V.ko) return {title:S.how==='TKO'?'TKO!':S.how==='KASTET'?'KASTET!':'KO!',line:'',pips:null};
+  if(V===S.P) return V.down?{title:'WSTAWAJ!',line:'WCISKAJ KLAWISZE',pips:[Math.min(V.kdMash,riseTaps(V)),riseTaps(V)]}:{title:plain('Wstałeś!'),line:'',pips:null};
+  return {title:'NOKDAUN!',line:'RYWAL NA DESKACH '+V.kdN+'/3',pips:null};
 }
 
 /** Frame: the room with both fighters, bars, sparks and the notice. Called inside the 2× frame. */
 export function renderIsoFight(){ if(state.venue==='port') return withThamesCamera(renderFight); return renderFight(); }
 function renderFight(){
   const S=state; if(!S.on) return;
-  if(S.kdSlow>0){ drawKnockdownPanels(); return; }
+  if(S.kdSlow>0&&knockdownComicOnScreen(3.8-S.kdSlow,S.kdSlow)){ drawKnockdownComic(3.8-S.kdSlow,comicCaption()); return; }
   if(gymState.fightSpectators) for(const C of gymState.fightSpectators) C.t=S.t*60;
   if(S.venue==='port') renderThamesPort([S.P,S.O]); else renderHub();   /* the fighters are actors of the room's own depth sorter */
   const K=gymState.ISO_K, W=appearanceState.W/K;

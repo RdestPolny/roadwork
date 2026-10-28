@@ -186,8 +186,12 @@ function contact(i0,j0,i1,j1,z=0,k=.55){
 }
 
 /** Wet granite setts with puddles, grime by the walls and pools of gas light. */
-function sett(x,y){
-  const [i,j]=ground(x,y), row=Math.floor(j*2.3), u=i*1.25+frac(row*.37)*.9, v=j*2.3-row, f=frac(u);
+function sett(x,y){ const [i,j]=ground(x,y); return settAt(i,j); }
+/** The quay's setts at a ground point, or 0 off the quay (the knockdown comic's floor). @param {number} i @param {number} j */
+export function quayFloor(i,j){ return i<0||j<0||i>30||j>13?0:settAt(i,j); }
+/** @param {number} i @param {number} j */
+function settAt(i,j){
+  const row=Math.floor(j*2.3), u=i*1.25+frac(row*.37)*.9, v=j*2.3-row, f=frac(u);
   const n=h2(Math.floor(u)+row*7,row*3), wetN=fbm(i*.33+3,j*.45+11);
   let c=(v<.17||f<.07)?C.joint:shadeC(C.stone[n&3],v>.72?1.13:f>.9?.88:1);
   c=shadeC(c,(.84+(n-128)/1300+(vn(i*.7,j*.7)-.5)*.2)*Math.min(1,.62+j*.1)*Math.min(1,.62+i*.12));

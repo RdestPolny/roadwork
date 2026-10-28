@@ -171,6 +171,12 @@ export async function checkIsoFight(page){
       // the count: the rival rises on his own, the player with taps
       fresh(); near(1.0); let replayOutfit=0; const heroWrap=S.P.wrap; S.P.wrap=fn=>heroWrap(()=>{ if(S.kdSlow>0) replayOutfit++; fn(); }); S.O.rt.hp=1; key('Digit1'); b.step(30); out.kd=[S.O.down,S.O.kdN,S.O.rt.hp>1,!!S.O.rd]; out.kdSlow=[S.kdSlow>0,S.scale<1]; out.replayOutfit=replayOutfit>0; b.step(390); out.rose=!S.O.down&&!S.O.rd;
       fresh(); S.P.down=true; S.P.downAt=S.t; S.P.kdN=1; S.P.pk=null; for(let k=0;k<8;k++){ key('Digit1'); b.step(10); } out.mash=[S.P.down,S.P.kdMash>=7];
+      // the knockdown comic: its words outlast it, taps on the boards count in real time, and the port's panels frame the fighters
+      fresh(); near(1.0); S.O.rt.hp=1; key('Digit1'); b.step(250); out.kdBanner=[S.kdSlow,S.banner?.text];
+      fresh(); near(1.0); S.P.rt.hp=1; R.beginPunch(S.O.rt,2,S.t); S.O.pk={pid:2,low:false,t:0,hit:false}; for(let n=0;n<60&&S.kdSlow<=0;n++) b.step(1); b.step(6);   // past the blow's hit-stop
+      for(let k=0;k<12;k++){ key('Digit1'); b.step(6); } out.comicMash=[S.kdSlow>0,S.P.down,S.P.kdMash];
+      I.startIsoFight(0,'port'); b.step(60); S.O.aiAt=Infinity; near(1.0); S.O.rt.hp=1; key('Digit2'); b.step(170);
+      out.portFraming=(await import('/src/knockdown-comic.js')).state.framing.map(f=>!!f&&Math.abs(f.dx)<0.25&&Math.abs(f.dy)<0.25);
       // a knockout closes the fight into the ordinary result card and the record
       fresh(); near(1.0); S.O.kdN=2; S.O.rt.hp=1; const before=P.state.save.record.bare.w; key('Digit1'); b.step(30); out.ko=[S.phase,S.how,S.winner===S.P]; b.step(260);
       out.result=[S.phase,document.getElementById('over').hidden,P.state.save.record.bare.w-before];
@@ -225,6 +231,9 @@ export async function checkIsoFight(page){
   assert.ok(r.aiThrown>=2,'the rival fights without commands: '+r.aiThrown);
   assert.deepEqual(r.kd,[true,1,true,true],'the first knockdown sends the rival to the boards (as a ragdoll) with a fraction of his health'); assert.deepEqual(r.kdSlow,[true,true],'knockdown slows the fight'); assert.equal(r.replayOutfit,true,'the knockdown replay draws the hero with his room outfit palette'); assert.equal(r.rose,true,'he gets up after the count and the ragdoll is released');
   assert.deepEqual(r.mash,[false,true],'taps get the player up');
+  assert.deepEqual(r.kdBanner,[0,'NOKDAUN!'],'the knockdown banner is still up when the comic ends');
+  assert.deepEqual(r.comicMash,[true,true,12],'every tap during the comic counts towards rising');
+  assert.deepEqual(r.portFraming,[true,true,true],'every port panel frames the fighters near its middle');
   assert.deepEqual(r.ko,['ko','TKO',true],'the third knockdown stops the fight');
   assert.deepEqual(r.result,['end',false,1],'the result card is up and the win is in the record');
   assert.deepEqual(r.back,['hub','cell'],'Esc returns to the Ward');
