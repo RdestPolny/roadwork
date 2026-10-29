@@ -1,6 +1,6 @@
 ---
 name: roadwork-scene-art
-description: Pixel-art look of Roadwork's scenes — isometric 2× hub rooms (288×192) and side-on 144×96 fight backdrops: walls, floors, props, background people, fog, breath, background animation and 60 fps motion. Use when the user asks to improve, rework or fix how a room or fight scene looks or moves ("tło", "pokój", "spacerniak", "cela", "łaźnia", "sylwetki", "mgła", "animacja tła", "klatkaż", "realizm"). Not for card rules, balance, menus or save logic.
+description: Pixel-art look of Roadwork's scenes — isometric 2× hub rooms (288×192) and side-on 144×96 shadow-training backdrops: walls, floors, props, background people, fog, breath, background animation and 60 fps motion. Use when the user asks to improve, rework or fix how a room or fight scene looks or moves ("tło", "pokój", "spacerniak", "cela", "łaźnia", "sylwetki", "mgła", "animacja tła", "klatkaż", "realizm"). Not for card rules, balance, menus or save logic.
 ---
 
 # Roadwork scene art

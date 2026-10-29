@@ -8,7 +8,7 @@
 1. Nazwij podsystem i wybierz 1–3 pliki z tabeli poniżej. Zajrzyj do testu danej mechaniki.
 2. Najpierw wyszukaj symbol/eksport i jego wywołania (`rg -n 'symbol' src tests`); czytaj odpowiednie zakresy plików, nie wszystkie moduły.
 3. Poszerz zakres dopiero, gdy przepływ przechodzi przez innego właściciela stanu lub kontrakt zapisów/animacji. Importy bywają cykliczne; sam import nie oznacza właściciela.
-4. Nie ładuj do kontekstu na start `*-kontekst.md` (duże historyczne zrzuty), `reference/boxer_heavybag-2.html` (oryginał), ani danych `src/*-plate.js` (duże obrazy zakodowane w JS). Szukaj w nich tylko przy konkretnym zadaniu.
+4. Nie ładuj do kontekstu na start `docs/archive/context/` (duże historyczne zrzuty), `docs/archive/unused-assets/` (niepodłączone, zakodowane obrazy), ani `reference/boxer_heavybag-2.html` (oryginał). W archiwach szukaj tylko przy konkretnym zadaniu.
 5. Przy zmianie ścieżek lub odpowiedzialności modułów popraw właściwy wiersz tej mapy; nie kopiuj tu opisu całego kodu.
 
 ## Szkielet aplikacji i odpowiedzialność
@@ -52,7 +52,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | XP, statystyki, Profesor, drzewka, Cechy | `src/progression.js`, `src/stats.js`, `src/profesor.js` | `src/skill-tree.js`, `src/card-data.js`, `src/perk-rules.js`, `src/char-sheet.js`; `PROGRESSION.md`, `PERKI.md` |
 | Zapis, sloty, migracje, odporność na błędy | `src/save-store.js`, `src/progression.js` | `src/legacy-save-data.js`, `tests/save-store.test.js`; `ARCHITECTURE.md` § Zapis |
 | HUD, dialogi, opcje, style | `src/menu.js`, `src/dialog.js`, `src/styles.css` | `src/options.js`, `src/pocket-watch.js`, `src/need-icons.js` |
-| Renderowane tła / malowane sceny | `src/ward.js`, `src/exercise-yard.js`, `src/bath.js` | `src/*-plate.js` (nie czytaj payloadów bez potrzeby), `scripts/render-room.mjs`, skille w `.claude/skills/` |
+| Renderowane tła / malowane sceny | `src/ward.js`, `src/exercise-yard.js`, `src/bath.js` | `docs/archive/unused-assets/` (historyczne `*-plate.js`), `scripts/render-room.mjs`, skille w `.claude/skills/` |
 
 ## Testowanie: najmniejszy sensowny zakres
 
@@ -66,5 +66,5 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 
 - `README.md` — uruchomienie, zasady i sterowanie z perspektywy gracza.
 - `ARCHITECTURE.md` — właściciele stanu, przepływy, invariants zapisu/animacji.
-- `PRISON.md`, `NEWGATE.md`, `CIOSY.md`, `CRANK.md`, `KARALUCHY.md`, `TALIA.md`, `PERKI.md`, `PROGRESSION.md` — specyfikacje poszczególnych systemów. Nie czytaj wszystkich naraz.
+- `PRISON.md`, `NEWGATE.md`, `CRANK.md`, `KARALUCHY.md`, `PERKI.md`, `PROGRESSION.md` — żywe opisy systemów (w `NEWGATE.md` i `PERKI.md` są także stare założenia). `CIOSY.md` i `TALIA.md` leżą w `docs/archive/design/` jako historia walki kartami. Nie czytaj wszystkich naraz.
 - `.claude/skills/painted-pixel-assets/` i `.claude/skills/roadwork-scene-art/` — procedury assetów/scen, wyłącznie dla odpowiednich zadań. Gdy instrukcja skilla i drzewo repo są sprzeczne, sprawdź **aktualny kod**.
