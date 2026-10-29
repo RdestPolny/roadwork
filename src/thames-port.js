@@ -1279,4 +1279,4 @@ function atmosphere(t){
   LAMPS.forEach((l,k)=>{ const x=isoX(l.i,l.j), y=isoY(l.i,l.j,l.z-(l.wall?1:0)); spot(x,y,30,26,.2*glow[k],C.lamp); spot(x,y,9,8,.45*glow[k],C.flame); });
 }
 /* drawing helpers shared with the vehicles (carriage.js) and the story's cast (port-story.js) */
-export { C, contact, toWorld, spot, thin, stroke, floor, rod, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, withRamps, barrel, crate, chimney, onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, docker, dockPerson, hull, gasLamp, bollard };
+export { C, contact, toWorld, spot, thin, stroke, floor, rod, rope, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, withRamps, barrel, crate, chimney, onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, docker, dockPerson, hull, gasLamp, bollard };
