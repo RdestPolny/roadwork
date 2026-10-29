@@ -4,7 +4,7 @@ import { openCharSheet } from './char-sheet.js';
 import { state as boxingState, setFlow, resetClock } from './boxing.js';
 import { state as armState } from './armwrestle.js';
 import { profOpen } from './profesor.js';
-import { workReset } from './work.js';
+import { diagnosticWork } from './diagnostic-work.js';
 import { stopIsoFight, isoFightOutcome } from './iso-fight.js';
 import { sparExit, state as sparringState, isShadowboxing, setRigged, setFightLimit } from './sparring.js';
 import { puReset, state as pushupsState } from './pushups.js';
@@ -28,7 +28,7 @@ export const state = {};
 export /* ---------- entering / leaving ---------- */
 function leaveMode(){
   clearHeldInput(); sessionLeave();
-  if(boxingState.gstate==='work') workReset();
+  if(boxingState.gstate==='work') diagnosticWork.workReset();
   if(boxingState.gstate==='spar') sparExit();
   if(boxingState.gstate==='isofight') stopIsoFight();
   if(boxingState.gstate==='arm'){ armState.A=null; document.body.classList.remove('arm'); }

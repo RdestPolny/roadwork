@@ -47,7 +47,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | Pompki i podciąganie | `src/pushups.js`, `src/pullups.js` | `src/pullup-scene.js`, `src/training-session.js` |
 | Karaluchy | `src/roaches.js`, `src/roach-rules.js` | `src/roach-scene.js`; `KARALUCHY.md` |
 | Korba | `src/crank.js`, `src/crank-rules.js` | `src/crank-scene.js`, `src/prison.js`; `CRANK.md` |
-| Siłowanie, praca w rzeźni | `src/armwrestle.js` lub `src/work.js` | `src/prison.js`, `src/cast.js` |
+| Siłowanie, praca w rzeźni | `src/armwrestle.js` lub `src/work.js` (tylko debug; most `src/diagnostic-work.js`) | `src/prison.js`, `src/cast.js` |
 | Port / prolog / dorożka | `src/thames-port.js`, `src/port-story.js` | `src/carriage.js`, `src/iso-fight.js` |
 | XP, statystyki, Profesor, drzewka, Cechy | `src/progression.js`, `src/stats.js`, `src/profesor.js` | `src/skill-tree.js`, `src/card-data.js`, `src/perk-rules.js`, `src/char-sheet.js`; `PROGRESSION.md`, `PERKI.md` |
 | Zapis, sloty, migracje, odporność na błędy | `src/save-store.js`, `src/progression.js` | `src/legacy-save-data.js`, `tests/save-store.test.js`; `ARCHITECTURE.md` § Zapis |

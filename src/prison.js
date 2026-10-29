@@ -15,9 +15,8 @@ import { state as navigationState, stMenuClose } from './navigation.js';
 import { simUI } from './simulation.js';
 import { sfxBell, initAudio } from './audio.js';
 import { DEBUG } from './config.js';
-import { PRISON_ROOMS, isWorkDay, WORK_TARGET, workStage, workPay, fmtMoney,
+import { PRISON_ROOMS, isWorkDay, fmtMoney,
   weekday, isShopDay, pickDailyEvent, bicieOpponents, BICIE_SEC, fightNote, BARE_PERKS, barePoints, bareSpent, bareBlock, BARE_RESPEC_FAJKI, LISTA, lessonText, listEntry, lessonOk, MEMORIES, AMBU_DAYS, AMBU_RENTA, REVENGE_DAYS } from './prison-data.js';
-import { startWork } from './work.js';
 import { startCrank } from './crank.js';
 import { onSessionEnd } from './training-session.js';
 
@@ -194,40 +193,7 @@ function phaseEnd(){
 /** End the phase now, with the actions left unused (the door, the bunk at night). */
 export function endPhaseNow(){ if(!isPrison()) return; phaseEnd(); }
 
-/** Work shift: the walk to the market, then hauling half carcasses (work.js); it takes one action of the morning. */
-function workShift(){
-  const P=prisonSave(), stage=workStage(P.zmiany,P.opinia), target=WORK_TARGET[stage];
-  showCards([{kicker:'KONWÓJ · RANO',title:'Na Smithfield',body:'<p>Skuci po dwóch, sto kroków od bramy Newgate na tyły targu. Bruk lepki od krwi, para z koni, krzyk rzeźników przez mgłę.</p><p>Majster pokazuje wóz pełen półtusz: <b>'+target+' na haki</b>.'+(stage>1?' Majster zna cię już: przydział '+stage+'.':'')+'</p><p class="hint">Półtusza waży więcej niż ty. Upuszczona to strata dla majstra — i dla ciebie.</p>',
-    choices:[{label:'Do roboty',fn:()=>startWork({target,minutes:0,returnSt:doorStation(),onEnd:r=>workDone(r)})}]}]);
-}
-
-/** Pointless labour instead of the paid shift; the callback owns its once-only cost and rewards. */
-function crankShift(){
-  stMenuClose();
-  startCrank({returnSt:doorStation(),onEnd:r=>{
-    settleWork();spendAction('praca');
-    const strength=r.turns*2,endurance=r.turns*2;
-    if(strength)addXP('str',strength);if(endurance)addXP('end',endurance);
-    persist();
-    return [['Praca','1 akcja · bez zapłaty'],['Trening','+'+strength+' XP siły · +'+endurance+' XP wytrzymałości']];
-  }});
-}
-
-/** Pay, opinion and the summary card of a shift. @param {{norma:number,hung:number,target:number,drops:number,punches:number,grade:string,gained:string}} r */
-function workDone(r){
-  const P=prisonSave(), pay=workPay(r.norma);
-  P.zmiany++; P.norma.push(r.norma); if(P.norma.length>7) P.norma.splice(0,P.norma.length-7);
-  settleWork(); spendAction('praca');
-  P.wypiska=Math.round((P.wypiska+pay.wypiska)*100)/100; P.depozyt=Math.round((P.depozyt+pay.depozyt)*100)/100;
-  if(pay.opinia) addOpinia(pay.opinia,pay.przodownik?'najlepszy w rzeźni':pay.skarga?'skarga majstra':'norma');
-  persist();
-  showCards([{kicker:'POWRÓT DO CELI',title:'Norma '+r.norma+'%'+(pay.przodownik?' — najlepszy w rzeźni!':''),
-    body:'<div class="card-stats"><span>Półtusze na haku</span><span>'+r.hung+' / '+r.target+'</span>'+(r.drops?'<span>Upuszczone</span><span>'+r.drops+'</span>':'')+
-      (r.punches?'<span>Boksowanie mięsa</span><span>'+r.punches+' ciosów</span>':'')+
-      '<span>Zarobek</span><span>'+fmtMoney(pay.zl)+' (na handel '+fmtMoney(pay.wypiska)+', depozyt '+fmtMoney(pay.depozyt)+')</span>'+
-      '<span>Trening</span><span>ocena '+r.grade+' · '+(r.gained||'bez XP')+'</span></div>'+
-      (pay.skarga?'<p>Majster spisuje cię w zeszycie. „Leniów kontraktor nie potrzebuje”.</p>':pay.przodownik?'<p>Majster rzuca ci kawałek łoju do kieszeni: „Z ciebie byłby rzeźnik”.</p>':'')}]);
-}
+/* Smithfield paid-shift UI removed: normal prison labour is the crank. */
 
 /** Is this fight the current name on Profesor's list (and is the player allowed to take it now)? @param {string} venue @param {number} idx */
 export function listMatch(venue,idx){
