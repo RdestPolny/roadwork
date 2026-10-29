@@ -554,7 +554,7 @@ function bullAi(F,P,ui,uj,gap){
   }
   if(gap>1.08){
     b.mode='APPROACH';
-    const moved=walk(F,P,ui,uj,WALK*BULL.move*state.scale);
+    const moved=walk(F,P,ui,uj,WALK*0.8*BULL.move*state.scale); // 68% of the standard rival's 0.8*WALK
     F.moving=moved>0; F.mf=1; F.ms=0; return;
   }
   b.mode='PRESSURE';
