@@ -639,7 +639,7 @@ export function workTick(){
   }
 }
 
-/** Start a shift of hauling half carcasses. In prison (the schedule's work block) the target follows the assignment
+/** Start the optional Smithfield diagnostic prototype. The retired paid-work schedule used to set the assignment
  * stage, the block's minutes pass at the end and `onEnd` gets the quota; without it this is the debug prototype.
  * @param {{target?:number,minutes?:number,returnSt?:any,onEnd?:(r:{norma:number,hung:number,target:number,drops:number,punches:number,grade:string,gained:string})=>void}} [o] */
 export function startWork(o={}){

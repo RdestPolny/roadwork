@@ -8,10 +8,10 @@
 //            with --fight it may set globalThis.__after = async b => {…} to run once the scene has started and
 //            globalThis.__frame = async (b, k) => {…} to run before frame k is drawn
 // --anim     n:gap — instead of the hours, n close-ups (needs --crop) of the first hour, the game stepped gap ticks between them
-// --fight    n:gap — the fight scene of the room's venue (cell, yard, canteen, laznia) against opponent 0, the card planning pose:
-//            n frames of the whole 144×96 picture, the fight stepped gap ticks between them (ignores --times/--crop/--anim)
+// --fight    n:gap — historical 144×96 side-view sparring preview (not the current prison brawl).
+//            For live isometric fights use scripts/iso-fight-shot.mjs; this option remains for diagnostic rendering.
 // --mini     pullup|pushup|roach — with --fight=n:gap: the cell's pull-up, push-up or roach-wall scene instead of a fight
-// --arm      n:gap — the arm wrestling close-up (the canteen), like --fight; the rival pulls, nobody presses
+// --arm      n:gap — arm-wrestling diagnostic close-up (Ward), like --fight; the rival pulls, nobody presses
 // Writes artifacts/tmp/<out>.png (ignored by git). Math.random is seeded, so the same call gives the same picture.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
