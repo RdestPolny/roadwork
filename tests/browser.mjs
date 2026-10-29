@@ -526,9 +526,16 @@ try {
       assert.deepEqual([brawl.P,brawl.O],[brawl.at.hero,brawl.at.drunk],'the brawl starts where the scene left the two');
       const portPointer=await page.evaluate(async()=>{
         const I=await import('/src/iso-fight.js'), T=await import('/src/thames-port.js'), G=await import('/src/gym.js'), R=await import('/src/renderer.js'), S=I.state;
-        S.O.aiAt=Infinity; window.__boxer.step(60); const C=S.cam, W=R.state.hd.W, H=R.state.hd.H, z=C.z;
+        S.O.aiAt=Infinity; window.__boxer.step(60);
+        const C=S.cam, F=R.isometricFrame('port'), W=F.W, H=F.H, scale=W/144, z=C.z;
         const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
-        const [x,y]=T.withThamesCamera(()=>[(W/2+(G.isoX(S.P.i,S.P.j)-cx)*z)/2,(H/2+(G.isoY(S.P.i,S.P.j,0)-cy)*z)/2]);
+        // Match pointerDirectionInRoom(): legacy 2× port world coordinates
+        // are projected into the current 3× native frame, then 144×96 input.
+        const proj=scale/2;
+        const [x,y]=T.withThamesCamera(()=>[
+          (W/2+(G.isoX(S.P.i,S.P.j)*proj-cx)*z)/scale,
+          (H/2+(G.isoY(S.P.i,S.P.j,0)*proj-cy)*z)/scale
+        ]);
         const start=[S.P.i,S.P.j]; S.pointer={x,y}; window.__boxer.step(12);
         const idle=Math.hypot(S.P.i-start[0],S.P.j-start[1]); S.pointer={x:x+20,y}; window.__boxer.step(12);
         return {idle,di:S.P.i-start[0],dj:S.P.j-start[1]};
