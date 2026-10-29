@@ -645,7 +645,7 @@ export function workTick(){
 export function startWork(o={}){
   state.shift=o.onEnd?o:null; state.WK_N=o.target||8; state.result=null;
   leaveMode(); initAudio();
-  boxingState.gstate='work'; boxingState.mode=boxingState.M_FREE; buildWorkBg(); beginSession('work',{silent:true,ownEsc:true}); setFlow(false); boxingState.hitstop=0; boxingState.shakeT=0;
+  boxingState.gstate='work'; boxingState.mode=boxingState.M_FREE; buildWorkBg(); buildWorkLight(); beginSession('work',{silent:true,ownEsc:true}); setFlow(false); boxingState.hitstop=0; boxingState.shakeT=0;
   const outfitSlots=[appearanceState.R_SHIRT,appearanceState.R_SHIRTF,appearanceState.R_APRON,appearanceState.R_PANT,appearanceState.R_PANTF];
   state.outfitBefore=outfitSlots.map(slot=>[slot,Array.from(appearanceState.PAL.slice(slot*3,slot*3+3),c=>
     '#'+[c&255,(c>>8)&255,(c>>16)&255].map(v=>v.toString(16).padStart(2,'0')).join(''))]);
