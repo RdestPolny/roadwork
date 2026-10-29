@@ -1,6 +1,7 @@
 import { checkIsoFight, checkIsoFightRooms } from './isofight.mjs';
 import { checkCombatDash, captureCombatDashFrames } from './combat-dash-browser.mjs';
 import { checkBull, captureBull } from './heavy-bruiser-browser.mjs';
+import { checkPortDistrict } from './port-district-browser.mjs';
 import { checkCrank } from './crank.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -153,6 +154,7 @@ try {
     assert.ok(room.yard.background>5000&&room.bath.background>5000,'room backgrounds must bake in native 3×');
     await page.screenshot({path:'artifacts/ward-432-288-regression.png'});
   });
+  await check('Thames district: 13 native exploration, NPC, brawl and story captures',()=>checkPortDistrict(page));
   await check('432x288: six native scene captures and Thames camera regression', async()=>{
     const capture=async(file)=>{
       const image=await page.evaluate(async()=>{
@@ -435,12 +437,21 @@ try {
       await page.evaluate(()=>window.__boxer.step(60));
       await page.keyboard.up('ArrowRight');
       assert.equal((await player()).carrying,true,'E picks up the nearby sack');
-      await page.keyboard.down('ArrowRight');
-      await page.evaluate(()=>window.__boxer.step(100));
-      await page.keyboard.up('ArrowRight');
+      // Run key press and 100 simulation steps atomically. The expanded port
+      // render can take long enough for stray real-time ticks between Playwright
+      // keyboard RPCs to invalidate a fixed-distance assertion.
+      const movement=await page.evaluate(async()=>{
+        const T=await import('/src/thames-port.js');
+        const before=T.thamesPlayer();
+        T.thamesKey('ArrowRight',true);
+        window.__boxer.step(100);
+        T.thamesKey('ArrowRight',false);
+        return {before,after:T.thamesPlayer()};
+      });
       const carried=await player();
       assert.equal(carried.carrying,true);
-      assert.ok(Math.abs(Math.hypot(carried.i-initial.i,carried.j-initial.j)-1.56)<.15,'carrying speed is 20% faster than the docker’s pace: '+JSON.stringify([carried.i,carried.j,initial.i,initial.j]));
+      const traveled=Math.hypot(movement.after.i-movement.before.i,movement.after.j-movement.before.j);
+      assert.ok(Math.abs(traveled-1.56)<.15,'carrying speed remains 20% above the docker pace: '+JSON.stringify({traveled,from:movement.before,to:movement.after}));
       await page.keyboard.press('e');
       const dropped=await player();
       assert.equal(dropped.carrying,false,'E puts the sack down');
@@ -449,11 +460,25 @@ try {
       await page.evaluate(()=>window.__boxer.step(120));
       assert.equal((await player()).carrying,true,'the dropped sack can be picked up again');
       const horseAnimated=await page.evaluate(async()=>{
-        const b=window.__boxer, {state}=await import('/src/renderer.js');
-        const head=()=>{const pixels=[];for(let y=48;y<88;y++) for(let x=242;x<285;x++) pixels.push(state.hd.fb[y*288+x]);return pixels.join(',');};
-        const before=head();b.step(45);return before!==head();
+        const T=await import('/src/thames-port.js'),G=await import('/src/gym.js'),
+          R=await import('/src/renderer.js'),b=window.__boxer;
+        // This regression predates 432x288 and sampled the retired 288x192 buffer.
+        // Frame the horse directly, above dry cobbles, and inspect its actual HD head.
+        T.startThamesPort();
+        T.debugPortView(12,7.5);b.step(3);R.render();
+        const [cx,cy]=T.withThamesCamera(()=>[G.isoX(14.2,6.2),G.isoY(14.2,6.2,16)]);
+        const head=()=>{const pixels=[],fb=R.state.hd3.fb;
+          for(let y=Math.max(0,Math.floor(cy-24));y<Math.min(288,Math.ceil(cy+24));y++)
+            for(let x=Math.max(0,Math.floor(cx-24));x<Math.min(432,Math.ceil(cx+24));x++)
+              pixels.push(fb[y*432+x]);
+          return pixels.join(',');
+        };
+        const before=head();b.step(45);R.render();
+        const changed=before!==head();
+        T.startThamesPort();
+        return changed;
       });
-      assert.equal(horseAnimated,true,'the horse moves its head independently of the water');
+      assert.equal(horseAnimated,true,'horse head movement is visible in the native 432x288 port scene');
       const beforePan=await page.locator('#stage canvas').first().evaluate(c=>c.toDataURL());
       await page.keyboard.down('ArrowRight');
       await page.evaluate(()=>window.__boxer.step(20));
@@ -501,9 +526,16 @@ try {
       assert.deepEqual([brawl.P,brawl.O],[brawl.at.hero,brawl.at.drunk],'the brawl starts where the scene left the two');
       const portPointer=await page.evaluate(async()=>{
         const I=await import('/src/iso-fight.js'), T=await import('/src/thames-port.js'), G=await import('/src/gym.js'), R=await import('/src/renderer.js'), S=I.state;
-        S.O.aiAt=Infinity; window.__boxer.step(60); const C=S.cam, W=R.state.hd.W, H=R.state.hd.H, z=C.z;
+        S.O.aiAt=Infinity; window.__boxer.step(60);
+        const C=S.cam, F=R.isometricFrame('port'), W=F.W, H=F.H, scale=W/144, z=C.z;
         const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
-        const [x,y]=T.withThamesCamera(()=>[(W/2+(G.isoX(S.P.i,S.P.j)-cx)*z)/2,(H/2+(G.isoY(S.P.i,S.P.j,0)-cy)*z)/2]);
+        // Match pointerDirectionInRoom(): legacy 2× port world coordinates
+        // are projected into the current 3× native frame, then 144×96 input.
+        const proj=scale/2;
+        const [x,y]=T.withThamesCamera(()=>[
+          (W/2+(G.isoX(S.P.i,S.P.j)*proj-cx)*z)/scale,
+          (H/2+(G.isoY(S.P.i,S.P.j,0)*proj-cy)*z)/scale
+        ]);
         const start=[S.P.i,S.P.j]; S.pointer={x,y}; window.__boxer.step(12);
         const idle=Math.hypot(S.P.i-start[0],S.P.j-start[1]); S.pointer={x:x+20,y}; window.__boxer.step(12);
         return {idle,di:S.P.i-start[0],dj:S.P.j-start[1]};

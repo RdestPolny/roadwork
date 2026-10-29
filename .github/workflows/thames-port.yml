@@ -1,0 +1,46 @@
+name: Thames port expansion regression
+
+on:
+  pull_request:
+    paths:
+      - 'src/thames-port.js'
+      - 'src/port-*.js'
+      - 'tests/port-*.js'
+      - 'tests/port-*.mjs'
+      - 'tests/browser.mjs'
+      - '.github/workflows/thames-port.yml'
+  workflow_dispatch:
+
+jobs:
+  port:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Extended dock geometry and NPC tests
+        run: node --test tests/port-district.test.js
+      - name: Full unit regression (report existing unrelated failures)
+        continue-on-error: true
+        run: npm test
+      - name: Type check
+        run: npm run check
+      - name: Install Chromium and dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Native Thames 432x288 captures and collision smoke
+        run: npm run test:browser -- --only='Thames district'
+      - name: Thames original job and story regression
+        run: npm run test:browser -- --only='Thames port developer preview'
+      - name: Upload native captures and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: thames-port-432-captures
+          path: |
+            artifacts/thames-district/
+            artifacts/browser-results.json
+          if-no-files-found: warn
