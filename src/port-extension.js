@@ -314,7 +314,7 @@ function portLifeFigure(npc,p,t){
     for(let k=0;k<3;k++) thin(p.i-.12,p.j+.12+k*.08,8.4,p.i+.43,p.j+.12+k*.08,8.4,C.iron);
   }
   if(npc.act==='wiping'&&work){
-    quad(p.i+.12,p.j+.1,9.5,p.i+.65,p.j+.1,9.6,p.i+.8,p.j+.1,7.1,p.i+.16,p.j+.1,7,C.paper[0]);
+    quad(p.i+.12,p.j+.1,9.5,p.i+.65,p.j+.1,9.6,p.i+.8,p.j+.1,7.1,p.i+.16,p.j+.1,7,()=>C.paper[0]);
   }
   if(npc.act==='rope'&&work){
     for(let k=0;k<5;k++) rope([p.i+.35,p.j+.2+k*.1,2],[p.i+.9,p.j+.3+k*.1,1.8],.14,C.rope);
