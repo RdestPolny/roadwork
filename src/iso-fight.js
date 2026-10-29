@@ -547,7 +547,7 @@ function bullAi(F,P,ui,uj,gap){
   if(mode==='RECOVERY') return;
   if(mode==='WINDUP'){
     if(now>=b.until){
-      if(press(F,b.pid,false)){ b.mode='ATTACK'; }
+      if(press(F,b.pid,false)){ b.mode='ATTACK'; b.missed=false; }
       else { b.mode='RECOVERY'; b.until=now+0.35; }
     }
     return;
@@ -659,7 +659,7 @@ function tickFight(){
   if(S.kdSlow>3&&S.venue!=='sandy') recordKnockdownFrame();
   for(const F of [P,O]){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
   const [pi,pj]=toward(P,O), [oi,oj]=toward(O,P);
-  for(const [F,ti,tj] of [[P,pi,pj],[O,oi,oj]]){ if(F.ko||F.down) continue; F.fi+=(ti-F.fi)*0.22*scale; F.fj+=(tj-F.fj)*0.22*scale; const m=Math.hypot(F.fi,F.fj)||1; F.fi/=m; F.fj/=m; }
+  for(const [F,ti,tj] of [[P,pi,pj],[O,oi,oj]]){ if(F.ko||F.down) continue; const turn=F.bull?0.11:0.22; F.fi+=(ti-F.fi)*turn*scale; F.fj+=(tj-F.fj)*turn*scale; const m=Math.hypot(F.fi,F.fj)||1; F.fi/=m; F.fj/=m; }
   P.moving=false; O.moving=false;
   if(S.phase==='intro'){
     S.pt++; if(S.pt===2) banner('WALCZ!',appearanceState.C_WHITE,80);
@@ -985,7 +985,7 @@ function tickFeet(F,scale=1,now=state.t){
   const sp=Math.hypot(vi,vj), mi=sp>1e-4?vi/sp:0, mj=sp>1e-4?vj/sp:0;
   const A=F.ft[1], B=F.ft[-1];
   for(const s of [1,-1]){ const f=F.ft[s];
-    if(f.sw>0){ f.sw=Math.min(1,f.sw+scale/(F.dash?5:SWING));
+    if(f.sw>0){ f.sw=Math.min(1,f.sw+scale/(F.dash?5:F.bull?SWING*1.2:SWING));
       // The landing spot was captured when the shoe left the ground, not chased each frame.
       if(f.sw>=1){ f.sw=0; f.i=f.to.i; f.j=f.to.j; f.from=null; } } }
   if(A.sw>0||B.sw>0||F.ko) return;
@@ -997,7 +997,7 @@ function tickFeet(F,scale=1,now=state.t){
   if(!cand.some(c=>c.d>STEP_AT)) return;   /* one foot is late: of the two that are at all behind, the one on the side of the move goes first */
   cand.splice(0,cand.length,...cand.filter(c=>c.d>STEP_AT*0.45));
   cand.sort((a,b)=>b.score-a.score);
-  const f=F.ft[cand[0].s]; f.sw=scale/(F.dash?5:SWING); f.from={i:f.i,j:f.j};
+  const f=F.ft[cand[0].s]; f.sw=scale/(F.dash?5:F.bull?SWING*1.2:SWING); f.from={i:f.i,j:f.j};
   const T=stance(F,cand[0].s), ahead=Math.min(.43,STEP_LEAD+sp*3.2), ti=T.i+mi*ahead, tj=T.j+mj*ahead;
   const dx=ti-f.i, dy=tj-f.j, len=Math.hypot(dx,dy)||1, limit=F.dash?.72:.56;
   f.to={i:f.i+dx*Math.min(1,limit/len),j:f.j+dy*Math.min(1,limit/len)};

@@ -29,3 +29,12 @@ test('heavy profile does not mutate common timing or damage arrays',()=>{
   assert.equal(bullTiming(p,false),p);
   assert.deepEqual(BULL.damage,[1.1,1.5,1.8,1.6]);
 });
+
+test('missing a hook causes longer recovery than hitting a target',()=>{
+  const missed=createBullState(), hit=createBullState();
+  missed.mode='ATTACK';hit.mode='ATTACK';
+  registerBullMiss(missed,2,0.1);
+  assert.equal(advanceBull(missed,0.8,false),'RECOVERY');
+  assert.equal(advanceBull(hit,0.8,false),'RECOVERY');
+  assert.ok(missed.until>hit.until+0.3,'whiff grants the player a longer counter opportunity');
+});

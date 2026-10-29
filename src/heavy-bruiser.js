@@ -7,7 +7,7 @@ export const BULL = Object.freeze({
 
 /** The fighter owns his transient fatigue; this object is never written into save data. */
 export function createBullState(){
-  return {mode:'APPROACH',missLoad:0,pending:false,until:0,lastAt:0,pid:2};
+  return {mode:'APPROACH',missLoad:0,pending:false,missed:false,until:0,lastAt:0,pid:2};
 }
 
 /** The strike only counts if it actually passed through the contact check with no impact.
@@ -15,6 +15,7 @@ export function createBullState(){
 export function registerBullMiss(b,pid,now){
   if(!b||!Number.isFinite(now)||pid<0||pid>3||b.mode==='EXHAUSTED') return false;
   b.missLoad=Math.min(5,b.missLoad+(pid===0?0.3:1.1));
+  b.missed=true;
   b.lastAt=now;
   if(b.missLoad>=BULL.missThreshold) b.pending=true;
   return b.pending;
@@ -38,7 +39,7 @@ export function advanceBull(b,now,punching=false){
     b.pending=false; b.missLoad=0; b.mode='EXHAUSTED'; b.until=now+BULL.exhausted;
     return b.mode;
   }
-  if(b.mode==='ATTACK'&&!punching){ b.mode='RECOVERY'; b.until=now+BULL.recovery; }
+  if(b.mode==='ATTACK'&&!punching){ b.mode='RECOVERY'; b.until=now+BULL.recovery+(b.missed?0.32:0); b.missed=false; }
   if(b.mode==='RECOVERY'&&now>=b.until) b.mode='APPROACH';
   if(!b.pending) b.missLoad=Math.max(0,b.missLoad-dt*BULL.missDecay);
   return b.mode;
