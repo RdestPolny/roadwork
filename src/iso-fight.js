@@ -12,7 +12,7 @@ import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTrans
 import { state as rendererState, zoomBlit, screenToView, setFramebuffer } from './renderer.js';
 import { mix } from './cast.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
-import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight } from './sparring.js';
+import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
 import { state as inputState, setInfo } from './input.js';
 import { exitToHub } from './navigation.js';
@@ -122,6 +122,7 @@ export function startIsoFight(idx,venue,station){
   S.portraits=null;
   initAudio(); inputState.overEl.hidden=true;
   setSparFight(idx,sandbox?'cell':V,station);
+  if(sandbox){ setRigged(false); setFightLimit(0); } // the preview never inherits Sunday-match cheats or a timer
   if(room!=='port'&&gymState.hubRoom!==room){ setRoomRaw(room); hubRebake(); }
   const O=V==='port'?{...oppDef(idx),name:'PIJANY',title:'Pijany doker'}:oppDef(idx), st=save.stats, PS=fighterStats({str:st.str.lvl,spd:st.spd.lvl,end:st.end.lvl}), OS=fighterStats(oppLevels(O));
   const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:startSpots(room);
