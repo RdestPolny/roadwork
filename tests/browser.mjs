@@ -87,11 +87,11 @@ async function check(name, run) {
 try {
   await check('HD sandy fight: 432x288, Harry AI, shared joints, clean save and room return',async()=>{
     const snapshot=await page.evaluate(async()=>{
-      const b=window.__boxer, D=await import('/src/devtools.js'), I=await import('/src/iso-fight.js');
+      const b=window.__boxer, I=await import('/src/iso-fight.js');
       const G=await import('/src/gym.js'), R=await import('/src/renderer.js'), P=await import('/src/progression.js');
       b.goRoom('yard');
       const before=JSON.stringify({stats:P.state.save.stats,injuries:P.state.save.injuries,train:P.state.save.train});
-      D.devSwitchScene('sandy'); b.pause(); b.step(60);
+      document.querySelector('[data-dev-scene="sandy"]').click(); b.pause(); b.step(60);
       const atStart={mode:b.gstate,venue:I.state.venue,name:I.state.opp.name,
         buffer:[R.state.hd3.W,R.state.hd3.H,R.state.hd3.fb.length],scale:G.state.ISO_K,
         hero:I.state.P.look.style,harry:I.state.O.look.style,room:G.state.hubRoom};
