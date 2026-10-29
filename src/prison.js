@@ -193,6 +193,18 @@ function phaseEnd(){
 /** End the phase now, with the actions left unused (the door, the bunk at night). */
 export function endPhaseNow(){ if(!isPrison()) return; phaseEnd(); }
 
+/** Pointless labour instead of the paid shift; the callback owns its once-only cost and rewards. */
+function crankShift(){
+  stMenuClose();
+  startCrank({returnSt:doorStation(),onEnd:r=>{
+    settleWork();spendAction('praca');
+    const strength=r.turns*2,endurance=r.turns*2;
+    if(strength)addXP('str',strength);if(endurance)addXP('end',endurance);
+    persist();
+    return [['Praca','1 akcja · bez zapłaty'],['Trening','+'+strength+' XP siły · +'+endurance+' XP wytrzymałości']];
+  }});
+}
+
 /* Smithfield paid-shift UI removed: normal prison labour is the crank. */
 
 /** Is this fight the current name on Profesor's list (and is the player allowed to take it now)? @param {string} venue @param {number} idx */
