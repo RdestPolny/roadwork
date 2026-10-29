@@ -42,6 +42,8 @@ Narzędzia dostępne są wyłącznie pod [/?debug=1](http://127.0.0.1:5173/?debu
 
 Pod `?debug=1` w Opcjach → „Tryb developerski (przełącz scenę)” dostępny jest także animowany podgląd portu nad Tamizą. Strzałki lub WASD poruszają postacią, kamera podąża za nią, a Esc wraca do poprzedniego pokoju; scena nie wpływa na zapis. Po drugim worku zaczyna się scena z pijakiem, po wygranej bójce scena z wozem policyjnym i morderstwem, na końcu przeniesienie do Wardu; kamera najeżdża na mówiącego, a kwestie pojawiają się w dymkach nad głowami. Do oglądania scen: `(await import('/src/thames-port.js')).startPortScene('before')` albo `'after'`.
 
+Pod `?debug=1` w **Opcjach → Tryb developerski (przełącz scenę) → HD Fight Test — Bohater vs Harry (432×288)** dostępny jest osobny test wyższej rozdzielczości: piaskowa arena, ten sam izometryczny szkielet, ciosy i AI Harry’ego, ale bogatsze detale twarzy, włosów i więziennego ubrania. **R** zaczyna test od nowa, **F9** zapisuje PNG 432×288, **F8** zamraża klatkę (kropka — pojedynczy krok), **Esc** wraca do poprzedniego pokoju. Test nie przyznaje XP, nie dodaje kontuzji ani wpisów do bilansu bójek. Normalne walki zachowują bufor 288×192.
+
 Diagnostyka pod `?debug=1`: `window.__boxer.startSpar(0, 'cell')` uruchamia bójkę izometryczną (`isoFightFinish(0, 'KO')` kończy ją na korzyść gracza). Zestaw skilli, Cechy i drzewka ciosów z [CIOSY.md](CIOSY.md) są rozwojem postaci, który nie wpływa jeszcze na bójkę w czasie rzeczywistym.
 
 Obowiązkowa praca to żelazna korba (rano, pon.–sob., od drugiego dnia). Rzeźnia pozostaje sceną diagnostyczną pod `?debug=1`: `window.__boxer.startWork()`.
