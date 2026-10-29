@@ -3,6 +3,7 @@ import { carryingTray, drawHeldTray, mealDoorOptions, mealBedOptions, mealMateOp
 import { buildBath, drawBathItem, bathTick, bathOptions, bathFX, BATH_W, BATH_H, LAMPS as BATH_LAMPS, state as bathState } from './bath.js';
 import { gateOptions, listTag, prisonFightStart, prisonFightExtras } from './prison.js';
 import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, roomFrame, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
+import { drawSandyFighterDetails } from './hd-fight-scene.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
 import { lightCell, drawCellLights, cellLights } from './cell-light.js';
@@ -350,7 +351,7 @@ export function figureHD(C,J,L,o={}){
   }
   bodyPt(...Q); const cd0=state.bpD, TD=sh(T0,0), TL=sh(T0,2);
   if(L.censor){ bodyPt(...pp(1.0,0,-0.5)); censor(Math.round(state.bpX),Math.round(state.bpY)); }
-  if(L.bare){ litFinish(); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
+  if(L.bare){ litFinish(); if(state.ISO_K===3&&state.ipPose===0) drawSandyFighterDetails(C,J,L); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
   dot(...tp(1.7,-0.55,0.15),TL,cd0); dot(...tp(1.7,0.55,0.15),TL,cd0);                     // collar points
   if(L.scarf!==undefined){ dot(...tp(1.75,0,0.25),L.scarf,cd0); dot(...tp(1.85,0.25,-0.3),L.scarf,cd0); dot(...tp(1.85,-0.2,-0.55),L.scarf,cd0); }   /* a knotted neckerchief */
   bodyPt(...tp(2.0,0,-0.9)); const ax=Math.round(state.bpX), ay=Math.round(state.bpY), ad=state.bpD;
@@ -362,7 +363,7 @@ export function figureHD(C,J,L,o={}){
     const IR=rgb('#3a3632'), IH=rgb('#7a7068'); for(let k=0;k<=12;k++){ const u=k/12, x=x0+(x1-x0)*u, y=y0+(y1-y0)*u+Math.sin(Math.PI*u)*3*state.ISO_K; pset(Math.round(x),Math.round(y),k&1?IH:IR); }
     for(const [x,y] of [[x0,y0],[x1,y1]]) for(let d=-1;d<=1;d++){ pset(Math.round(x)+d,Math.round(y)-1,IR); pset(Math.round(x)+d,Math.round(y),IH); } }
   if(L.baton){ bodyPt(...pp(0.3,nearS*2.05,1.0)); const x0=Math.round(state.bpX), y0=Math.round(state.bpY); bodyPt(...pp(0.7,nearS*2.2,-3.0)); line(x0,y0,Math.round(state.bpX),Math.round(state.bpY),sh(L.shoe,0),sh(L.shoe,0)); }   /* rubber baton on the hip */
-  litFinish(); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
+  litFinish(); if(state.ISO_K===3&&state.ipPose===0) drawSandyFighterDetails(C,J,L); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
 }
 
 /** A pixel mosaic over the groin: 4×3 blocks of 2×2 picture pixels, each the average of what is under it, lighter or darker by turns. @param {number} cx @param {number} cy */
