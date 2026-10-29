@@ -277,7 +277,7 @@ function litEnd(lit,st,cx,cy){
  * @param {any} C @param {any} J
  * In the bath L.bare strips the drelich (top and trousers take the skin), L.waist wraps a towel round the hips
  * and L.censor puts a pixel mosaic over the groin.
- * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,beard?:boolean,stubble?:boolean,mustache?:boolean,cut?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
+ * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,beard?:boolean,stubble?:boolean,mustache?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
  * Newgate: style 'flatcap' (L.cap ramp), L.chops mutton-chop whiskers, L.scarf a neckerchief colour, L.irons leg irons.
  * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,look?:number[],only?:string,side?:number}} [o]   look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
@@ -323,8 +323,9 @@ export function figureHD(C,J,L,o={}){
   ipAdd(SL[0],SL[1]*0.82,SL[2]-0.15,1.15*(bulk?.shoulders||1), SR[0],SR[1]*0.82,SR[2]-0.15,1.15*(bulk?.shoulders||1), T0);                               // shoulders
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
   ipAdd(Q[0],Q[1],Q[2]+0.3,0.72*(bulk?.neck||1), ...hp(-0.15,0,-1.3),0.68*(bulk?.neck||1), HS);                                            // neck
-  ipAdd(...H,1.75*(bulk?.head||1), ...H,1.75*(bulk?.head||1), L.style==='fringe'?L.hair:HS);                                                       // skull beneath the hair
-  if(L.style==='fringe') ipAdd(...hp(0.9,0,-0.2),1.15, ...hp(1.0,0,-0.65),1.0, S0);                     // face in front of the hair
+  const cropped=L.style==='fringe'||L.style==='crop';   /* the hero: hair over the whole skull, the face in front of it */
+  ipAdd(...H,1.75*(bulk?.head||1), ...H,1.75*(bulk?.head||1), cropped?L.hair:HS);                                                       // skull beneath the hair
+  if(cropped) ipAdd(...hp(0.9,0,-0.2),1.15, ...hp(1.0,0,-0.65),1.0, S0);                     // face in front of the hair
   ipAdd(...hp(0.45,0,-0.7),1.2, ...hp(0.85,0,-1.15),0.95, HS);                                       // jaw and chin
   if(L.style!=='hood') for(let s=-1;s<=1;s+=2) ipAdd(...hp(-0.15,s*1.68,-0.15),0.42, ...hp(-0.1,s*1.68,-0.25),0.4, L.sk[s===nearS?0:1]);   // ears
   const st=L.style||'short';
@@ -367,12 +368,11 @@ export function figureHD(C,J,L,o={}){
   if(L.mustache||L.beard){ dot(...hp(1.6,-0.35,-0.62),sh(L.hair,L.beard?1:0),hd0); dot(...hp(1.6,0.35,-0.62),sh(L.hair,L.beard?1:0),hd0); }
   if(!L.beard) dot(...hp(1.5,-0.1,-1.0),LIP,hd0);                                                       // mouth (a beard hides it)
   if(L.stubble) for(const [f,sd,z] of [[1.2,-0.62,-1.05],[1.3,0.6,-1.1],[1.4,0,-1.4],[1.05,-0.95,-0.7],[1.05,0.95,-0.75]]) dot(...hp(f,sd,z),sh(S0,0),hd0);
-  if(L.cut) dot(...hp(1.78,-0.18,0.22),rgb('#b8402c'),hd0);
   if(heavy&&C.bull?.mode==='EXHAUSTED'){
     for(const s of [-1,1]) dot(...hp(1.05,s*1.10,-0.34),rgb('#ba655c'),hd0);
     dot(...hp(0.95,-0.55,1.1),rgb('#c9dbd5'),hd0);
     dot(...hp(1.35,0.9,0.8),rgb('#d2ddda'),hd0);
-  }                                            // the fresh cut on the bridge of the nose
+  }
   }
   bodyPt(...Q); const cd0=state.bpD, TD=sh(T0,0), TL=sh(T0,2);
   if(L.censor){ bodyPt(...pp(1.0,0,-0.5)); censor(Math.round(state.bpX),Math.round(state.bpY)); }
@@ -430,9 +430,9 @@ export function withBathTowel(fn){
 } /** The hero's modelled-figure look in the current hub room and the palette wrapper to draw it in: the cell drelich, the yard hood, the bath towel.
  * @returns {{look:any,wrap:(fn:()=>void)=>void}} */
 export function heroFigureLook(){
-  const A=appearanceState, look=/** @type {any} */ ({sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'fringe',stubble:true,cut:true});
+  const A=appearanceState, look=/** @type {any} */ ({sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true});
   if(state.hubRoom==='laznia'){ Object.assign(look,{top:look.sk,pt:look.sk,shoe:A.R_BOOT,bare:true,censor:false,waist:A.R_TRUNK}); return {look,wrap:withBathTowel}; }
-  if(state.hubRoom==='yard'){ Object.assign(look,{style:'hood',stubble:false,cut:false});
+  if(state.hubRoom==='yard'){ Object.assign(look,{style:'hood',stubble:false});
     return {look,wrap:fn=>{ const k=A.PAL.slice(A.R_HAIR*3,A.R_HAIR*3+3); setRamp(A.R_HAIR,npcsState.HOOD,false); try{ withCellOutfit(fn); } finally { A.PAL.set(k,A.R_HAIR*3); } }}; }
   return {look,wrap:withCellOutfit};
 } function drawIsoBoxer0(){
@@ -471,8 +471,8 @@ export function heroFigureLook(){
     ipAdd(hx,s*hs,hz-0.2,1.0, hx+0.1,s*hs,hz-0.2,1.0, SK);                            // bare fists
   }
   if(HD){ const A=appearanceState, J=(/** @type {number} */ s)=>jt[s]; J.pel=[0,0,6.6+bob]; J.chest=[0.4+swayI,swayJ,12.2+bob]; J.head=[0.35,0,15.6+bob];
-    const look={sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'fringe',stubble:true,cut:true};
-    if(state.heroHood) Object.assign(look,{style:'hood',stubble:false,cut:false});
+    const look={sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true};
+    if(state.heroHood) Object.assign(look,{style:'hood',stubble:false});
     if(state.isoTowel){ const wet=!!(roomsState.hubAct&&roomsState.hubAct.kind==='shower'&&roomsState.hubAct.t>roomsState.ACT_FADE);   /* the bath: a towel and slippers, under the shower naked */
       Object.assign(look,{top:look.sk,pt:look.sk,shoe:A.R_BOOT,bare:true,censor:false,waist:wet?undefined:A.R_TRUNK}); }   /* in the tub the water hides him */
     const tray=carryingTray(), front=state.hubP.fi+state.hubP.fj>0;   /* the tray is in front of him: drawn over him when he faces the camera */

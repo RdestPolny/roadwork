@@ -1241,7 +1241,7 @@ function renderPortFrame(fighters){
         const J=lifting?lifting.J:player.pose||walkJoints(g,player.carrying,side);
         const draw=()=>{
         contact(player.i-.22,player.j-.22,player.i+.22,player.j+.22,0,.4);
-        withCellOutfit(()=>figureHD(player,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'fringe',stubble:true,cut:true},{noShadow:true}));
+        withCellOutfit(()=>figureHD(player,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true},{noShadow:true}));
         if(lifting?.held) sackAt(lifting.held,lifting.dir[0],lifting.dir[1],lifting.tilt);
         else if(player.carrying) sackAt(toWorld(player,.2,side*2.4,14.4-.22*Math.cos(4*Math.PI*g)-.15),player.fi,player.fj,1); };
         if(portJob.entry&&player.j<.35) behindFront(draw,archHole,Math.max(0,Math.min(1,(.3-player.j)/1.6))); else draw(); }]]:[]),

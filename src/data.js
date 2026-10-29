@@ -71,9 +71,9 @@ const LOOK={
   extra:[{id:'none',name:'Brak'},{id:'scar',name:'Blizna'},{id:'tape',name:'Plaster na nosie'},{id:'cut',name:'Rozcięcie na nosie'}],
 };
 
-/** The one hero of the game: his head is fixed (no look editor). Straight ash-brown hair with a fringe to the brows,
- * stubble, a fresh cut across the bridge of the nose, tired eyes. */
-export const HERO_LOOK={skin:'hero',hair:'hero',style:'fringe',eyes:'narrow',brows:'normal',nose:'straight',facial:'stubble',extra:'cut'};
+/** The one hero of the game: his head is fixed (no look editor). Ash-brown hair cropped short, heavy brows in a scowl,
+ * narrow eyes, stubble; no fresh wounds of his own. */
+export const HERO_LOOK={skin:'hero',hair:'hero',style:'short',eyes:'narrow',brows:'angry',nose:'straight',facial:'stubble',extra:'none'};
 export const LOOK_DEFAULT={skin:'s3',hair:'h1',style:'short',eyes:'normal',brows:'normal',nose:'straight',facial:'none',extra:'none'};
 
 export const MOVE_PL=['JAB','CROSS','HOOK','UPPERCUT','UNIK'];
