@@ -78,6 +78,10 @@ function wallCol(a,z,x,y,right){
     if(a>0.4&&a<2.45&&z>12.0&&z<12.7) return z>12.5?C.woodL:C.wood;
     for(let k=0;k<4;k++){ const hx=0.7+k*0.5; if(Math.abs(a-hx)<0.035&&z>11.3&&z<12.2) return C.iron;
       if(Math.abs(a-hx)<0.2&&z>(k&1?6.2:7.4)&&z<11.4){ const e=Math.abs(a-hx)>0.16||z<(k&1?6.5:7.7); return e?C.joint:(k===2?(Math.abs(z-8.6)<0.25?C.stripe:C.towel):(Math.abs(a-hx)<0.04?C.coatD:C.coat)); } } }
+  if(gymState.ISO_K===3&&z>2&&z<SPRING_Z-0.6){ // peeling limewash and damp specks
+    const flake=h2(Math.floor(u*16)+31,Math.floor(z*13));
+    if(flake<13) c=shadeC(c,.74); else if(flake>246) c=shadeC(c,1.12);
+  }
   if(a<0.25) c=shadeC(c,0.7);
   return c;
 }
@@ -96,6 +100,10 @@ export function floorCol(x,y){
   const X=i*1.1+3, Y=j*1.1+9, xi=Math.floor(X), yi=Math.floor(Y), fx=X-xi, fy=Y-yi, sx=fx*fx*(3-2*fx), sy=fy*fy*(3-2*fy), nn=(/** @type {number} */ a,/** @type {number} */ b)=>h2(a,b)/255;
   const pn=(nn(xi,yi)*(1-sx)+nn(xi+1,yi)*sx)*(1-sy)+(nn(xi,yi+1)*(1-sx)+nn(xi+1,yi+1)*sx)*sy;   // standing water in the hollows
   if(pn>0.62&&!(j>GUT_J0&&j<GUT_J1)) c=mixC(c,C.grey,pn>0.66?0.6:0.3);
+  if(gymState.ISO_K===3&&c!==C.fjoint){
+    const grit=h2(Math.floor(i*27)+41,Math.floor(j*24));
+    if(grit<13) c=shadeC(c,.78); else if(grit>246) c=shadeC(c,1.11);
+  }
   const e=Math.min(i,j); if(e<0.9&&(1-e/0.9)*12>bay(x,y)) c=shadeC(c,0.6);
   return c;
 }
