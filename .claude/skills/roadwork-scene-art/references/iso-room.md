@@ -2,7 +2,7 @@
 
 ## Frame and projection
 
-- `hdRoom()` in `src/renderer.js` lists the 2× rooms (cell, izolatka, yard, laznia). A room joins the 2× frame by
+- `hdRoom()` in `src/renderer.js` lists the 2× rooms (cell, yard, laznia). A room joins the 2× frame by
   being added there first; `withHD(fn)` swaps the picture size, buffers and `gymState.ISO_K = 2` for the bake and the frame.
 - Projection in `src/gym.js`: `isoX(i,j)`, `isoY(i,j,z)` (6 px per unit across, 3 down, ×`ISO_K`); fill a face
   with `quad(…, (x,y)=>colour)`; `isoLine`, `isoLineThin`; `psetK` for a 2×2 dot.

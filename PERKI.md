@@ -1,5 +1,7 @@
 # Perki atrybutów: Cechy (projekt)
 
+> Sekcja 1 opisuje diagnozę sprzed wdrożenia (2026-10-18). Cechy są wdrożone; starsze odniesienia do kart i pojedynków karcianych są historyczne, nie stanowią opisu aktualnej walki izometrycznej. Dokument `docs/archive/design/CIOSY.md` znajduje się w [archiwum](docs/archive/design/CIOSY.md).
+
 Stan (2026-10-18): **wdrożone** — Cechy, punkty na ciosy, pasywna Szybkość, zapis v10 i zakładki karty postaci (`CIOSY.md` §6 krok 2). Perki atrybutów są **uniwersalne** i nie dotyczą
 konkretnych ciosów. Wszystko, co wzmacnia jeden cios, idzie do drzewek ciosów (`CIOSY.md` §3). Spacerniak
 (`BARE_PERKS`, brudna walka) zostaje bez zmian.

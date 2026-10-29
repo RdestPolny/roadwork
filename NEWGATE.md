@@ -1,4 +1,6 @@
-# Newgate 1868 — przeniesienie gry do epoki wiktoriańskiej
+# Newgate 1868 — historyczny plan migracji
+
+> **Archiwum decyzji projektowych, a nie instrukcja aktualnego kodu.** Fazy 5 i 8, opis bójek 2D i Smithfield są historyczne; obowiązują `src/iso-fight.js`, `src/crank.js` i [PRISON.md](PRISON.md). Wymienione poniżej moduły mogą już nie istnieć. Obrazy `*-plate.js` przeniesiono do [archiwum](docs/archive/unused-assets/).
 
 Kierunek: więzienie Newgate w Londynie, rok 1868. Klimat przed historią: lekki horror, groźnie, brudno. Historyczne
 smaczki (kaptury z Pentonville) zostają, jeśli budują nastrój. Kopia sprzed zmian: `../Roadwork-backup-przed-newgate`.
