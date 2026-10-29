@@ -7,7 +7,7 @@ import { simFormText, simUI, simSetPhase, PHASES } from './simulation.js';
 import { enterHub, exitToHub, state as navigationState, stMenuPick, stMenuRender, stMenuClose } from './navigation.js';
 import { state as boxingState } from './boxing.js';
 import { state as sparringState, startSpar } from './sparring.js';
-import { isoFightFinish } from './iso-fight.js';
+import { isoFightFinish, startIsoFight } from './iso-fight.js';
 import { state as appearanceState } from './appearance.js';
 import { state as animationState } from './animation.js';
 import { state as rendererState, render } from './renderer.js';
@@ -48,7 +48,7 @@ function step(n){ for(let i=0;i<n;i++){ boxingState.simNow+=appearanceState.STEP
 
 /** Switch to a target scene or minigame directly for testing. @param {string} scene */
 export function devSwitchScene(scene){
-  if(scene==='port'&&!DEBUG) return;
+  if((scene==='port'||scene==='sandy')&&!DEBUG) return;
   optsToggle(false);
   sysClose();
   stMenuClose();
@@ -77,6 +77,9 @@ export function devSwitchScene(scene){
         stake: 'porcja',
         onEnd: () => { goRoom(gymState.hubRoom || 'cell', 0); }
       });
+      break;
+    case 'sandy':
+      startIsoFight(0,'sandy');
       break;
     case 'spar': {
       const venue = (gymState.hubRoom === 'yard' || gymState.hubRoom === 'laznia') ? gymState.hubRoom : 'cell';
