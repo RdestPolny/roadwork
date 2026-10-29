@@ -113,7 +113,7 @@ try {
     assert.equal(snapshot.unchanged,true);
     assert.equal(snapshot.returned,'yard');
   });
-  await check('Ward 432x288: exploration, Harry fight and 2x yard/bath isolation',async()=>{
+  await check('Newgate 432x288: Ward, yard and bath exploration and Harry fight',async()=>{
     const room=await page.evaluate(async()=>{
       const b=window.__boxer, R=await import('/src/renderer.js'), G=await import('/src/gym.js');
       const I=await import('/src/iso-fight.js');
@@ -130,9 +130,9 @@ try {
       I.state.pointer=null;
       (await import('/src/navigation.js')).exitToHub();
       b.goRoom('yard'); b.step(1);
-      const yard={frame:frame(R.roomFrame()),unique:new Set(R.state.hd.fb).size};
+      const yard={frame:frame(R.roomFrame()),unique:new Set(R.state.hd3.fb).size,background:R.state.hd3.bg.filter(Boolean).length};
       b.goRoom('laznia'); b.step(1);
-      const bath={frame:frame(R.roomFrame()),unique:new Set(R.state.hd.fb).size};
+      const bath={frame:frame(R.roomFrame()),unique:new Set(R.state.hd3.fb).size,background:R.state.hd3.bg.filter(Boolean).length};
       b.goRoom('cell'); b.step(1); // the following screenshot must show the upgraded Ward, not the bath
       return {ward,fight,yard,bath};
     });
@@ -145,10 +145,39 @@ try {
     assert.deepEqual(room.fight.frame,[432,288,432*288]);
     assert.ok(room.fight.unique>20,'Ward brawl uses the full 3x framebuffer');
     assert.ok(room.fight.moved>0.001,'the pointer moves a fighter with the 3x camera');
-    assert.deepEqual(room.yard.frame,[288,192,288*192]);
-    assert.deepEqual(room.bath.frame,[288,192,288*192]);
+    assert.deepEqual(room.yard.frame,[432,288,432*288]);
+    assert.deepEqual(room.bath.frame,[432,288,432*288]);
     assert.ok(room.yard.unique>10&&room.bath.unique>10,'other rooms still render');
+    assert.ok(room.yard.background>5000&&room.bath.background>5000,'room backgrounds must bake in native 3×');
     await page.screenshot({path:'artifacts/ward-432-288-regression.png'});
+  });
+  await check('432x288: six native scene captures and Thames camera regression', async()=>{
+    const capture=async(file)=>{
+      const image=await page.evaluate(async()=>{
+        const R=await import('/src/renderer.js'); R.render();
+        return R.state.hd3.off.toDataURL('image/png');
+      });
+      await writeFile('artifacts/'+file,Buffer.from(image.split(',')[1],'base64'));
+    };
+    for(const venue of ['yard','laznia']){
+      await page.evaluate(v=>{const b=window.__boxer;b.goRoom(v);b.pause();b.step(2);},venue);
+      await capture(venue+'-432-exploration.png');
+      await page.evaluate(async v=>{(await import('/src/iso-fight.js')).startIsoFight(0,v);window.__boxer.step(80);},venue);
+      await capture(venue+'-432-fight.png');
+      await page.evaluate(async()=>{(await import('/src/navigation.js')).exitToHub();});
+    }
+    await page.evaluate(()=>{document.querySelector('[data-dev-scene="port"]').click();window.__boxer.step(60);});
+    const portFrame=await page.evaluate(async()=>{
+      const R=await import('/src/renderer.js'); R.render();
+      const G=await import('/src/gym.js');
+      return {frame:[R.isometricFrame('port').W,R.isometricFrame('port').H],camera:G.state.propCamera};
+    });
+    assert.deepEqual(portFrame.frame,[432,288]);
+    assert.ok(!portFrame.camera,'port camera context must be restored');
+    await capture('port-432-exploration.png');
+    await page.evaluate(async()=>{(await import('/src/iso-fight.js')).startIsoFight(0,'port');window.__boxer.step(80);});
+    await capture('port-432-fight.png');
+    await page.evaluate(async()=>{(await import('/src/navigation.js')).exitToHub();});
   });
   await check('isometric fight: keys, stamina, body blows, block, slip, steps, AI, knockdown, pause and result',()=>checkIsoFight(page));
   await check('isometric fight in the yard and the bath rooms',()=>checkIsoFightRooms(page));
