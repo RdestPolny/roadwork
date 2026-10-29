@@ -413,7 +413,7 @@ function updateCrowdGrab(F){
   if(!C) return;
   F.grab={person:C,until:S.t+2,origin:{i:C.i,j:C.j,fi:C.fi,fj:C.fj}}; F.grabExempt=C; C.grabbing=F; C.act='grab';
   C.i=F.i-F.fi*0.6; C.j=F.j-F.fj*0.6; C.fi=F.fi; C.fj=F.fj;
-  F.pk=null; F.buf=null; F.combo=[]; F.slipSince=-Infinity; F.rt.slipSince=-Infinity;
+  F.pk=null; F.dash=null; F.buf=null; F.combo=[]; F.slipSince=-Infinity; F.rt.slipSince=-Infinity;
   if(F.rt.guarding) setGuard(F.rt,false,S.t);
   S.clinch=false; S.push=null;
   if(F===S.P){ S.eTap=null; say('Tłum cię trzyma!'); } else say('Tłum trzyma rywala!');
@@ -508,11 +508,11 @@ function impact(A,D){
   if(D.rt.hp<=0){
     const brutal=D.kdN>=2||(D.kdN===1&&o.counter&&pid===3);
     if(!D.down&&!brutal){
-      D.down=true; D.downAt=now; D.kdN++; D.kdMash=0; D.pk=null; D.buf=null;
+      D.down=true; D.downAt=now; D.kdN++; D.kdMash=0; D.pk=null; D.dash=null; D.buf=null;
       D.rt.hp=Math.round(D.rt.hpMax*(D.kdN===1?0.32:0.20)); D.rt.sta=Math.max(D.rt.sta,D.rt.staCap*0.5); D.stun=0;
       startIsoRagdoll(D,A,pid,false); banner('NOKDAUN!',appearanceState.C_RED,80); sfxKO();
       say(D===S.P?'NOKDAUN! Wciskaj klawisze, żeby wstać!':'Rywal na deskach ('+D.kdN+'/3)');
-    } else { D.ko=true; D.pk=null; startIsoRagdoll(D,A,pid,true); spray(A,D,pid,low,false,o,true); endBout(A,D.kdN>=2?'TKO':'KO'); }
+    } else { D.ko=true; D.pk=null; D.dash=null; startIsoRagdoll(D,A,pid,true); spray(A,D,pid,low,false,o,true); endBout(A,D.kdN>=2?'TKO':'KO'); }
   }
 }
 
@@ -630,6 +630,7 @@ function tickFight(){
   for(const F of [P,O]){
     const G=F===P?O:P;
     tickCombatant(F.rt,dt,now);
+    if(F.dash&&(F.ko||F.down||F.grab||F.stagger>0)) F.dash=null;
     if(F.dash){
       const D=F.dash, u=Math.min(1,(now-D.at)/DASH.duration), next=dashTravel(u), moved=walk(F,G,D.di,D.dj,DASH.distance*Math.max(0,next-D.progress));
       D.progress=next;
