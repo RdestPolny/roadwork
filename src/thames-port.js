@@ -259,12 +259,12 @@ function poster(f,a,z,w,h,k){
   fq(f,a,z,a+w,z+h,(x,y)=>{ const n=vn((x-camera.x)*.45+k*9,(y-camera.y)*.3); return n<.28?0:mix(under(x,y),paper,.85*Math.min(1,(n-.28)*6)); });
   for(let r=0;r<4;r++){ const zz=z+h*(.78-r*.18); fl(f,a+w*.12,zz,a+w*(r?.82:.88),zz,shadeC(paper,r?.55:.35)); }
 }
-const FONT={V:'101101101101010',W:'101101111111101',A:'010101111101101',P:'110101110100100',I:'111010010010111',N:'101111111101101',G:'011100101101011',H:'101101111101101',R:'110101110101101',F:'111100110100100',B:'110101110101110',C:'011100100100011',D:'110101101101110',E:'111100110100111',K:'101101110101101',L:'100100100100111',M:'101111111101101',O:'010101101101010',S:'011100010001110',T:'111010010010010',U:'101101101101111',Y:'101101010010010',' ':'000000000000000'};
+const FONT={V:'101101101101010',W:'101101111111101',A:'010101111101101',P:'110101110100100',I:'111010010010111',N:'101111111101101',G:'011100101101011',H:'101101111101101',R:'110101110101101',F:'111100110100100',B:'110101110101110',C:'011100100100011',D:'110101101101110',E:'111100110100111',K:'101101110101101',L:'100100100100111',M:'101111111101101',O:'010101101101010',S:'011100010001110',T:'111010010010010',U:'101101101101111',Y:'101101010010010','&':'010101010101011',' ':'000000000000000'};
 /** Faded painted lettering across a wall face, one font pixel = 2×2 screen pixels; col and k set the paint and how much of it is left. */
-function lettering(f,a,z,text,col=rgb('#c9bf9d'),k=.38){
+function lettering(f,a,z,text,col=rgb('#c9bf9d'),k=.38,scale=1){
   for(let n=0;n<text.length;n++){ const g=FONT[text[n]]; for(let p=0;p<15;p++) if(g[p]==='1'){
-    const aa=a+(n*4+p%3)/6, zz=z-Math.floor(p/3);
-    fq(f,aa,zz-1,aa+1/6,zz,(x,y)=>mix(under(x,y),col,Math.min(1,k+.4*vn((x-camera.x)*.3,(y-camera.y)*.4))));
+    const aa=a+(n*4+p%3)*scale/6, zz=z-Math.floor(p/3)*scale;
+    fq(f,aa,zz-scale,aa+scale/6,zz,(x,y)=>mix(under(x,y),col,Math.min(1,k+.4*vn((x-camera.x)*.3,(y-camera.y)*.4))));
   } }
 }
 /** Upright cylinder: barrels, bollards and lamp posts; body(z,s) colours its side, s = -1..1 across. */
