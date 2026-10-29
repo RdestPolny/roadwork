@@ -42,8 +42,8 @@ export function renderSandyArena(){
   rendererState.fb.set(plate);
 }
 
-/** Draw fine clothing and face accents at real 3× pixel density, using the same posed skeleton. */
-export function drawSandyFighterDetails(F,J,L){
+/** Outfit-aware 3× accents anchored to the existing moving skeleton. */
+export function drawHDCharacterDetails(F,J,L){
   if(gymState.ISO_K!==3) return;
   const A=appearanceState, oldC=gymState.ipC, oldPose=gymState.ipPose, oldBase=gymState.ipBase;
   gymState.ipC=F; gymState.ipPose=0; gymState.ipBase=0;
@@ -55,6 +55,7 @@ export function drawSandyFighterDetails(F,J,L){
   const seam=(p,q,c)=>{ const a=point(p),b=point(q); line(a[0],a[1],b[0],b[1],c,c); };
   try{
     const chest=J.chest, pel=J.pel, head=J.head;
+    if(!L.bare){ // Bathers have no jacket, trousers or shirt seams.
     // Separate collar, crumpled lapels and the moving button placket.
     seam([chest[0]+1.4,chest[1]-0.9,chest[2]+0.2],[chest[0]+2,chest[1]-0.3,chest[2]-1.5],clothH);
     seam([chest[0]+1.3,chest[1]+0.8,chest[2]+0.2],[chest[0]+2,chest[1]+0.2,chest[2]-1.5],clothD);
@@ -69,7 +70,9 @@ export function drawSandyFighterDetails(F,J,L){
       seam([knee[0]+0.4,knee[1]-0.45,knee[2]+0.2],[knee[0]+0.9,knee[1]+0.35,knee[2]-0.3],pantH);
       dot([arm.foot[0]+0.8,arm.foot[1],arm.foot[2]+0.12],shade(L.shoe,2));
     }
+    }
     // Readable nose ridge, cheekbone, eyebrow, temple and jaw from the same head joint.
+    if(L.style!=='hood'){
     dot([head[0]+1.95,head[1]-0.25,head[2]-0.8],skinH);
     dot([head[0]+1.75,head[1]+0.65,head[2]-0.95],skinH);
     seam([head[0]+1.55,head[1]+0.28,head[2]-1.6],[head[0]+1.25,head[1]+0.6,head[2]-2.1],skinD);
@@ -82,7 +85,8 @@ export function drawSandyFighterDetails(F,J,L){
       if(L.chops) seam([head[0]+0.85,head[1]+1.36,head[2]-0.5],[head[0]+0.95,head[1]+1.21,head[2]-1.65],hairD);
     }
     if(L.stubble) for(let i=0;i<3;i++) dot([head[0]+1.25-i*0.17,head[1]+0.72,head[2]-1.38-i*0.22],hairD);
-    if(L.scarf!==undefined){
+    }
+    if(!L.bare&&L.scarf!==undefined){
       seam([chest[0]+1.85,chest[1]-0.45,chest[2]+0.35],[chest[0]+2.1,chest[1]+0.4,chest[2]+0.2],L.scarf);
       dot([chest[0]+2.2,chest[1]+0.1,chest[2]-0.45],L.scarf);
     }
