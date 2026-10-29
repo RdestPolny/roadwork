@@ -9,7 +9,7 @@ Moduły eksportują własne obiekty `state`. Nowy kod zmienia cudzy stan przez p
 | Moduły | Odpowiedzialność |
 | --- | --- |
 | `appearance`, `animation`, `boxing` | Paleta, szkielet, IK, pozy, animacje, cząstki i wspólny zegar ruchów. Identyfikatory animacji pozostają stabilne; miejsca usuniętej skakanki są puste. |
-| `renderer`, `audio` | Bufory pikseli, składanie, skalowanie i dźwięki. Pokoje Newgate (także bójka) i siłowanie mają 288×192, pozostałe sceny 144×96. |
+| `renderer`, `audio` | Bufory pikseli, składanie, skalowanie i dźwięki. Pokoje Newgate (także normalna bójka) i siłowanie mają 288×192, pozostałe sceny 144×96. Osobny tryb debugowy `sandy` ma 432×288 (własny bufor `renderer.hd3`), bez zmiany buforów gry. |
 | `gym` | Wspólna geometria izometryczna, rysowanie postaci, sortowanie głębi, kolizje, ruch i stacje w pokojach. `hubRebake`, `stationOf`, `stationOptions`. Dawna nazwa zachowana; budowanie siłowni usunięte. |
 | `rooms`, `ward`, `exercise-yard`, `bath`, `cell-light`, `weather`, `npcs` | Ward, spacerniak, łaźnia, światło, pogoda, współwięźniowie i klucznicy. `roomsLoad`, `setRoomRaw`, `goRoom`, `cellOptions`, `actStop`. |
 | `prison`, `prison-data`, `ward-meal`, `profesor`, `healers` | Harmonogram, bramki czynności, tytoń, konto, przyjęcie, posiłki, lista Profesora i leczenie. Operacje m.in. `prisonClockSync`, `spendTobacco`, `prisonFightEnd`. |
