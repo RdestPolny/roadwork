@@ -631,7 +631,7 @@ function tickFight(){
     const G=F===P?O:P;
     tickCombatant(F.rt,dt,now);
     if(F.dash){
-      const D=F.dash, u=Math.min(1,(now-D.at)/DASH.duration), next=dashTravel(u), moved=walk(F,G,D.di,D.dj,DASH.distance*Math.max(0,next-D.progress)*scale);
+      const D=F.dash, u=Math.min(1,(now-D.at)/DASH.duration), next=dashTravel(u), moved=walk(F,G,D.di,D.dj,DASH.distance*Math.max(0,next-D.progress));
       D.progress=next;
       if(moved>1e-6){ F.moving=true; F.mf=D.di*F.fi+D.dj*F.fj; F.ms=D.di*-F.fj+D.dj*F.fi; }
       if(F.buf&&u>=DASH.punchFrom&&!F.pk){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
@@ -748,8 +748,10 @@ function blendJoints(A,B,k){
 function fighterJoints(F, t=state.t, clinch=state.clinch){
   const mv=F.moving;
   const sw1=F.ft[1].sw?Math.sin(Math.PI*Math.min(1,F.ft[1].sw)):0, sw2=F.ft[-1].sw?Math.sin(Math.PI*Math.min(1,F.ft[-1].sw)):0;
-  const air=Math.max(sw1,sw2), stride=sw1-sw2, hop=Math.max(0,Math.sin(t*9+F.seed))*(air>0?0.4:1);   // stride > 0: the lead foot is in the air, < 0: the rear one
-  let bob=-1.1+0.55*hop+0.5*air-(F.rt.sta<25?0.5:0), lean=0.35+F.lagF*0.55+(mv?F.mf*0.3:0), sl=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35, lung=0, e=0, arm=0, follow=0, wind=0, pk=F.pk;
+  const air=Math.max(sw1,sw2), stride=sw1-sw2; // One planted foot at any time; idle never causes an artificial bounce.
+  const dashU=F.dash?Math.min(1,Math.max(0,(t-F.dash.at)/DASH.duration)):0;
+  const dash=F.dash?dashPose(dashU):{load:0,push:0,land:0};
+  let bob=-1.05+0.10*Math.sin(t*2.1+F.seed)+0.18*air-0.85*dash.load-0.48*dash.land-(F.rt.sta<25?0.5:0), lean=0.35+F.lagF*0.55+(mv?F.mf*0.3:0)+(F.dash?F.dash.fwd*1.05*dash.push:0), sl=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35+(F.dash?F.dash.side*.75*dash.push:0), lung=0, e=0, arm=0, follow=0, wind=0, pk=F.pk;
   const D=pk?DRIVE[pk.pid]:null, hook=pk?.pid===2, upper=pk?.pid===3;
   if(pk){ const T=PT[pk.pid], striking=pk.t<T.hit, k=striking?pk.t/T.hit:Math.max(0,1-(pk.t-T.hit)/(T.end-T.hit));
     e=striking&&(F===state.P||F===state.O)?punchSnap(k):smooth(Math.min(1,k));
@@ -775,7 +777,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const cS=Math.cos(shY), sS=Math.sin(shY), cH=Math.cos(hpY), sH=Math.sin(hpY), tilt=D?D.tilt*e+(upper?-0.6*wind:0):0;
   for(let s=-1;s<=1;s+=2){
     const lead=s===F.leadSide, fj=footJoint(F,s), ws=-s*0.45*(s===1?sw1:sw2), punching=!!D&&s===ps;
-    const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd+(lead?lung*0.8:0),fj.side,0.9+fj.lift+0.5*hop*(fj.u?0:1)+(punching?D.heel*e:0)];
+    const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd,fj.side,0.9+fj.lift+(punching?D.heel*e:0)]; // Keep planted shoes fixed even during a lunge.
     const [knee,toe]=limb(hip,foot,LEG_U,LEG_L,[(hip[0]+foot[0])/2+1.5+Math.abs(bodySide)*0.7,(hip[1]+foot[1])/2+s*0.35,(hip[2]+foot[2])/2]);
     const sh=[0.1+lean+lung-s*2.7*sS,s*2.7*cS+sl+bodySide*1.3,12.4+bob+s*walkRot*0.3+(hook?0:s*bodySide*0.6)+(D?(punching?D.rise:-0.3*D.rise)*e+s*ps*tilt*0.5:0)];
     const armSw=-s*stride*0.45+F.lagF*0.35, ma=t*5.5+F.seed+(s>0?0:Math.PI);
@@ -922,24 +924,28 @@ function tickFeet(F,scale=1,now=state.t){
   const sp=Math.hypot(vi,vj), mi=sp>1e-4?vi/sp:0, mj=sp>1e-4?vj/sp:0;
   const A=F.ft[1], B=F.ft[-1];
   for(const s of [1,-1]){ const f=F.ft[s];
-    if(f.sw>0){ f.sw+=scale/SWING; const T=stance(F,s); f.to={i:T.i+mi*STEP_LEAD*(sp>0.01?1:0),j:T.j+mj*STEP_LEAD*(sp>0.01?1:0)};
-      if(f.sw>=1){ f.sw=0; f.i=f.to.i; f.j=f.to.j; } } }
+    if(f.sw>0){ f.sw=Math.min(1,f.sw+scale/(F.dash?5:SWING));
+      // The landing spot was captured when the shoe left the ground, not chased each frame.
+      if(f.sw>=1){ f.sw=0; f.i=f.to.i; f.j=f.to.j; f.from=null; } } }
   if(A.sw>0||B.sw>0||F.ko) return;
   const cand=[];
   for(const s of [1,-1]){ const f=F.ft[s], T=stance(F,s), di=f.i-T.i, dj=f.j-T.j, along=di*mi+dj*mj, perp=Math.hypot(di-along*mi,dj-along*mj), d=along<0?Math.hypot(along,perp):perp;   /* a foot already ahead of its place is not late */
-    if(Math.hypot(di,dj)>1.4){ f.i=T.i; f.j=T.j; continue; }
+    // Never snap a lagging foot to its stance: catch up with another actual step.
     cand.push({s,d,score:(STANCE[s*F.leadSide][0]*(mi*F.fi+mj*F.fj)+s*1.7*(mi*-F.fj+mj*F.fi))+d});
   }
   if(!cand.some(c=>c.d>STEP_AT)) return;   /* one foot is late: of the two that are at all behind, the one on the side of the move goes first */
   cand.splice(0,cand.length,...cand.filter(c=>c.d>STEP_AT*0.45));
   cand.sort((a,b)=>b.score-a.score);
-  const f=F.ft[cand[0].s]; f.sw=scale/SWING; f.from={i:f.i,j:f.j}; const T=stance(F,cand[0].s); f.to={i:T.i+mi*STEP_LEAD,j:T.j+mj*STEP_LEAD};
+  const f=F.ft[cand[0].s]; f.sw=scale/(F.dash?5:SWING); f.from={i:f.i,j:f.j};
+  const T=stance(F,cand[0].s), ahead=Math.min(.43,STEP_LEAD+sp*3.2), ti=T.i+mi*ahead, tj=T.j+mj*ahead;
+  const dx=ti-f.i, dy=tj-f.j, len=Math.hypot(dx,dy)||1, limit=F.dash?.72:.56;
+  f.to={i:f.i+dx*Math.min(1,limit/len),j:f.j+dy*Math.min(1,limit/len)};
 }
 
 /** Foot s of F as a body-local joint [forward, side, height] and its air progress 0..1. @param {any} F @param {number} s */
 function footJoint(F,s){
   const f=F.ft[s]; let i=f.i, j=f.j, lift=0, u=0;
-  if(f.sw>0&&f.from){ u=Math.min(1,f.sw); const e=u*u*(3-2*u); i=f.from.i+(f.to.i-f.from.i)*e; j=f.from.j+(f.to.j-f.from.j)*e; lift=2.3*Math.sin(Math.PI*u); }
+  if(f.sw>0&&f.from){ u=Math.min(1,f.sw); const e=u*u*(3-2*u); i=f.from.i+(f.to.i-f.from.i)*e; j=f.from.j+(f.to.j-f.from.j)*e; lift=(F.dash?1.5:1.05)*Math.sin(Math.PI*u); }
   const di=(i-F.i)*7.5, dj=(j-F.j)*7.5;
   return {fwd:di*F.fi+dj*F.fj,side:di*-F.fj+dj*F.fi,lift,u};
 }
