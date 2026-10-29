@@ -63,6 +63,10 @@ function wallCol(a,z,x,y,right){
   const streak=h2(Math.floor(u*0.9)+(right?3:9),5); if(streak<70) c=mixC(c,C.soot,0.35+0.4*(z/EY_WH));          // soot run down from the top
   if(h2(Math.floor(u*1.6)+21,Math.floor(z*0.5))<18) c=mixC(c,C.salt,0.5);                     // white salts weeping out
   c=mixC(c,C.soot,Math.min(0.78,0.28+z/EY_WH*0.55));                                             // blacker as it rises
+  if(gymState.ISO_K===3&&fz>0.16&&fb>0.11){ // small chips and soot fixed to the masonry bond
+    const fleck=h2(Math.floor(u*18)+(right?17:31),Math.floor(z*11));
+    if(fleck<18) c=shadeC(c,.79); else if(fleck>244) c=shadeC(c,1.13);
+  }
   if(a<0.3) c=shadeC(c,0.72);
   return c;
 }
@@ -86,6 +90,10 @@ export function floorCol(x,y){
     if(d<0.2&&fi<0.45&&bay(x,y)<4) c=C.settH; }                                                // the wet top of each stone
   const pn=vnoise(i*0.9+3,j*0.9+7)*0.7+vnoise(i*2.3,j*2.3)*0.3;                             // irregular puddles holding the grey sky
   if(pn>0.66) c=pn<0.68?C.wetH:mixC(c,C.wet,0.7);
+  if(gymState.ISO_K===3&&c!==C.joint&&c!==C.mud){ // restrained native-pixel stone wear
+    const chip=h2(Math.floor(i*29)+7,Math.floor(j*31)+13);
+    if(chip<12) c=shadeC(c,.76); else if(chip>247) c=shadeC(c,1.10);
+  }
   const e=Math.min(i,j); if(e<1.1&&(1-e/1.1)*13>bay(x,y)) c=shadeC(c,0.6);                     // black at the foot of the walls
   return c;
 }
