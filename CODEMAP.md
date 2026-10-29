@@ -57,7 +57,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 ## Testowanie: najmniejszy sensowny zakres
 
 - Jednostkowe: `node --test tests/<mechanika>.test.js` (np. `crank.test.js`, `realtime-rules.test.js`, `save-store.test.js`, `input.test.js`, `roach-rules.test.js`). Wszystkie: `npm test`.
-- Integracyjne/obrazowe: `npm run test:browser -- --only=crank`, `--only=isometric fight`, `--only=prison day`, `--only=Thames port`. Filtrowanie dopasowuje **fragment nazwy scenariusza** z `tests/browser.mjs`, nie nazwy plików.
+- Integracyjne/obrazowe: `npm run test:browser -- --only=crank`, `--only=isometric`, `--only=prison`, `--only=Thames`. Filtrowanie dopasowuje **fragment nazwy scenariusza** z `tests/browser.mjs`, nie nazwy plików.
 - Typy: `npm run check`. **Źródło prawdy o plikach objętych `checkJs`: `tsconfig.json`** (lista zmienia się w czasie).
 - Zmiany wyłącznie w Markdown: bez testów runtime; sprawdź ścieżki, odnośniki i zgodność z kodem.
 - Render scen: `scripts/render-room.mjs`, `scripts/render-port.mjs`, `scripts/iso-fight-shot.mjs`. Nie sprawdzaj całej gry przy każdej małej korekcie graficznej.
