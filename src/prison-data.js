@@ -1,5 +1,6 @@
-/* Prison act (pure data and rules, unit-tested): save shape and its sanitizer.
-   Later stages add the daily schedule, respect ranks, Profesor's list and the canteen and slaughterhouse rules here. */
+/* Prison act (pure data and rules): save shape and sanitizer.
+   Retired respect/report/paid-slaughterhouse fields and rules remain for old saves,
+   tests and the optional Smithfield debug prototype; they are not live prison rewards. */
 
 /** @typedef {'prison'|'free'} Phase */
 /**
@@ -197,7 +198,7 @@ export function workPay(norma){
    SUPERVISION: opinion, respect from fights, guard risk, reports
    ===================================================================== */
 
-/** Opinion thresholds retained for the legacy paid-work scene. */
+/** Historic guard-opinion thresholds; account and trading UI may still read these values. */
 export const OPINIA_GOOD = 70, OPINIA_NO_SHOP = 30;
 
 /* =====================================================================

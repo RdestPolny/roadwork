@@ -1,6 +1,6 @@
 import { state as npcsState } from './npcs.js';
 import { hubBlocked, state as gymState, itemRect } from './gym.js';
-import { startWork, workTap, workStepKey, workEnd, workGo, state as workState } from './work.js';
+import { diagnosticWork } from './diagnostic-work.js';
 import { state as progressionState, addXP } from './progression.js';
 import { state as roomsState, goRoom, actStop } from './rooms.js';
 import { simFormText, simUI, simSetPhase, PHASES } from './simulation.js';
@@ -48,7 +48,7 @@ function step(n){ for(let i=0;i<n;i++){ boxingState.simNow+=appearanceState.STEP
 
 /** Switch to a target scene or minigame directly for testing. @param {string} scene */
 export function devSwitchScene(scene){
-  if(scene==='port'&&!DEBUG) return;
+  if(!DEBUG) return;   // all diagnostic scenes, not just the port, must be unavailable to normal players
   optsToggle(false);
   sysClose();
   stMenuClose();
@@ -67,7 +67,7 @@ export function devSwitchScene(scene){
       startThamesPort();
       break;
     case 'work':
-      startWork();
+      diagnosticWork.startWork();
       break;
     case 'arm':
       startArm({
@@ -129,8 +129,10 @@ export function initialize(){
     newGame, get phase(){return 'prison';}, get prison(){return prisonState;},
     hubBlocked, get items(){return gymState.gymItems.map(x=>x.t+':'+itemRect(x).map(v=>+v.toFixed(2)).join(','));},
     get CN(){return npcsState.CN;}, get YN(){return npcsState.YN;},
-    startWork, workTap, workStepKey, workEnd, workGo,
-    get work(){const W=workState.WK;return {dmg:W.dmg,punches:W.punches,finBonus:W.finBonus,phase:W.phase,n:W.n,drops:W.drops,p:+W.p.toFixed(3),A:+W.A.toFixed(3),ph:W.ph,sin:+Math.sin(W.ph).toFixed(3),lastKey:W.lastKey,hip:+W.hip.toFixed(1),face:W.face,stepT:W.stepT,rate:+W.rate.toFixed(1)};},
+    startWork:(...args)=>diagnosticWork.startWork(...args),
+    workTap:()=>diagnosticWork.workTap(), workStepKey:(...args)=>diagnosticWork.workStepKey(...args),
+    workEnd:()=>diagnosticWork.workEnd(), workGo:()=>diagnosticWork.workGo(),
+    get work(){const W=diagnosticWork.state.WK;return {dmg:W.dmg,punches:W.punches,finBonus:W.finBonus,phase:W.phase,n:W.n,drops:W.drops,p:+W.p.toFixed(3),A:+W.A.toFixed(3),ph:W.ph,sin:+Math.sin(W.ph).toFixed(3),lastKey:W.lastKey,hip:+W.hip.toFixed(1),face:W.face,stepT:W.stepT,rate:+W.rate.toFixed(1)};},
     get sim(){return Object.assign({},progressionState.save.sim,{room:gymState.hubRoom,act:roomsState.hubAct?roomsState.hubAct.kind:null,pose:gymState.hubP.pose,form:simFormText()});},
     simSet(o){Object.assign(progressionState.save.sim,o);simUI();}, goRoom, actStop,
     get room(){return gymState.hubRoom;}, enterHub, exitToHub,

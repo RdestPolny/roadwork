@@ -5,7 +5,7 @@ import { state as gymState, renderHub } from './gym.js';
 import { state as progressionState } from './progression.js';
 import { state as boxingState, drawParticles, drawBoxer, drawPopups } from './boxing.js';
 import { renderSpar } from './sparring.js';
-import { renderWork } from './work.js';
+import { diagnosticWork } from './diagnostic-work.js';
 import { state as pushupsState, drawPushupMeter, drawPushupAtmos, drawPushupBody } from './pushups.js';
 import { renderPullup } from './pullups.js';
 import { renderRoaches } from './roaches.js';
@@ -145,7 +145,7 @@ export function render(){
   if(boxingState.gstate==='spar'){ renderSpar(); zoomBlit(1.2,72,49); drawProfShadow(); present(false); return; }
   if(boxingState.gstate==='pullup'){ renderPullup(); present(false); return; }
   if(boxingState.gstate==='roach'){ renderRoaches(); present(false); return; }
-  if(boxingState.gstate==='work'){ renderWork(); present(false); return; }
+  if(boxingState.gstate==='work'){ diagnosticWork.renderWork(); present(false); return; }
   if(boxingState.gstate==='arm'){ renderArm(); withHD(()=>{ renderArmHD(); present(false); }); return; }   // arm wrestling: a close-up in the 2× frame
   if(boxingState.gstate!=='pushup') return;   // push-ups on the cell floor: the last side-view mode
   state.fb.set(Math.sin(boxingState.tick*0.035)>0.2?pushupsState.bgPUBreath:pushupsState.bgPU);

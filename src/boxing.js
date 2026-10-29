@@ -1,6 +1,6 @@
 import { state as appearanceState, rampIndex, rgb } from './appearance.js';
 import { oppSurface, sparClamp, prisonOut, bareTorsoOut, state as sparringState, stain, sparRaiseGuard, sparDashCost, sparEvadeCost, sparOnAttack, staF } from './sparring.js';
-import { wkSurf, drawCap, drawApron, redrawLeadLeg, wkStain, wkImpact } from './work.js';
+import { diagnosticWork } from './diagnostic-work.js';
 import { state as animationState, samplePose, isDash } from './animation.js';
 import { pset, taper, disc, state as rendererState, line, isSkinPx, shadowEll, setLightVec } from './renderer.js';
 import { state as pushupsState } from './pushups.js';
@@ -29,7 +29,7 @@ function solveArm(shx,shy,relx,rely,r,fl,isLead){
   let gx=shx+relx, gy=shy+rely;
   ik(shx,shy,gx,gy,appearanceState.UPPER,appearanceState.FORE,1);
   gx=state.IKtx; gy=state.IKty;
-  const tip=gx+r, surf=state.gstate==='spar'?oppSurface(Math.round(gy)):(state.gstate==='work'?wkSurf(Math.round(gy)):999);
+  const tip=gx+r, surf=state.gstate==='spar'?oppSurface(Math.round(gy)):(state.gstate==='work'?diagnosticWork.wkSurf(Math.round(gy)):999);
   if(gx+r>surf+state.PENMAX){
     gx=surf+state.PENMAX-r;
     ik(shx,shy,gx,gy,appearanceState.UPPER,appearanceState.FORE,1);
@@ -338,7 +338,7 @@ export function drawLeg(hx,hy,kx,ky,ax,ay,hex,hey,tx,ty,far){
     rendererState.fb[i]=c;
   }
   if(sparringState.faceDmg>0.2) drawBruises(hx,hy);
-  if(state.workOutfit) drawCap(hx,hy);
+  if(state.workOutfit) diagnosticWork.drawCap(hx,hy);
 } // sparring damage builds up on the face: mouse under the eye -> swollen eye -> cut brow -> nosebleed -> split lip
 function drawBruises(hx,hy){
   const d=sparringState.faceDmg;
@@ -485,7 +485,7 @@ export function drawBoxer(){
   if(BARE) drawChestHair();
   // loose trunks over the hips (hem swings with momentum), side seam stripe, waistband
   // shDirX/Y = direction from the hips towards the knees ((0,1) standing, along the body in a plank)
-  if(state.workOutfit){ drawApron(); redrawLeadLeg(); }
+  if(state.workOutfit){ diagnosticWork.drawApron(); diagnosticWork.redrawLeadLeg(); }
   else if(PO){ if(PU){} else { if(!BARE&&!sparringState.lyingDraw){ const x0=torsoEdge(state.hipY-2,false)+1, x1=torsoEdge(state.hipY-2,true)-1; for(let x=x0;x<=x1;x++) pset(x,state.hipY-2,appearanceState.PAL[appearanceState.R_PANT*3+2]); }   // drelich: shirt over the trousers, waistband seam
     if(SHIRT){ const bx=torsoEdge(state.sy+8,true)-2; for(let y=state.sy+4;y<state.hipY-3;y+=3) pset(bx,y,appearanceState.PAL[appearanceState.R_SHIRT*3]); } } }                              // button placket
   else {
@@ -584,7 +584,7 @@ export function updateParticles(){
       const floorY=appearanceState.FLOOR_Y-(t===state.P_BIT&&state.gstate==='work'?(i%5):0);
       if(state.pY[i]>=floorY){
         if(isBloodC(state.pC[i])){
-          if(state.gstate==='spar')stain(state.pX[i]);else if(state.gstate==='work')wkStain(state.pX[i],state.pY[i]);
+          if(state.gstate==='spar')stain(state.pX[i]);else if(state.gstate==='work')diagnosticWork.wkStain(state.pX[i],state.pY[i]);
           if(state.pVY[i]>1.35&&Math.random()<0.55) spawn(state.P_SWEAT,state.pX[i],floorY-1,(Math.random()-0.5)*1.0,-0.35-Math.random()*0.35,7,state.C_BLOOD_DARK);   // a small splash off the boards
         }
         state.pL[i]=0;
@@ -707,7 +707,7 @@ export function spawnSweat(n){
     spawn(drop?state.P_DRIP:state.P_SWEAT,state.headX-2+Math.random()*4,state.headY-2+Math.random()*4,(-0.3-Math.random()*0.6)*(drop?0.4:1),drop?0.05:-0.4-Math.random()*0.6,drop?48:16+(Math.random()*8|0),drop?state.C_SWEAT_DROP:state.C_SWEAT_MIST);
   }
 } function impact(m){
-  if(state.gstate==='work'){ wkImpact(m); return; }
+  if(state.gstate==='work'){ diagnosticWork.wkImpact(m); return; }
 }
 
 export function drawChar(code,x,y,c,sc){

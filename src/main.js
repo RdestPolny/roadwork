@@ -1,4 +1,4 @@
-import { initialize as initializeAppearance } from './appearance.js';
+import { initialize as initializeAppearance, initializeClothingPalette } from './appearance.js';
 import { initialize as initializeRenderer } from './renderer.js';
 import { initialize as initializeAnimation } from './animation.js';
 import { initialize as initializeBoxing } from './boxing.js';
@@ -10,7 +10,6 @@ import { initialize as initializeGym } from './gym.js';
 import { initialize as initializeSimulation } from './simulation.js';
 import { initialize as initializeRooms } from './rooms.js';
 import { initialize as initializeNpcs } from './npcs.js';
-import { initialize as initializeWork } from './work.js';
 import { initialize as initializeNavigation } from './navigation.js';
 import { initialize as initializeSparring } from './sparring.js';
 import { initialize as initializeOptions } from './options.js';
@@ -33,6 +32,8 @@ import { initialize as initializeCast } from './cast.js';
 import { initialize as initializeProfesor } from './profesor.js';
 import { initialize as initializeLoop } from './loop.js';
 import { initialize as initializeDevtools } from './devtools.js';
+import { DEBUG } from './config.js';
+import { registerDiagnosticWork } from './diagnostic-work.js';
 import { initialize as initializeWard } from './ward.js';
 import { initialize as initializeExerciseYard } from './exercise-yard.js';
 import { initialize as initializeNoise } from './noise.js';
@@ -54,7 +55,13 @@ initializeExerciseYard();
 initializeWeather();
 initializeRooms();
 initializeNpcs();
-initializeWork();
+initializeClothingPalette(); // Keep the normal Ward palette unchanged after removing the eager Smithfield import.
+// Keep the original palette/boot order in debug sessions while avoiding Smithfield in normal play.
+if (DEBUG) {
+  const work = await import('./work.js');
+  registerDiagnosticWork(work);
+  work.initialize();
+}
 initializeNavigation();
 initializeSparring();
 initializeOptions();

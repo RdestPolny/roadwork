@@ -1,0 +1,33 @@
+name: Roadwork checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  unit-and-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser -- --only=crank
+      - run: npm run test:browser -- --only="prison day in phases"
+      - run: npm run test:browser -- --only="isometric fight in the yard"
+      - run: npm run test:browser -- --only="normal gameplay does not load Smithfield"

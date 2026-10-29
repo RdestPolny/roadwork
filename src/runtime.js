@@ -4,7 +4,7 @@ import { sessionTick } from './training-session.js';
 import { state as gymState, hubTick } from './gym.js';
 import { tickThamesPort } from './thames-port.js';
 import { sparUpdate } from './sparring.js';
-import { workTick, state as workState } from './work.js';
+import { diagnosticWork } from './diagnostic-work.js';
 import { pushupTick, solvePushup } from './pushups.js';
 import { pullupTick, solvePullup } from './pullups.js';
 import { roachTick } from './roaches.js';
@@ -34,7 +34,7 @@ export function update(){
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ hubTick(); if(boxingState.gstate==='hub') prisonTick(); return; }
   if(boxingState.gstate==='isofight'){ isoFightTick(); return; }
   if(boxingState.gstate==='spar'){ sparUpdate(); return; }
-  if(boxingState.gstate==='work'){ workTick(); if(!workState.WK.slowT||boxingState.tick%4===0) updateParticles(); return; }
+  if(boxingState.gstate==='work'){ diagnosticWork.workTick(); if(!diagnosticWork.state.WK.slowT||boxingState.tick%4===0) updateParticles(); return; }
   if(boxingState.gstate==='arm'){ armTick(); updatePopups(); return; }
   if(boxingState.flashL>0)boxingState.flashL--; if(boxingState.flashR>0)boxingState.flashR--;
   if(boxingState.gstate==='pushup'){ pushupTick(); updateParticles(); solvePushup(); updateShorts(); return; }

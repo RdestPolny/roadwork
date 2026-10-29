@@ -4,7 +4,6 @@ import { update } from './runtime.js';
 import { buildRing } from './sparring.js';
 import { state as inputState } from './input.js';
 import { render, resize } from './renderer.js';
-import { buildWorkBg, buildWorkLight } from './work.js';
 import { state as simulationState, simUI } from './simulation.js';
 import { roomsLoad, setRoomRaw } from './rooms.js';
 import { state as progressionState } from './progression.js';
@@ -33,8 +32,6 @@ state.acc = 0;
 state.last = 0;
 
 buildRing();
- buildWorkBg();
- buildWorkLight();
  resize();
 
 state.last=performance.now();

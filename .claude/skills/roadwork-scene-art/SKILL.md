@@ -1,6 +1,6 @@
 ---
 name: roadwork-scene-art
-description: Pixel-art look of Roadwork's scenes — isometric 2× hub rooms (288×192) and side-on 144×96 fight backdrops: walls, floors, props, background people, fog, breath, background animation and 60 fps motion. Use when the user asks to improve, rework or fix how a room or fight scene looks or moves ("tło", "pokój", "spacerniak", "cela", "łaźnia", "sylwetki", "mgła", "animacja tła", "klatkaż", "realizm"). Not for card rules, balance, menus or save logic.
+description: Pixel-art look of Roadwork's scenes — isometric 2× hub rooms (288×192) and side-on 144×96 shadow-training backdrops: walls, floors, props, background people, fog, breath, background animation and 60 fps motion. Use when the user asks to improve, rework or fix how a room or fight scene looks or moves ("tło", "pokój", "spacerniak", "cela", "łaźnia", "sylwetki", "mgła", "animacja tła", "klatkaż", "realizm"). Not for card rules, balance, menus or save logic.
 ---
 
 # Roadwork scene art
@@ -22,10 +22,10 @@ Read only the scene's section of the module (`grep -n "^export function\|^functi
 
 1. **Baseline render** before editing, so the user's complaint is visible:
    ```bash
-   node scripts/render-room.mjs --room=yard --fight=3:40 --times=600 --out=s0     # side-on fight, 3 frames 40 ticks apart
+   node scripts/iso-fight-shot.mjs --venue=yard --script='b.step(80); snap();'  # actual isometric brawl
    node scripts/render-room.mjs --room=yard --times=600,1230 --out=r0            # iso room at 10:00 and 20:30
    ```
-   `--room` = cell | yard | canteen | laznia; the fight uses that room's venue. Output: `artifacts/tmp/<out>.png`.
+   `--room` = cell | yard | laznia; `iso-fight-shot.mjs` controls the actual brawl. Output: `artifacts/tmp/<out>.png`.
 2. **Back up the module** to the scratchpad (`cp src/x.js $SCRATCH/x.orig.js`) — or save the baseline in Git / inspect `git diff` on your working branch. Do not overwrite others' changes.
 3. **Edit.** Replace a whole function body at a time with a Python `str.replace` + `assert old in s`, or splice
    by line range after asserting the boundary lines. Then `node --check <file>`.
@@ -40,7 +40,7 @@ Read only the scene's section of the module (`grep -n "^export function\|^functi
    `grep -c globalThis src/<file>.js` must print the original count.
 6. **Measure, don't eyeball, motion and timing:**
    ```bash
-   node scripts/render-room.mjs --room=yard --fight=9:1 --out=m1                   # 9 consecutive ticks
+   node scripts/iso-fight-shot.mjs --venue=yard --script='b.step(20); snap();'
    python3 .claude/skills/roadwork-scene-art/scripts/frames.py motion artifacts/tmp/m1.png --box=0,20,46,84
    node .claude/skills/roadwork-scene-art/scripts/perf.mjs --venue=yard            # ms per frame incl. the sim step
    ```
@@ -62,7 +62,7 @@ Read only the scene's section of the module (`grep -n "^export function\|^functi
 - People in the background walk like people: planted stance foot, long double support, hips rising over the standing
   leg, shoulders and head lagging behind it, varied height, stoop, arms and clothes, no two in step.
 - Ambient effects are sparse and random per person (`h2(id, slot)`), never everyone at once.
-- Keep the fighters readable: backdrop detail lives where the HUD does not cover it (see side-scene reference).
+- Keep combatants readable; the side-scene reference describes **shadow training**, not live prison brawls.
 
 ## Gotchas
 

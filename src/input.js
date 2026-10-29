@@ -15,7 +15,7 @@ import { simUI } from './simulation.js';
 import { state as gymState, clearHubInput } from './gym.js';
 import { statShort, setDevMode } from './progression.js';
 import { state as roomsState, actStop } from './rooms.js';
-import { state as workState, workHint, workKey, workTap, workStepKey, workEnd, workGo } from './work.js';
+import { diagnosticWork } from './diagnostic-work.js';
 import { sysKey } from './menu.js';
 import { dlgKey } from './dialog.js';
 import { state as optionsState, optsToggle } from './options.js';
@@ -122,7 +122,7 @@ export function setInfo(){
     return;
   }
   if(boxingState.gstate==='port'){ state.infoEl.textContent='PORT NAD TAMIZĄ · NOC'; state.nextEl.textContent='strzałki / WASD — ruch · E — podnieś / odłóż worek · Esc — powrót'; return; }
-  if(boxingState.gstate==='work'){ state.infoEl.textContent='RZEŹNIA · półtusza '+Math.min(workState.WK.n+(workState.WK.phase==='end'?0:1),workState.WK_N)+'/'+workState.WK_N+(workState.WK.drops?' · upuszczone: '+workState.WK.drops:''); state.nextEl.textContent=workHint()+(workState.WK.phase==='end'?'':' · Esc — koniec zmiany'); return; }
+  if(boxingState.gstate==='work'){ state.infoEl.textContent='RZEŹNIA · półtusza '+Math.min(diagnosticWork.state.WK.n+(diagnosticWork.state.WK.phase==='end'?0:1),diagnosticWork.state.WK_N)+'/'+diagnosticWork.state.WK_N+(diagnosticWork.state.WK.drops?' · upuszczone: '+diagnosticWork.state.WK.drops:''); state.nextEl.textContent=diagnosticWork.workHint()+(diagnosticWork.state.WK.phase==='end'?'':' · Esc — koniec zmiany'); return; }
   if(boxingState.gstate==='arm'){ const A=armState.A; state.infoEl.textContent='SIŁOWANIE NA RĘKĘ'+(A?' · '+A.name+(A.stake==='porcja'?' · o porcję':A.stake==='miejsce'?' · o miejsce':' · dla sportu'):''); state.nextEl.textContent=A&&A.result?'Enter — wróć do Wardu':'Spacja / E — pchnij w rytm kółka · przytrzymaj S / ↓ — zaprzyj się, gdy rywal czerwienieje · Esc — poddaj się'; return; }
   if(boxingState.gstate==='spar'){
     state.nextEl.textContent='';
@@ -222,7 +222,7 @@ addEventListener('keydown',e=>{
   if(boxingState.gstate==='port'){ if(thamesKey(e.code,true,e.repeat)){ e.preventDefault(); return; } if(!e.repeat&&e.code==='Escape'){ e.preventDefault(); exitToHub(); } return; }
   if(e.repeat)return;
   if(sessionKey(e)) return;
-  if(boxingState.gstate==='work'){ workKey(e); return; }
+  if(boxingState.gstate==='work'){ diagnosticWork.workKey(e); return; }
   if(boxingState.gstate==='crank'){ crankKey(e,true); return; }
   if(boxingState.gstate==='arm'){ armKey(e,true); return; }
   if(boxingState.gstate==='isofight'){ isoFightKey(e,true); return; }
@@ -277,9 +277,9 @@ document.querySelectorAll('#panel button[data-hk]').forEach(b=>{ const k=b.datas
 
 document.getElementById('hubUse').addEventListener('click',()=>{ if(boxingState.gstate!=='hub') return; if(roomsState.hubAct){ actStop(); return; } if(!navigationState.stMenuEl.hidden) stMenuPick(); else if(gymState.hubNear) stMenuOpen(gymState.hubNear); });
 
-document.querySelectorAll('#panel button[data-wk]').forEach(b=>b.addEventListener('pointerdown',e=>{ e.preventDefault(); if(boxingState.gstate!=='work') return; const k=b.dataset.wk; if(k==='m') workTap(); else if(k==='l') workStepKey(-1); else if(k==='r') workStepKey(1); else workEnd(); }));
+document.querySelectorAll('#panel button[data-wk]').forEach(b=>b.addEventListener('pointerdown',e=>{ e.preventDefault(); if(boxingState.gstate!=='work') return; const k=b.dataset.wk; if(k==='m') diagnosticWork.workTap(); else if(k==='l') diagnosticWork.workStepKey(-1); else if(k==='r') diagnosticWork.workStepKey(1); else diagnosticWork.workEnd(); }));
 
-document.getElementById('wkReturn').addEventListener('click',()=>workGo());
+document.getElementById('wkReturn').addEventListener('click',()=>diagnosticWork.workGo());
 
 document.getElementById('toMenu').addEventListener('click',exitToHub);
 

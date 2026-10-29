@@ -480,5 +480,5 @@ export function initialize(){
   state.drips=[0,1,2].map(k=>({k,i:2+k*3,j:1+k,z:10+k*4,v:0}));
 }
 
-/** The Ward is still drawn in code; the painted plate (ward-plate.js) is not wired in yet. */
+/** Compatibility flag consumed by room builders; the archived painted plate is not active. */
 export function wardPainted(){ return false; }

@@ -1,4 +1,4 @@
-import { setRamp, state as appearanceState, rgb, rampIndex } from './appearance.js';
+import { setRamp, initializeClothingPalette, state as appearanceState, rgb, rampIndex } from './appearance.js';
 import { state as sparringState } from './sparring.js';
 import { state as boxingState, h2, drawText, solve, ik, torsoEdge, drawLeg, drawBoxer, drawParticles, drawPopups, popup, spawn, resetClock, predictApex, startMove, commitWalk, handleEvents, spawnSweat, setFlow } from './boxing.js';
 import { state as rendererState, line, pset, taper } from './renderer.js';
@@ -14,7 +14,7 @@ import { simUI, simTime, simFormText } from './simulation.js';
 import { leaveMode, setPanelMode, enterHub } from './navigation.js';
 import { workNorma } from './prison-data.js';
 
-// Runtime values owned by work; initialized explicitly by main.js.
+// Diagnostic-only Smithfield prototype; loaded and initialized by main.js only for ?debug=1.
 export const state = {}; // belly side (v < 0): thin flank, then the belly and ribs sag out
 function carcSide(A,u){ const f=Math.max(0,Math.min(0.9999,u))*11, i=f|0, t=f-i; return A[i]+(A[i+1]-A[i])*t; } function dimCol(c,k){ const r=c&255,g=(c>>8)&255,b=(c>>16)&255; return (0xff000000|(Math.min(255,b*k*0.8+3)<<16)|((g*k*0.87)<<8)|(r*k*0.9))>>>0; } function drawCarcassAt(px,py,a,dim,sc,dmg){
   sc=sc||1; const L=state.WK_L*sc, dx=Math.cos(a), dy=Math.sin(a), nx=-dy, ny=dx, ex=px+dx*L, ey=py+dy*L, m=7*sc;
@@ -639,13 +639,13 @@ export function workTick(){
   }
 }
 
-/** Start a shift of hauling half carcasses. In prison (the schedule's work block) the target follows the assignment
+/** Start the optional Smithfield diagnostic prototype. The retired paid-work schedule used to set the assignment
  * stage, the block's minutes pass at the end and `onEnd` gets the quota; without it this is the debug prototype.
  * @param {{target?:number,minutes?:number,returnSt?:any,onEnd?:(r:{norma:number,hung:number,target:number,drops:number,punches:number,grade:string,gained:string})=>void}} [o] */
 export function startWork(o={}){
   state.shift=o.onEnd?o:null; state.WK_N=o.target||8; state.result=null;
   leaveMode(); initAudio();
-  boxingState.gstate='work'; boxingState.mode=boxingState.M_FREE; buildWorkBg(); beginSession('work',{silent:true,ownEsc:true}); setFlow(false); boxingState.hitstop=0; boxingState.shakeT=0;
+  boxingState.gstate='work'; boxingState.mode=boxingState.M_FREE; buildWorkBg(); buildWorkLight(); beginSession('work',{silent:true,ownEsc:true}); setFlow(false); boxingState.hitstop=0; boxingState.shakeT=0;
   const outfitSlots=[appearanceState.R_SHIRT,appearanceState.R_SHIRTF,appearanceState.R_APRON,appearanceState.R_PANT,appearanceState.R_PANTF];
   state.outfitBefore=outfitSlots.map(slot=>[slot,Array.from(appearanceState.PAL.slice(slot*3,slot*3+3),c=>
     '#'+[c&255,(c>>8)&255,(c>>16)&255].map(v=>v.toString(16).padStart(2,'0')).join(''))]);
@@ -738,13 +738,7 @@ state.WK_L = 28;
 state.WK_T = 64;
 state.WK_STRIDE = 10;
 
-setRamp(appearanceState.R_SHIRT,['#8e949e','#c9cdd6','#eef0f4'],false);
- setRamp(appearanceState.R_SHIRTF,['#8e949e','#c9cdd6','#eef0f4'],true);
-
-setRamp(appearanceState.R_APRON,['#b4b8c2','#e6e8ee','#ffffff'],false);
-
-setRamp(appearanceState.R_PANT,['#262a34','#3a404e','#565e70'],false);
- setRamp(appearanceState.R_PANTF,['#262a34','#3a404e','#565e70'],true);
+initializeClothingPalette(); // Uses the same base ramps as the normal prison session.
 
 sparringState.WORK_RAMPS=appearanceState.PAL.slice(appearanceState.R_SHIRT*3,(appearanceState.R_PANTF+1)*3);
 
