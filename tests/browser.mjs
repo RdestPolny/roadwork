@@ -460,11 +460,25 @@ try {
       await page.evaluate(()=>window.__boxer.step(120));
       assert.equal((await player()).carrying,true,'the dropped sack can be picked up again');
       const horseAnimated=await page.evaluate(async()=>{
-        const b=window.__boxer, {state}=await import('/src/renderer.js');
-        const head=()=>{const pixels=[];for(let y=48;y<88;y++) for(let x=242;x<285;x++) pixels.push(state.hd.fb[y*288+x]);return pixels.join(',');};
-        const before=head();b.step(45);return before!==head();
+        const T=await import('/src/thames-port.js'),G=await import('/src/gym.js'),
+          R=await import('/src/renderer.js'),b=window.__boxer;
+        // This regression predates 432x288 and sampled the retired 288x192 buffer.
+        // Frame the horse directly, above dry cobbles, and inspect its actual HD head.
+        T.startThamesPort();
+        T.debugPortView(12,7.5);b.step(3);R.render();
+        const [cx,cy]=T.withThamesCamera(()=>[G.isoX(14.2,6.2),G.isoY(14.2,6.2,16)]);
+        const head=()=>{const pixels=[],fb=R.state.hd3.fb;
+          for(let y=Math.max(0,Math.floor(cy-24));y<Math.min(288,Math.ceil(cy+24));y++)
+            for(let x=Math.max(0,Math.floor(cx-24));x<Math.min(432,Math.ceil(cx+24));x++)
+              pixels.push(fb[y*432+x]);
+          return pixels.join(',');
+        };
+        const before=head();b.step(45);R.render();
+        const changed=before!==head();
+        T.startThamesPort();
+        return changed;
       });
-      assert.equal(horseAnimated,true,'the horse moves its head independently of the water');
+      assert.equal(horseAnimated,true,'horse head movement is visible in the native 432x288 port scene');
       const beforePan=await page.locator('#stage canvas').first().evaluate(c=>c.toDataURL());
       await page.keyboard.down('ArrowRight');
       await page.evaluate(()=>window.__boxer.step(20));
