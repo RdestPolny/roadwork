@@ -13,7 +13,7 @@ Otwórz [http://127.0.0.1:5173](http://127.0.0.1:5173). Port można zmienić prz
 
 ## Grafika i rozdzielczość
 
-Ward (cela), jego wyposażenie, wszystkie postacie oraz odbywające się w nim bójki, także przy posiłku, są renderowane w buforze **432×288**. W 3× dopracowano drobne piksele na cegle, kamiennych płytach, drewnianej pryczy, rysach ścian i przy zwierzętach oraz na twarzach i ubraniach współwięźniów. Zegar, AI, hitboxy, głębia, interakcje i format zapisu nie zmieniają się. Komiks nokdaunu dopasowuje panele do 3×. Spacerniak, łaźnia, port i pozostałe sceny używają dotychczasowych buforów; test piaskowej areny nadal jest w debug.
+Ward (cela), jego wyposażenie, wszystkie postacie oraz odbywające się w nim bójki, także przy posiłku, są renderowane w buforze **432×288**. W 3× dopracowano drobne piksele na cegle, kamiennych płytach, drewnianej pryczy, rysach ścian i przy zwierzętach oraz na twarzach i ubraniach współwięźniów. Zegar, AI, hitboxy, głębia, interakcje i format zapisu nie zmieniają się. Komiks nokdaunu dopasowuje panele do 3×. Spacerniak, łaźnia i port (eksploracja oraz bójki) używają tego samego natywnego bufora **432×288**; piaskowa arena nadal pozostaje w debug. Wspólne detale `figureHD` uwzględniają kaptury i stroje kąpielowe. Boczne minigry zachowują własne rozdzielczości.
 
 ## Gra
 
@@ -46,7 +46,7 @@ Narzędzia dostępne są wyłącznie pod [/?debug=1](http://127.0.0.1:5173/?debu
 
 Pod `?debug=1` w Opcjach → „Tryb developerski (przełącz scenę)” dostępny jest także animowany podgląd portu nad Tamizą. Strzałki lub WASD poruszają postacią, kamera podąża za nią, a Esc wraca do poprzedniego pokoju; scena nie wpływa na zapis. Po drugim worku zaczyna się scena z pijakiem, po wygranej bójce scena z wozem policyjnym i morderstwem, na końcu przeniesienie do Wardu; kamera najeżdża na mówiącego, a kwestie pojawiają się w dymkach nad głowami. Do oglądania scen: `(await import('/src/thames-port.js')).startPortScene('before')` albo `'after'`.
 
-Pod `?debug=1` w **Opcjach → Tryb developerski (przełącz scenę) → HD Fight Test — Bohater vs Harry (432×288)** dostępny jest osobny test wyższej rozdzielczości: piaskowa arena, ten sam izometryczny szkielet, ciosy i AI Harry’ego, ale bogatsze detale twarzy, włosów i więziennego ubrania. **R** zaczyna test od nowa, **F9** zapisuje PNG 432×288, **F8** zamraża klatkę (kropka — pojedynczy krok), **Esc** wraca do poprzedniego pokoju. Test nie przyznaje XP, nie dodaje kontuzji ani wpisów do bilansu bójek. Walka na spacerniaku i w łaźni zachowuje bufor 288×192; zwykłe bójki w Wardzie korzystają już z 432×288.
+Pod `?debug=1` w **Opcjach → Tryb developerski (przełącz scenę) → HD Fight Test — Bohater vs Harry (432×288)** dostępny jest osobny test wyższej rozdzielczości: piaskowa arena, ten sam izometryczny szkielet, ciosy i AI Harry’ego, ale bogatsze detale twarzy, włosów i więziennego ubrania. **R** zaczyna test od nowa, **F9** zapisuje PNG 432×288, **F8** zamraża klatkę (kropka — pojedynczy krok), **Esc** wraca do poprzedniego pokoju. Test nie przyznaje XP, nie dodaje kontuzji ani wpisów do bilansu bójek. Wszystkie standardowe bójki izometryczne — w Wardzie, podczas posiłku, na spacerniaku, w łaźni i porcie — korzystają z 432×288.
 
 Diagnostyka pod `?debug=1`: `window.__boxer.startSpar(0, 'cell')` uruchamia bójkę izometryczną (`isoFightFinish(0, 'KO')` kończy ją na korzyść gracza). Zestaw skilli, Cechy i drzewka ciosów z [CIOSY.md](CIOSY.md) są rozwojem postaci, który nie wpływa jeszcze na bójkę w czasie rzeczywistym.
 
@@ -59,6 +59,8 @@ Usunięto karcer i jego sceny, brygadę torową, współczesny dom i siłownię,
 Kopia sprzed porządków jest w `../Roadwork-backup-przed-porzadkami`. `reference/boxer_heavybag-2.html` pozostaje nietkniętym oryginałem porównawczym. Mapa kodu: [ARCHITECTURE.md](ARCHITECTURE.md). Rozwój: [PROGRESSION.md](PROGRESSION.md). Świat i fabuła: [PRISON.md](PRISON.md), [NEWGATE.md](NEWGATE.md). Zachowany diagnostyczny silnik kart i historia wdrożenia: [KARCIANKA.md](KARCIANKA.md). Talia, ruchy i ich rozwój (projekt): [TALIA.md](TALIA.md).
 
 ## Sprawdzenia
+
+Scenariusz `npm run test:browser -- --only=432x288` wytwarza w `artifacts/` sześć natywnych PNG eksploracji i bójek ze spacerniaka, łaźni i portu. Wymaga uruchomienia Playwright i ręcznego porównania wyników z Wardem HD.
 
 ```sh
 npm test
