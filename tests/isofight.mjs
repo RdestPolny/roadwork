@@ -245,12 +245,13 @@ export async function checkIsoFight(page){
 /** The brawl in the yard, in the bath and at the meal happens in that room. */
 export async function checkIsoFightRooms(page){
   const r=await page.evaluate(async()=>{
-    const b=window.__boxer, I=await import('/src/iso-fight.js'), S=I.state, out={};
+    const b=window.__boxer, I=await import('/src/iso-fight.js'), R=await import('/src/renderer.js'), S=I.state, out={};
     const rng=Math.random;
     try{
       for(const [venue,idx,room] of [['yard',0,'yard'],['laznia',1,'laznia'],['canteen',0,'cell']]){
         Math.random=rng; b.goRoom(room); b.pause(); b.startSpar(idx,venue); b.step(200);
         out[venue]=[b.gstate,S.venue,b.room,S.phase,Number.isFinite(S.P.i)&&Number.isFinite(S.O.i)];
+        out[venue+'Frame']=[R.isometricFrame(venue).W,R.isometricFrame(venue).H];
         b.exitToHub(); out[venue+'Back']=[b.gstate,b.room];
       }
     } finally { Math.random=rng; }
@@ -259,4 +260,5 @@ export async function checkIsoFightRooms(page){
   assert.deepEqual(r.yard,['isofight','yard','yard','fight',true]); assert.deepEqual(r.yardBack,['hub','yard']);
   assert.deepEqual(r.laznia,['isofight','laznia','laznia','fight',true]); assert.deepEqual(r.lazniaBack,['hub','laznia']);
   assert.deepEqual(r.canteen,['isofight','canteen','cell','fight',true]); assert.deepEqual(r.canteenBack,['hub','cell']);
+  for(const venue of ['yard','laznia','canteen']) assert.deepEqual(r[venue+'Frame'],[432,288],venue+' combat framebuffer');
 }
