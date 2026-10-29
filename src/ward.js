@@ -171,6 +171,49 @@ export function floorCol(x,y){
   return c;
 }
 
+/** Fine masonry pores and hand-cut scratches at 432×288. The 2× art never enters this pass.
+ * This works on the existing material colours, so the room layout and collisions stay intact. */
+function wardFineDetail(){
+  if(gymState.ISO_K!==3) return;
+  const W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb;
+  const wall=new Set([...C.ash,...C.lime,...C.brick,C.stone,C.stoneD,C.stoneT]);
+  const flags=new Set(C.flag);
+  const wood=new Set([C.wood,C.woodD,C.woodH]);
+  const tick=new Set([C.tick,C.tickS,C.tickH,C.rag,C.ragD]);
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    const p=y*W+x, c=fb[p], n=h2(x*17+31,y*19+73), m=h2(x*3+101,y*5+7);
+    if(wall.has(c)){
+      if(n<13) fb[p]=shadeC(c,0.7);
+      else if(n>245&&m>170) fb[p]=shadeC(c,1.2); // chipped stone catches light on just one physical pixel
+    } else if(flags.has(c)){
+      if(n<17&&m<170) fb[p]=shadeC(c,0.72);
+      else if(n>249) fb[p]=shadeC(c,1.18); // fine dirt and flint crystals in the flags
+    } else if(wood.has(c)){
+      if(n<6) fb[p]=shadeC(c,1.21);
+    } else if(tick.has(c)&&n<13) fb[p]=shadeC(c,0.83);
+  }
+  // Thin cuts in the floor and in the masonry; precise world coordinates keep them attached to the room.
+  const score=(points,col)=>{ for(let k=1;k<points.length;k++){
+    const a=points[k-1],b=points[k]; isoLineThin(a[0],a[1],a[2],b[0],b[1],b[2],col,col);
+  } };
+  score([[2.0,3.92,0.03],[2.22,4.12,0.03],[2.39,4.04,0.03],[2.63,4.29,0.03],[2.76,4.22,0.03]],C.fjoint);
+  score([[8.76,5.25,0.03],[9.04,5.49,0.03],[9.17,5.45,0.03],[9.43,5.70,0.03]],C.fjoint);
+  score([[4.40,0.008,13.9],[4.53,0.008,13.1],[4.48,0.008,12.8],[4.67,0.008,12.3]],C.scratchD);
+  score([[0.008,4.30,13.7],[0.008,4.43,13.2],[0.008,4.38,12.7],[0.008,4.56,12.3]],C.scratchD);
+}
+
+/** Fine wood grain, iron nails and cracked planks, using the same bed geometry. */
+function guardBedFineDetail(i0,i1,j1,z){
+  if(gymState.ISO_K!==3) return;
+  for(let k=0;k<Math.floor((i1-i0)*4);k++){
+    const i=i0+0.2+k*0.25;
+    if(i>i1-0.13) break;
+    const drift=(h2(k,19)&7)*0.015;
+    isoLineThin(i,j1,z-0.57-drift,i+0.12,j1,z-0.63-drift,k%3===0?C.woodK:C.woodD);
+    if(k%4===0){ const x=Math.round(isoX(i,j1)),y=Math.round(isoY(i,j1,z-0.20)); pset(x,y,C.rivet); pset(x+1,y,C.woodK); }
+  }
+}
+
 /** Build the Ward into the background buffer: walls, floor, scratches, the flat items. */
 export function buildWard(){
   const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, OX=gymState.HUB_OX, OY=gymState.HUB_OY, WH=gymState.HUB_WH;
@@ -178,6 +221,7 @@ export function buildWard(){
   quad(0,0,0,0,WARD_H,0,0,WARD_H,WH,0,0,WH,(x,y)=>{ const j=(OX-x)/6, z=OY+j*3-y; return wardWallCol(j,z,x,y,false); });
   quad(0,0,0,WARD_W,0,0,WARD_W,0,WH,0,0,WH,(x,y)=>{ const i=(x-OX)/6, z=OY+i*3-y; return wardWallCol(i,z,x,y,true); });
   quad(0,0,0,WARD_W,0,0,WARD_W,WARD_H,0,0,WARD_H,0,floorCol);
+  wardFineDetail();
   scratches();
   isoLine(0,WARD_H,0,WARD_W,WARD_H,0,appearanceState.C_FLOOR_EDGE); isoLine(WARD_W,0,0,WARD_W,WARD_H,0,appearanceState.C_FLOOR_EDGE);
 }
@@ -209,6 +253,7 @@ function guardBed(it){
     if(fz>Z-0.25) return C.woodH; if(fz<Z-1.55) return C.woodK;
     if(((fi*1.7)%1)<0.05&&fz>Z-1.2&&fz<Z-0.6) return C.rivet;                                 // nail heads
     return h2(Math.floor(fi*3),Math.floor(fz*2))<50?C.woodD:C.wood; });
+  guardBedFineDetail(i0,i1,j1,Z);
   if(B2) quad(i1,j0,0,i1,j1,0,i1,j1,Z,i1,j0,Z,(x,y)=>{ faceI(i1,x,y); return roomsState.fz>Z-1.7?(roomsState.fz>Z-0.25?C.woodH:C.woodD):C.woodK; });
   quad(i0,j0,Z,i1,j0,Z,i1,j1,Z,i0,j1,Z,(x,y)=>{ floorAt(x,y,Z); const fj=roomsState.fz, fi=roomsState.fa, pl=Math.floor(fj/0.42), e=fj/0.42-pl;   // planks along the bed
     if(e<0.09) return C.woodK; const n=h2(Math.floor(fi*2.5)+pl*7,pl);
