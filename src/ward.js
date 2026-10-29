@@ -378,8 +378,8 @@ export function wardBlanket(A){
 /** Before the lighting pass (they are lit with the room): rats along the walls, flies over the tub, drops from the vault. */
 /** Flies circling a spot of the Ward (the tub, a man who stinks like it). @param {number} ci @param {number} cj @param {number} z @param {number} n */
 export function wardFlies(ci,cj,z,n){
-  const t=boxingState.tick;
-  for(let k=0;k<n;k++){ const a=t*0.09*(1+k*0.13)+k*2, x=Math.round(isoX(ci,cj)+Math.cos(a)*(5+k*2)+Math.sin(t*0.31+k)*2), y=Math.round(isoY(ci,cj,z+k*0.8)+Math.sin(a*1.7)*3);
+  const t=boxingState.tick, s=gymState.ISO_K/2;
+  for(let k=0;k<n;k++){ const a=t*0.09*(1+k*0.13)+k*2, x=Math.round(isoX(ci,cj)+Math.cos(a)*(5+k*2)*s+Math.sin(t*0.31+k)*2*s), y=Math.round(isoY(ci,cj,z+k*0.8)+Math.sin(a*1.7)*3*s);
     pset(x,y,C.fly); if((t+k)&1) pset(x+1,y,C.fly); }
 }
 
@@ -388,7 +388,10 @@ function drawRat(R, t){
   const x = Math.round(isoX(R.i, R.j)), y = Math.round(isoY(R.i, R.j, 0));
   const dir = (R.fi - R.fj) >= 0 ? 1 : -1;
   const isMoving = R.wait === 0, sn = (R.wait > 0 && ((t >> 2) & 1)) ? 1 : 0, run = (t >> 1) & 1;
-  const dot = (dx, dy, col) => pset(x + dx * dir, y + dy, col);
+  const s=gymState.ISO_K/2;
+  const dot=(dx,dy,col)=>{ const px=x+Math.round(dx*dir*s), py=y+Math.round(dy*s); pset(px,py,col);
+    if(gymState.ISO_K===3&&dx>=-2&&dx<=1&&dy<0&&(col===C.rat||col===C.ratDark||col===C.ratH)) pset(px+dir,py,col);
+  };
 
   // 1. Soft contact shadow on the flagstones
   dot(-1, 0, C.ratShadow);
@@ -439,10 +442,11 @@ export function wardRoaches(bed){
       if(onBed!==bed) continue;
       const i=8.0+k*0.55+Math.sin(p*Math.PI*2+k)*0.35;
       const j=onBed?(p-0.72)*3:0, z=travel?13-Math.min(1,p/0.72)*(13-PALLET_Z):11.7+p*3.2;
-      const x=Math.round(isoX(i,j)), y=Math.round(isoY(i,j,z)), leg=moving?((boxingState.tick>>1)+k&1):0;
-      pset(x-1,y-1,C.roachLeg); pset(x+1,y+1,C.roachLeg);
-      pset(x-1,y+leg,C.roachLeg); pset(x+1,y-leg,C.roachLeg);
+      const x=Math.round(isoX(i,j)), y=Math.round(isoY(i,j,z)), leg=moving?((boxingState.tick>>1)+k&1):0, s=gymState.ISO_K===3?2:1;
+      pset(x-s,y-s,C.roachLeg); pset(x+s,y+s,C.roachLeg);
+      pset(x-s,y+leg,C.roachLeg); pset(x+s,y-leg,C.roachLeg);
       pset(x,y,C.roach); pset(x,y-1,C.roachH);
+      if(s===2){ pset(x+1,y,C.roach); pset(x-1,y,C.roachH); pset(x,y-2,C.roachH); pset(x+1,y-3,C.roachLeg); }
     }
   }
 }
