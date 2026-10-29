@@ -6,6 +6,7 @@ import { PORT_BRAWL } from './port-story.js';
    the hub rooms (figureHD) posed for a stance, a punch and a slip. */
 
 import { state as boxingState, popup, drawText } from './boxing.js';
+import { renderSandyArena, drawSandyFighterDetails, drawSandyFootDust } from './hd-fight-scene.js';
 import { state as appearanceState, rgb } from './appearance.js';
 import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, setFightSpectators } from './gym.js';
 import { state as rendererState, zoomBlit, screenToView, setFramebuffer } from './renderer.js';
@@ -96,7 +97,7 @@ function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
 
 /** Where the two stand: on the floor of the room, facing each other along the screen's horizontal, as in the side view.
  * @param {string} room @returns {[number[],number[]]} */
-function fightBlocked(i,j){ return state.venue==='port' ? thamesBlocked(i,j) : hubBlocked(i,j); }
+function fightBlocked(i,j){ return state.venue==='sandy'?Math.hypot(i-5.55,j-5.15)>3.6:state.venue==='port'?thamesBlocked(i,j):hubBlocked(i,j); }
 function startSpots(room){
   const [w,h]=hubBounds(), pref=room==='cell'?[5.55,5.15]:[w/2,h/2], d=[0.7071,-0.7071], half=0.78;
   for(let r=0;r<6;r+=0.4) for(let a=0;a<(r?16:1);a++){
@@ -116,19 +117,20 @@ function foeFigure(venue,idx,O){
 /** Begin a brawl against rival `idx` of `venue` in that venue's isometric room; `station` is where the hero returns to.
  * @param {number} idx @param {string} [venue] @param {any} [station] */
 export function startIsoFight(idx,venue,station){
-  const S=state, save=progressionState.save, V=venue??sparringState.sparVenue, room=V==='port'?'port':V==='yard'||V==='laznia'?V:'cell';
+  const S=state, save=progressionState.save, V=venue??sparringState.sparVenue, sandbox=V==='sandy', room=V==='port'?'port':V==='yard'||V==='laznia'?V:'cell';
+  const returnRoom=sandbox?(S.venue==='sandy'?S.returnRoom:gymState.hubRoom):null;
   S.portraits=null;
   initAudio(); inputState.overEl.hidden=true;
-  setSparFight(idx,V,station);
+  setSparFight(idx,sandbox?'cell':V,station);
   if(room!=='port'&&gymState.hubRoom!==room){ setRoomRaw(room); hubRebake(); }
   const O=V==='port'?{...oppDef(idx),name:'PIJANY',title:'Pijany doker'}:oppDef(idx), st=save.stats, PS=fighterStats({str:st.str.lvl,spd:st.spd.lvl,end:st.end.lvl}), OS=fighterStats(oppLevels(O));
-  const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:startSpots(room);
+  const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:startSpots(room);
   S.P=makeFighter(pa[0],pa[1],0.7071,-0.7071,hero.look,hero.wrap,{hpMax:100+PS.hpBonus,staCap:3*Math.max(25,cap),pow:PS.pow,regen:PS.regen,hunger:hungerLevel()},PS,-1);
   S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
   Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,push:null,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
-    notice:'1-4 ciosy · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null});
-  if(room==='cell'){
+    notice:'1-4 ciosy · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
+  if(room==='cell'&&!sandbox){
     const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2]];
     const spectators=[...npcsState.CN,npcsState.STINK].filter(C=>String(C.name).toUpperCase()!==O.name).map((C,k)=>{
       const [di,dj]=positions[k%positions.length], i=center[0]+di, j=center[1]+dj, len=Math.hypot(di,dj);
@@ -141,7 +143,7 @@ export function startIsoFight(idx,venue,station){
   gymState.actors=[S.P,S.O]; gymState.preScene=drawDecals; gymState.hubNear=null; hubTransReset();
   boxingState.gstate='isofight';
   document.body.classList.remove('hub','pushup','port'); document.body.classList.add('spar');
-  showFightPlate(V,O.title);
+  showFightPlate(sandbox?'cell':V,O.title);
   setInfo();
 }
 
@@ -155,6 +157,9 @@ export function isoFightFinish(side,how='KO'){
 
 /** Leave the fight state (the hub entry restores the rest). */
 export function stopIsoFight(){ setFightSpectators(null); state.on=false; state.phase='off'; gymState.actors=null; gymState.preScene=null; state.keys={}; state.guardHeld=false; state.clinch=false; state.push=null; hideFightPlate(); }
+
+/** Return to the room where the HD preview was opened. */
+export function sandyFightReturnRoom(){ return state.returnRoom||'cell'; }
 
 /** Where the fight left things for the hub: rival, venue, whether the hero won, and the station to return to. */
 export function isoFightOutcome(){ const S=state; return {idx:S.idx,venue:S.venue,won:S.phase==='end'&&S.winner===S.P,station:sparringState.cellFightSt}; }
