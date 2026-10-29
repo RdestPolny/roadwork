@@ -16,7 +16,7 @@ export function dashPose(u){
   return {
     load:u<.12?Math.sin(Math.PI*u/.24):Math.max(0,1-(u-.12)/.18),
     push:u<.1?0:Math.sin(Math.PI*Math.min(1,(u-.1)/.66)),
-    land:u>.76?Math.sin(Math.PI*(u-.76)/.48):0
+    land:u>.76?Math.sin(Math.PI*(u-.76)/.24):0
   };
 }
 /** Choose a direction from the pointer, falling back to last movement. @param {number[]} pointer @param {number[]} last */
