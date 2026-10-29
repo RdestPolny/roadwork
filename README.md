@@ -75,3 +75,9 @@ Cień korzysta z bocznej ściany Wardu wspólnej z pompkami, rysowanej w `src/wa
 `npm test` obejmuje czyste parametry dasha, a `npm run test:browser -- --only="combat dash"` sprawdza sekwencje F → cios, dwa dashe i LPM. Scenariusz `--only="combat dash visual"` zapisuje osiem ujęć do `artifacts/combat-footwork/` (potrzebny przegląd wzrokowy).
 
 `node scripts/render-room.mjs --room=yard --times=600,1230 --out=yard` tworzy zrzut do oceny grafiki. `node scripts/iso-fight-shot.mjs --venue=yard --script='b.step(80); snap();'` tworzy zrzut bójki izometrycznej.
+
+## Edmund „The Bull” Briggs — ciężki rywal z Wardu
+
+Przy pierwszej pryczy przy ścianie siedzi nowy, łysy więzień z wąsem — Edmund „The Bull” Briggs. Ma osobny proceduralny wariant `bodyType: 'heavy'`, tę samą strukturę szkieletu i IK oraz własny profil `bull`, bez zmian balansu innych rywali. Jest wolny, mocno bije szerokimi sierpowymi, a każdy zupełnie nietrafiony ciężki cios szybko go męczy. Po około trzech pudłach opuszcza gardę i przez około 2,6 s łapie oddech. Wykorzystaj dash F do sprowokowania pudła i doskocz z kontrą.
+
+Pod `?debug=1` można od razu uruchomić `window.__boxer.startSpar(5, 'cell')` — bez zmieniania istniejącego Waltera „Chudego” Pratta. Logika zmęczenia jest testowana przez `node --test tests/heavy-bruiser.test.js`; scenariusze przeglądarkowe można uruchomić przez `npm run test:browser -- --only="heavy bull"`, a dziewięć kadrów 432×288 przez `npm run test:browser -- --only="heavy bull visual"` (pliki `artifacts/the-bull/` — wymagają wzrokowej weryfikacji).

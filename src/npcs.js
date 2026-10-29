@@ -159,6 +159,12 @@ function cnFree(C,key){ return !state.CN.some(o=>o!==C&&o.res===key); } function
     const seat=WARD_SEATS[1]; C.res='stool1'; P.push({k:'go',i:seat.a[0],j:seat.a[1]},{k:'sit',s:seat,d:900+(R()*1100|0)});
     return;
   }
+  if(C.name==='Briggs'){
+    // The spare bed is the first seat on the back-wall guard-bed, away from Harry.
+    const seat=WARD_SEATS[0]; C.res='bull-bed';
+    P.push({k:'go',i:seat.a[0],j:seat.a[1]},{k:'bullSit',s:seat,night:true,d:999999});
+    return;
+  }
   if(cnNight()){ const B=cnBedOf(C); if(B){ C.res='bed'; P.push({k:'go',i:B.app[0],j:B.app[1]},{k:'sleep',night:true,d:999999}); return; } }
   if(C.name==='Jack'){
     const stage=C.routine||0;
@@ -193,6 +199,8 @@ function cnFree(C,key){ return !state.CN.some(o=>o!==C&&o.res===key); } function
   if(S.k==='go'){ C.act='walk'; if(cnWalk(C,S.i,S.j,0.022)){ C.step=null; } return; }
   if(S.f) npcFace(C,S.f[0],S.f[1],0.2);
   switch(S.k){
+    case 'bullSit': C.act='bullSit'; C.i=S.s.c[0]; C.j=S.s.c[1]; C.fi=S.s.f[0]; C.fj=S.s.f[1];
+      C.after=gymState.cellList.find(x=>x.t==='bunk')||null; break;
     case 'sit': C.act='sit'; C.i=S.s.c[0]; C.j=S.s.c[1]; C.fi=S.s.f[0]; C.fj=S.s.f[1];
       if(C.name==='Harry'&&state.PROF.visit?.kind==='harry'&&state.PROF.visit.arrived) npcFace(C,state.PROF.i-C.i,state.PROF.j-C.j,1);
       C.after=gymState.cellList.find(x=>(x.t==='bunk'||x.t==='bunk2')&&S.s.c[0]>=x.i&&S.s.c[0]<x.i+itemW(x)&&S.s.c[1]<x.j+itemH(x))||null; break;   /* sitting on the edge of the guard-bed */
@@ -417,6 +425,16 @@ export function cnDraw(C){
       }
       return; }
     case 'walk': case 'idle': case 'rest': case 'loose': case 'behind': drawIsoNPC(C); return;
+    case 'bullSit': {
+      // Deep breaths, elbows resting on knees; one hand wipes the bald head every few seconds.
+      const breathe=Math.sin(t*0.085), wipe=(t%530)>430?(Math.sin(Math.PI*(t%530-430)/100)):0;
+      const J=s=>({hip:[0.3,s*1.35,5.7],knee:[2.45,s*1.62,5.65],foot:[3.25,s*1.6,0.9],
+        sh:[1.25,s*3.0,10.75+0.24*breathe],
+        el:s===1&&wipe?[2.1,s*2.8,13.2]:[2.75,s*3.1,6.5],
+        hd:s===1&&wipe?[0.9,s*0.8,15.2]:[3.0,s*2.2,5.8]});
+      J.pel=[0,0,5.2]; J.chest=[1.4,0,10.4+0.32*breathe]; J.head=[2.0,0,13.8+0.16*breathe]; J.noShadow=true;
+      cnSkel(C,J,false); return; }
+
     case 'sit': {
       const eat=(!C.yard||C.smoke)&&(t%260)<60, bob=0.15*Math.sin(t*0.05);
       const J=s=>{ const R=s===1&&eat;
@@ -531,6 +549,9 @@ state.CN = [
   {name:'Reuben',rb:86,bed:{t:'bunk2',lv:1},sk:['#7a3f2b','#b86b45','#e59c6b'],hair:['#110b0b','#1e1414','#3b2b2b'],hd:{style:'shaved',mustache:true,chops:true,irons:true,scarf:0xff22306e}},
   {name:'Jack',rb:226,bed:{t:'bunk2',lv:2},sk:LOOK.skin.find(o=>o.id==='s1').ramp,hair:LOOK.hair.find(o=>o.id==='h2').ramp,hd:{style:'short',irons:true}},
   {name:'Walter',rb:236,bed:{t:'bunk2',lv:3},sk:LOOK.skin.find(o=>o.id==='s2').ramp,hair:LOOK.hair.find(o=>o.id==='h1').ramp,hd:{style:'buzz',stubble:true,irons:true}},
+  {name:'Briggs',rb:246,bed:{t:'bunk',lv:1},sk:['#a46f54','#d39473','#e7b08a'],hair:['#17110f','#2c1b16','#493028'],
+    hd:{bodyType:'heavy',bulk:{shoulders:1.26,arms:1.5,forearms:1.6,chest:1.3,belly:1.6,thighs:1.5,calves:1.4,neck:1.6,head:1.17},
+      style:'skinhead',mustache:true,heavyMustache:true,rolledSleeves:true,irons:true}},
 ];
 
 for(const C of state.CN){

@@ -67,3 +67,7 @@ Postęp Spacerniaka wynika z ukończenia pozycji 3, 5, 8 i 10 listy Profesora or
 ## Refinement ruchu 2026-10-29
 
 Wspólny bojowy szkielet w `iso-fight` (gracz, rywale i sparingowi NPC Wardu) blokuje stopę w jednostkach świata na podłożu. Cel następnego kroku wyznaczany jest tylko przy oderwaniu stopy, nie zmienia się podczas lotu, a kolejne kroki poprawiają pozycję zamiast teleportowania stóp. Zmiana ciężaru i ugięcie kolan reagują na start, hamowanie i dash; zwykli NPC eksploracji zachowują dotychczasowy cykl animacji. W `input` stan LPM jest ograniczony do aktywnej walki i czyszczony po puszczeniu przycisku, pauzie oraz utracie fokusu. Test przeglądarkowy `combat dash` sprawdza wejście, kolizje, bufory ciosów i zapisuje osiem pozycji do kontroli.
+
+## Profil nowego ciężkiego przeciwnika — Briggs
+
+`heavy-bruiser.js` zawiera izolowane parametry i czyste przejścia stanów ciężkiego przeciwnika. W `sparring.CELL_OPP[5]` Briggs ma własny profil `heavy:true`; `iso-fight` buduje jego tymczasowy stan `bull` przy każdej walce, niezależnie od zapisu. Faktyczne pudło (`gap > RANGE` lub idealny slip) jest rejestrowane podczas `impact`, nie przy zamachu; blok i trafienie nie zwiększają licznika. Po skończeniu ciosu przechodzi przez `EXHAUSTED`, `RESUME` i wraca do `APPROACH`. `figureHD` przyjmuje opcjonalne `L.bodyType='heavy'`, skalując bryły bez zmiany pozycji kości i IK, a `npcs` obsługuje nieaktywny bojowo stan `bullSit` na wolnej części guard-bedu. Parametry obrażeń i timingów są lokalne dla Briggsa, bez zmian w `realtime-rules`.

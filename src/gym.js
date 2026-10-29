@@ -282,15 +282,17 @@ function litEnd(lit,st,cx,cy){
  */
 export function figureHD(C,J,L,o={}){
   state.ipC=C; state.ipN=0; state.ipPose=o.pose||0; state.ipBase=o.base||0;
+  const heavy=L.bodyType==='heavy', bulk=heavy?{shoulders:1.26,arms:1.5,forearms:1.6,chest:1.3,belly:1.6,thighs:1.5,calves:1.4,neck:1.6,head:1.17,...(L.bulk||{})}:null;
+  const inhale=heavy?Math.sin((C.bullClock??(C.t||0)/60)*7)*((C.bull?.mode==='EXHAUSTED')?0.32:0.12):0;
   const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   for(let s=-1;s<=1;s+=2){
     const k=s===nearS?0:1, A=J(s), SK=L.sk[k], PT=L.pt[k], TP=L.top[k], wr=mix(A.el,A.hd,0.8), toe=[A.foot[0]+0.85,A.foot[1],A.foot[2]-0.25];
-    if(L.waist) ipAdd(...A.hip,1.3, ...A.knee,1.08, PT,L.waist,0.5,0.5,L.waist); else ipAdd(...A.hip,1.3, ...A.knee,1.08, PT);   /* thigh (the towel over its top half) */
-    ipAdd(...A.knee,1.02, ...A.foot,0.84, PT);                                                                   // shin
+    if(L.waist) ipAdd(...A.hip,1.3, ...A.knee,1.08, PT,L.waist,0.5,0.5,L.waist); else ipAdd(...A.hip,1.3*(bulk?.thighs||1), ...A.knee,1.08*(bulk?.thighs||1), PT);   /* thigh (the towel over its top half) */
+    ipAdd(...A.knee,1.02*(bulk?.calves||1), ...A.foot,0.84*(bulk?.calves||1), PT);                                                                   // shin
     ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15,0.92, ...toe,0.74, L.shoe);                                   // prison shoe
-    ipAdd(...A.sh,1.1, ...A.el,0.9, TP); ipAdd(...A.el,0.88, ...wr,0.76, L.rolledSleeves?SK:TP);
+    ipAdd(...A.sh,1.1*(bulk?.arms||1), ...A.el,0.9*(bulk?.arms||1), TP); ipAdd(...A.el,0.88*(bulk?.forearms||1), ...wr,0.76*(bulk?.forearms||1), L.rolledSleeves?SK:TP);
     ipAdd(...wr,0.62, ...A.hd,0.7, SK);                                                                          // hand
-    ipAdd(A.hip[0],A.hip[1],A.hip[2]+0.3,1.35, A.hip[0],A.hip[1]*0.4,A.hip[2]+0.4,1.4, L.waist||PT);            // seat of the trousers
+    ipAdd(A.hip[0],A.hip[1],A.hip[2]+0.3,1.35*(bulk?.thighs||1), A.hip[0],A.hip[1]*0.4,A.hip[2]+0.4,1.4*(bulk?.thighs||1), L.waist||PT);            // seat of the trousers
   }
   const P=J.pel, Q=J.chest, SL=J(-1).sh, SR=J(1).sh, T0=L.top[0], S0=L.sk[0];
   // The head and chest fixtures (face, collar, pocket...) sit in a frame that follows the neck and the spine, so a ragdoll that lies or
@@ -301,16 +303,22 @@ export function figureHD(C,J,L,o={}){
   const at=(/** @type {number[]} */ o,/** @type {number[]|null} */ fr)=>(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>fr?[o[0]+a*fr[0]+b*fr[3]+c*fr[6],o[1]+a*fr[1]+b*fr[4]+c*fr[7],o[2]+a*fr[2]+b*fr[5]+c*fr[8]]:[o[0]+a,o[1]+b,o[2]+c];
   const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],o.tilt?frame(Q,J.head):null), tp=at(Q,o.tilt?frame(P,Q):null), pp=at(P,o.tilt?frame(P,Q):null), H=hp(0,0,0);
   if(L.waist) ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist);              /* bare torso, the towel tucked in at the waist */
-  else ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),L.tuckedShirt?1.55:1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0);
-  ipAdd(SL[0],SL[1]*0.82,SL[2]-0.15,1.15, SR[0],SR[1]*0.82,SR[2]-0.15,1.15, T0);                               // shoulders
+  else ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),(L.tuckedShirt?1.55:1.85)*(bulk?.chest||1), Q[0],Q[1],Q[2]-0.3,2.2*(bulk?.chest||1), T0);
+  if(heavy){
+    // A real forward-projecting belly, attached to the spine. Soft delay is visual only: IK bone lengths remain unchanged.
+    const lag=Math.max(-0.28,Math.min(0.28,(C.lagF||0)*0.19)), r=2.35*bulk.belly;
+    ipAdd(...pp(1.5+lag,0,1.35),r*0.87+inhale, ...pp(2.15+lag,0,-1.05),r+inhale,T0);
+  }
+  ipAdd(SL[0],SL[1]*0.82,SL[2]-0.15,1.15*(bulk?.shoulders||1), SR[0],SR[1]*0.82,SR[2]-0.15,1.15*(bulk?.shoulders||1), T0);                               // shoulders
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
-  ipAdd(Q[0],Q[1],Q[2]+0.3,0.72, ...hp(-0.15,0,-1.3),0.68, HS);                                            // neck
-  ipAdd(...H,1.75, ...H,1.75, L.style==='fringe'?L.hair:HS);                                                       // skull beneath the hair
+  ipAdd(Q[0],Q[1],Q[2]+0.3,0.72*(bulk?.neck||1), ...hp(-0.15,0,-1.3),0.68*(bulk?.neck||1), HS);                                            // neck
+  ipAdd(...H,1.75*(bulk?.head||1), ...H,1.75*(bulk?.head||1), L.style==='fringe'?L.hair:HS);                                                       // skull beneath the hair
   if(L.style==='fringe') ipAdd(...hp(0.9,0,-0.2),1.15, ...hp(1.0,0,-0.65),1.0, S0);                     // face in front of the hair
   ipAdd(...hp(0.45,0,-0.7),1.2, ...hp(0.85,0,-1.15),0.95, HS);                                       // jaw and chin
   if(L.style!=='hood') for(let s=-1;s<=1;s+=2) ipAdd(...hp(-0.15,s*1.68,-0.15),0.42, ...hp(-0.1,s*1.68,-0.25),0.4, L.sk[s===nearS?0:1]);   // ears
   const st=L.style||'short';
   if(st==='long'){ ipAdd(...hp(-0.35,0,0.6),1.8, ...hp(-0.35,0,0.6),1.8, L.hair); ipAdd(...hp(-0.85,0,-0.3),1.45, ...hp(-1.0,0,-1.9),1.2, L.hair); }   // long, down the neck
+  else if(st==='skinhead') { /* completely bald: no hair cap or horseshoe */ }
   else if(st==='bald') ipAdd(...hp(-0.95,-1.25,0.15),0.85, ...hp(-0.95,1.25,0.15),0.85, L.hair);   // a horseshoe of hair round the back
   else if(st==='cap'){ ipAdd(...hp(-0.25,0,1.25),1.55, ...hp(-0.25,0,1.45),1.5, L.cap??L.hair); ipAdd(...hp(1.2,-0.8,1.2),0.3, ...hp(1.35,0.8,1.2),0.3, L.shoe); }   /* peaked uniform cap */
   else if(st==='hood'){ const cr=L.cap??L.hair; ipAdd(...H,1.98, ...H,1.98, cr); ipAdd(...hp(0.45,0,-0.8),1.5, ...hp(0.65,0,-1.45),1.3, cr);   /* a canvas hood over head and face, */
@@ -323,6 +331,7 @@ export function figureHD(C,J,L,o={}){
   else if(st==='shaved')ipAdd(...hp(-0.25,0,0.35),1.76, ...hp(-0.25,0,0.35),1.76, L.hair);   // a hair cap a little larger than the skull:
   else { ipAdd(...hp(-0.3,0,0.6),1.8, ...hp(-0.3,0,0.6),1.8, L.hair);                       // it shows on top and at the back, the face covers its front
     if(st==='fringe') ipAdd(...hp(0.85,-0.95,1.15),0.52, ...hp(1.0,0.85,1.0),0.5, L.hair); }   // straight fringe
+  if(L.heavyMustache) ipAdd(...hp(1.7,-0.75,-0.68),0.56, ...hp(1.7,0.75,-0.68),0.56,L.hair);
   if(L.beard) ipAdd(...hp(0.75,0,-0.75),1.18, ...hp(0.95,0,-1.6),0.92, L.hair);
   if(L.chops) for(let s=-1;s<=1;s+=2) ipAdd(...hp(0.35,s*1.45,-0.1),0.52, ...hp(0.8,s*1.2,-1.25),0.5, L.hair);   /* mutton chops down to the jaw */
   for(let k=0;k<state.ipN;k++) state.ipOrd[k]=k;
@@ -347,10 +356,16 @@ export function figureHD(C,J,L,o={}){
   if(L.mustache||L.beard){ dot(...hp(1.6,-0.35,-0.62),sh(L.hair,L.beard?1:0),hd0); dot(...hp(1.6,0.35,-0.62),sh(L.hair,L.beard?1:0),hd0); }
   if(!L.beard) dot(...hp(1.5,-0.1,-1.0),LIP,hd0);                                                       // mouth (a beard hides it)
   if(L.stubble) for(const [f,sd,z] of [[1.2,-0.62,-1.05],[1.3,0.6,-1.1],[1.4,0,-1.4],[1.05,-0.95,-0.7],[1.05,0.95,-0.75]]) dot(...hp(f,sd,z),sh(S0,0),hd0);
-  if(L.cut) dot(...hp(1.78,-0.18,0.22),rgb('#b8402c'),hd0);                                            // the fresh cut on the bridge of the nose
+  if(L.cut) dot(...hp(1.78,-0.18,0.22),rgb('#b8402c'),hd0);
+  if(heavy&&C.bull?.mode==='EXHAUSTED'){
+    for(const s of [-1,1]) dot(...hp(1.05,s*1.10,-0.34),rgb('#ba655c'),hd0);
+    dot(...hp(0.95,-0.55,1.1),rgb('#c9dbd5'),hd0);
+    dot(...hp(1.35,0.9,0.8),rgb('#d2ddda'),hd0);
+  }                                            // the fresh cut on the bridge of the nose
   }
   bodyPt(...Q); const cd0=state.bpD, TD=sh(T0,0), TL=sh(T0,2);
   if(L.censor){ bodyPt(...pp(1.0,0,-0.5)); censor(Math.round(state.bpX),Math.round(state.bpY)); }
+  if(heavy&&C.bull?.mode==='EXHAUSTED') dot(...tp(2.25,0,-1.2),rgb('#796b65'),cd0);
   if(L.bare){ litFinish(); if(state.ISO_K===3&&state.ipPose===0&&!o.tilt) drawHDCharacterDetails(C,J,L); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
   dot(...tp(1.7,-0.55,0.15),TL,cd0); dot(...tp(1.7,0.55,0.15),TL,cd0);                     // collar points
   if(L.scarf!==undefined){ dot(...tp(1.75,0,0.25),L.scarf,cd0); dot(...tp(1.85,0.25,-0.3),L.scarf,cd0); dot(...tp(1.85,-0.2,-0.55),L.scarf,cd0); }   /* a knotted neckerchief */

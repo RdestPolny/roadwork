@@ -12,7 +12,7 @@ export async function checkIsoFight(page){
     try{
       b.goRoom('cell'); b.pause();
       const NPC=await import('/src/npcs.js'), SP=await import('/src/sparring.js'), savedMin=P.state.save.sim.min;
-      out.cellResidents=NPC.state.CN.slice(3).map((c,k)=>[c.name,SP.state.CELL_OPP[k+3]===SP.state.YARD_OPP[k],c.bed.lv]);
+      out.cellResidents=NPC.state.CN.slice(3,5).map((c,k)=>[c.name,SP.state.CELL_OPP[k+3]===SP.state.YARD_OPP[k],c.bed.lv]);
       out.harryRoutine=[];
       for(const min of [720,1380]) for(const random of [0.1,0.9]){
         P.state.save.sim.min=min; Math.random=()=>random; NPC.cnEnter();
@@ -191,7 +191,7 @@ export async function checkIsoFight(page){
   assert.deepEqual(r.cellResidents,[['Jack',true,2],['Walter',true,3]]);
   assert.deepEqual(r.cellFights,[['JACK',false],['WALTER',false]]);
   assert.deepEqual(r.harryRoutine,[['sit','sit','bunk2'],['sit','sit','bunk2'],['sit','sit','bunk2'],['sit','sit','bunk2']]);
-  assert.deepEqual(r.spectators,[['Zeke','cheer',false],['Reuben','cheer',false],['Jack','cheer',false],['Walter','cheer',false],['Śmierdziel','cheer',false],['Profesor','sit',true]]);
+  assert.deepEqual(r.spectators,[['Zeke','cheer',false],['Reuben','cheer',false],['Jack','cheer',false],['Walter','cheer',false],['Briggs','cheer',false],['Śmierdziel','cheer',false],['Profesor','sit',true]]);
   assert.deepEqual(r.start,['isofight','intro',true,'HARRY',true],'the fight opens on the plate in the isometric scene');
   assert.ok(r.stamina.every(cap=>cap>=200),'both fighters have a larger stamina reserve');
   assert.deepEqual(r.fight,['fight',true],'the plate goes after the intro');
