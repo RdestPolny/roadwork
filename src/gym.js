@@ -2,7 +2,7 @@ import { state as appearanceState, rgb, setRamp } from './appearance.js';
 import { carryingTray, drawHeldTray, mealDoorOptions, mealBedOptions, mealMateOptions } from './ward-meal.js';
 import { buildBath, drawBathItem, bathTick, bathOptions, bathFX, BATH_W, BATH_H, LAMPS as BATH_LAMPS, state as bathState } from './bath.js';
 import { gateOptions, listTag, prisonFightStart, prisonFightExtras } from './prison.js';
-import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
+import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, roomFrame, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
 import { lightCell, drawCellLights, cellLights } from './cell-light.js';
@@ -103,12 +103,12 @@ export // plane j=c (runs along i) / plane i=c (runs along j): a = position alon
 function wallJ(c,a0,a1,Hh,fn){ quad(a0,c,0,a1,c,0,a1,c,Hh,a0,c,Hh,(x,y)=>{ const a=(x-state.HUB_OX)/6+c, z=state.HUB_OY+(a+c)*3-y; return fn(a,z,x,y); }); } function wallI(c,a0,a1,Hh,fn){ quad(c,a0,0,c,a1,0,c,a1,Hh,c,a0,Hh,(x,y)=>{ const a=c-(x-state.HUB_OX)/6, z=state.HUB_OY+(c+a)*3-y; return fn(a,z,x,y); }); }
 
 export function shadeC(c,k){ return (0xff000000|(Math.min(255,((c>>16)&255)*k)<<16)|(Math.min(255,((c>>8)&255)*k)<<8)|Math.min(255,(c&255)*k))>>>0; } function buildHub(){                       // room shell (walls, floor) + everything flat, baked into bgHub
-  if(hdRoom()&&!rendererState.inHD){ withHD(buildHub); return; }   // the rooms bake into the 2× background
+  if(hdRoom()&&!rendererState.inHD){ withHD(buildHub,roomFrame()); return; }   // the rooms bake into the 2× background
   if(state.hubRoom==='yard') buildYard(); else if(state.hubRoom==='laznia') buildBath(); else buildCell();   // the Ward
 }
 
 
-export function hubRebake(){ roomsState.homeWx=weatherNow(); const bake=()=>{ buildHub(); for(const it of state.gymItems) if(!state.GYM_TYPES[it.t].flat) renderItemSprite(it); }; if(hdRoom()) withHD(bake); else bake(); }   /* the cell bakes at 2× */
+export function hubRebake(){ roomsState.homeWx=weatherNow(); const bake=()=>{ buildHub(); for(const it of state.gymItems) if(!state.GYM_TYPES[it.t].flat) renderItemSprite(it); }; if(hdRoom()) withHD(bake,roomFrame()); else bake(); }   /* the cell bakes at 2× */
 
 
 export /* ---------- geometry helpers (footprint rectangles in tile space) ---------- */
@@ -504,7 +504,7 @@ function drawScene(){
 }
 
 export function renderHub(){
-  if(hdRoom()&&!rendererState.inHD){ withHD(renderHub); return; }   // Newgate rooms are drawn into the 2× frame
+  if(hdRoom()&&!rendererState.inHD){ withHD(renderHub,roomFrame()); return; }   // Newgate rooms are drawn into the 2× frame
   rendererState.fb=rendererState.FB_MAIN; rendererState.fb.set(state.bgHub);
   if(state.preScene) state.preScene();   // marks on the floor under the people (iso-fight.js)
   if(state.hubRoom==='cell') wardLife();   /* rats, flies and drips under the people */
