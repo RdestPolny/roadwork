@@ -28,3 +28,4 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser -- --only=crank
+      - run: npm run test:browser -- --only="normal gameplay does not load Smithfield"

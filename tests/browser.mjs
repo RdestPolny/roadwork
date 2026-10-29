@@ -963,6 +963,21 @@ try {
       assert.equal(await page.locator('#saveWarning').isVisible(), true);
       assert.equal(await page.evaluate(() => window.__boxer.gstate), 'hub');
     });
+    await check('normal gameplay does not load Smithfield diagnostic module', async () => {
+      const debugLoaded = await page.evaluate(() =>
+        performance.getEntriesByType('resource').some(r => /\/src\/work\.js(?:\?|$)/.test(r.name)));
+      assert.equal(debugLoaded, true, 'debug session must load the Smithfield module');
+      await page.goto(`http://127.0.0.1:${port}/`);
+      const normal = await page.evaluate(async () => {
+        const d = await import('/src/devtools.js');
+        d.devSwitchScene('work'); // Must do nothing without ?debug=1.
+        return { debug: typeof window.__boxer, mode: (await import('/src/boxing.js')).state.gstate,
+          loaded: performance.getEntriesByType('resource').some(r => /\/src\/work\.js(?:\?|$)/.test(r.name)) };
+      });
+      assert.equal(normal.debug, 'undefined');
+      assert.notEqual(normal.mode, 'work');
+      assert.equal(normal.loaded, false, 'normal session must not download the prototype');
+    });
     await check('debug cheats and test hooks are hidden in normal play', async () => {
       await page.goto(`http://127.0.0.1:${port}/`);
       assert.equal(await page.evaluate(() => typeof window.__boxer), 'undefined');
