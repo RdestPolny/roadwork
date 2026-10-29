@@ -26,7 +26,8 @@ export function districtBlocked(i,j){
   if([DISTRICT.pub,DISTRICT.store,DISTRICT.workshop].some(r=>within(i,j,r))) return true;
   // Stored freight, cooperage, wagon bay and the small hoist footprint.
   const cargo=[[43.1,5.2,44.4,6.4],[48.5,5.2,50.3,6.5],
-    [49,10.5,51.4,12.5],[40,11.5,41.25,12.5]];
+    [49,10.5,51.4,12.5],[40,11.5,41.25,12.5],
+    [44.25,22.35,46.95,23.5]];
   if(cargo.some(r=>within(i,j,r))) return true;
   // A small margin stops the player walking off the end of the timber decking.
   if((i>42&&j>12.6)&&(!within(i,j,[42.55,12.6,51.45,24.5]))) return true;
