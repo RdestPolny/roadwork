@@ -133,9 +133,10 @@ function pub(t){
   thin(36.32,j+.06,8,36.38,j+.08,8.5,C.lamp);
   isoBox(34.8,5.9,36.75,6.55,0,.65,C.lintel,C.stone[2],C.stone[0]);
   // Hand-painted long frontage and projecting iron pub sign.
-  fq(F,31.4,17.2,39.15,22.1,()=>shadeC(C.woodDark,.76));
-  lettering(F,32,22,'THE ROPE',rgb('#c9b083'),.68);
-  lettering(F,33,17,'ANCHOR',rgb('#c9b083'),.72);
+  fq(F,31.4,17.0,39.15,22.75,()=>shadeC(C.woodDark,.76));
+  fl(F,31.4,17.05,39.15,17.05,C.wale);
+  fl(F,31.4,22.76,39.15,22.76,C.wale);
+  lettering(F,31.78,21.9,'THE ROPE & ANCHOR',rgb('#c9b083'),.72,.62);
   stroke(38.6,6,28,39.5,7.55,28,C.iron);
   stroke(39.5,7.55,28,39.5,7.55,21.7,C.iron);
   quad(38.75,7.52,21.3,39.95,7.52,21.3,39.95,7.52,27.6,38.75,7.52,27.6,()=>C.woodDark);
