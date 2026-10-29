@@ -212,42 +212,121 @@ const CLOTH=[
   ['#282d32','#3d4a51','#677681'],
   ['#403127','#634537','#806146'],
 ];
-/** Small pose variations, sharing exactly the main game's walk/skeleton rig. */
+/** Body-weight and hand poses for the existing skeletal figure renderer.
+ * The gestures are decorative: no new animations, movement AI or gameplay hitboxes.
+ */
 function portLifeFigure(npc,p,t){
-  // No skeletal construction for actors completely outside the current view.
   const x=isoX(p.i,p.j),y=isoY(p.i,p.j,0);
-  if(x< -65||x>appearanceState.W+65||y< -85||y>appearanceState.H+65) return;
-  const moving=p.walking,phase=(t+npc.shift)*.013;
-  const J=walkJoints(moving?phase:.25,false,1);
-  const job=p.stage==='work',breath=Math.sin(t*.035+npc.shift)*.25;
-  const base=J;
-  const gesture=s=>{
-    const limb=base(s),workLift=job?(npc.act==='ledger'||npc.act==='rope'||npc.act==='wiping'?2.2:1.2):0;
-    limb.sh=[limb.sh[0]+(job?.6:0),limb.sh[1],limb.sh[2]+breath];
-    limb.el=[.3+Math.sin(phase+s)*.18,s*3.25,9.7+workLift];
-    limb.hd=[.55+Math.sin(phase+s)*.25,s*3.2,7.9+workLift*1.6];
-    if(npc.act==='boathook'&&job){limb.hd=[3,s*3.1,13.5];limb.el=[1.8,s*2.7,11.5];}
-    if(npc.act==='pipe'&&job&&s>0){limb.hd=[1.8,s*2.5,13.8];limb.el=[1.2,s*2.3,11.3];}
+  if(x<-65||x>appearanceState.W+65||y<-85||y>appearanceState.H+65) return;
+  const moving=p.walking,phase=(t+npc.shift)*.012;
+  const work=p.stage==='work',rest=p.stage==='rest';
+  const crouch=(npc.act==='rope'||npc.act==='inspect')&&work;
+  const seated=(npc.act==='rest'&&rest)||(npc.act==='rope'&&work);
+  const lift=(npc.act==='barrel'&&work)||(npc.act==='boathook'&&work);
+  const bob=Math.sin(phase)*.16,base=walkJoints(moving?phase:.25,false,1);
+  const J=side=>{
+    const limb=base(side),s=side;
+    if(seated){
+      limb.hip=[-.15,s*1.2,4.3+bob*.4];
+      limb.knee=[2.6,s*1.3,3.65];
+      limb.foot=[3.1,s*1.44,.9];
+      limb.sh=[.8,s*2.7,10.4+bob*.3];
+      limb.el=[1.55,s*2.55,7.3];
+      limb.hd=[2.6,s*2.6,5.4];
+    } else if(crouch){
+      limb.hip=[1,s*1.25,5.8];
+      limb.knee=[2.5,s*1.3,3.15];
+      limb.foot=[1.9,s*1.5,.9];
+      limb.sh=[2.5,s*2.6,9.7+bob];
+      limb.el=[3.6,s*2.1,7.5];
+      limb.hd=[4.5,s*1.9,5.4+bob];
+    } else if(!moving){
+      limb.el=[.45+Math.sin(phase+s)*.2,s*3.15,9.7+bob];
+      limb.hd=[.8+Math.sin(phase+s)*.2,s*3.2,7.9+bob];
+    }
+    if(lift&&!moving){
+      // Barrel movers put their shoulders under the shared cask.
+      limb.hip=[.4,s*1.2,6.5];
+      limb.knee=[1.5,s*1.2,3.7];
+      limb.sh=[1.2,s*2.75,11.8+bob];
+      limb.el=[2.5,s*3.05,12.1+bob];
+      limb.hd=[3.5,s*3.05,14.1+bob];
+    }
+    if(npc.act==='pipe'&&s>0&&work){
+      limb.el=[1.2,s*2.3,11.3];limb.hd=[1.8,s*2.5,13.9+bob];
+    }
+    if(npc.act==='talk'&&work&&s>0){
+      limb.el=[1.6+Math.sin(phase)*.8,s*2.9,10.2];
+      limb.hd=[3.3+Math.sin(phase)*1.2,s*3.4,11.2+Math.sin(phase*.67)*1.3];
+    }
+    if(npc.act==='wiping'&&work){
+      limb.el=[1.5,s*2.5,10.5];
+      limb.hd=[2.2,s*2.4,12+Math.sin(phase*1.7)*1.1];
+    }
+    if(npc.act==='ledger'&&work){
+      limb.el=[2.2,s*2.2,10.1];limb.hd=[2.6,s*2.05,10.6+Math.sin(phase)*.4];
+    }
+    if(npc.act==='boathook'&&work){
+      limb.el=[1.8,s*2.7,11.5];limb.hd=[3,s*3.1,13.5];
+    }
+    if(npc.act==='rest'&&work&&s>0){
+      limb.el=[1.15,s*2.2,10.7];limb.hd=[1.5,s*2.15,14.4+bob];
+    }
+    if(npc.act==='vendor'&&work){
+      limb.el=[1.7,s*2.6,10.2];limb.hd=[2.5,s*2.7,8.8+Math.sin(phase)*.4];
+    }
     return limb;
   };
-  gesture.pel=base.pel;gesture.chest=[base.chest[0]+(job?.35:0),0,base.chest[2]+breath];
-  gesture.head=[base.head[0]+(job?.3:0),0,base.head[2]+breath];
-  const figure={i:p.i,j:p.j,fi:p.fi,fj:p.fj,z0:(npc.id==='sailor'?DECK_Z:npc.id==='boatman'||npc.id==='pierhand'?DECK_Z:0)};
-  contact(p.i-.2,p.j-.2,p.i+.2,p.j+.2,figure.z0,.45);
-  docker(figure,gesture,CLOTH[npc.tone]);
+  J.pel=seated?[0,0,3.8+bob*.3]:crouch?[1.4,0,5.3]:lift&&work?[.4,0,6.4]:base.pel;
+  J.chest=seated?[1.35,0,8.9]:crouch?[2.8,0,9.1]:[.5+(work?.55:0),0,12+bob];
+  J.head=seated?[1.65,0,12]:crouch?[3.2,0,12]:[.65+(work?.55:0),0,15.3+bob];
+  const floorZ=npc.id==='sailor'||npc.id==='boatman'||npc.id==='pierhand'?DECK_Z:0;
+  const face=(()=>{
+    if(npc.act==='pipe')return [0,1];
+    if(npc.id==='talk-a')return [.8,.6];
+    if(npc.id==='talk-b')return [-.8,.6];
+    return [p.fi,p.fj];
+  })();
+  const figure={i:p.i,j:p.j,fi:face[0],fj:face[1],z0:floorZ};
+  contact(p.i-.2,p.j-.2,p.i+.2,p.j+.2,floorZ,.43);
+  if(seated){
+    // Packing crate doubles as a makeshift seat for tired labourers.
+    isoBox(p.i-.34,p.j-.25,p.i+.4,p.j+.3,floorZ,4.25+floorZ,C.woodLight,C.wood,C.woodDark);
+  }
+  docker(figure,J,CLOTH[npc.tone]);
   if(npc.act==='cart'&&p.stage!=='rest'){
-    // Two wheels and a long handle: a visual prop, never interactive.
+    // Flat handbarrow with two iron-tyred wheels, cargo tied with a rope.
     const i=p.i-.95,j=p.j+.6;
     isoBox(i,j,i+1.2,j+.65,1.5,2.2,WOOD_HI,WOOD,WOOD_DARK);
-    for(const x of [i+.2,i+1]) cyl(x,j+.35,.23,0,1.5,()=>C.iron,()=>C.ironHi);
+    isoBox(i+.12,j+.12,i+.85,j+.48,2.2,4.2,C.crate[1],C.wood,C.woodDark);
+    for(const xx of [i+.2,i+1]) cyl(xx,j+.35,.23,0,1.5,()=>C.iron,()=>C.ironHi);
     stroke(i+1.1,j+.3,2.1,p.i,p.j,7,C.woodLight);
+    rope([i+.2,j+.16,4],[i+.95,j+.5,4],.14,C.ropeD);
   }
-  if(npc.act==='boathook'&&job) stroke(p.i+.1,p.j+.2,1,p.i+1.3,p.j+2.1,13,C.wale);
-  if(npc.act==='pipe'&&job) smoke(p.i+.15,p.j,14.9,t,3,3,300,C.fog,.25);
-  if(npc.act==='ledger'&&job){
+  if(npc.act==='boathook'&&work)
+    stroke(p.i+.1,p.j+.2,.8,p.i+1.3,p.j+2.1,13,C.wale);
+  if(npc.act==='pipe'&&work){
+    thin(p.i+.2,p.j+.3,14,p.i+.42,p.j+.32,14.2,C.ironHi);
+    smoke(p.i+.15,p.j,15.2,t,3,3,300,C.fog,.24);
+  }
+  if(npc.act==='ledger'&&work){
     isoBox(p.i-.2,p.j+.1,p.i+.55,p.j+.45,8,8.35,C.paper[0],C.paper[1],C.paper[0]);
+    for(let k=0;k<3;k++) thin(p.i-.12,p.j+.12+k*.08,8.4,p.i+.43,p.j+.12+k*.08,8.4,C.iron);
   }
-  if(npc.act==='vendor'&&job) smoke(p.i+.5,p.j+.3,8,t,17,3,350,C.fog,.26);
+  if(npc.act==='wiping'&&work){
+    quad(p.i+.12,p.j+.1,9.5,p.i+.65,p.j+.1,9.6,p.i+.8,p.j+.1,7.1,p.i+.16,p.j+.1,7,C.paper[0]);
+  }
+  if(npc.act==='rope'&&work){
+    for(let k=0;k<5;k++) rope([p.i+.35,p.j+.2+k*.1,2],[p.i+.9,p.j+.3+k*.1,1.8],.14,C.rope);
+  }
+  if(npc.act==='vendor'&&work){
+    const i=p.i+.45,j=p.j+.25;
+    isoBox(i,j,i+.7,j+.62,0,3.8,C.woodLight,C.wood,C.woodDark);
+    cyl(i+.4,j+.3,.33,3.8,5.5,()=>C.iron,()=>C.ironHi);
+    smoke(i+.4,j+.3,6,t,17,4,360,C.fog,.3);
+  }
+  if(npc.act==='rest'&&work&&Math.sin(phase)>.2)
+    smoke(p.i,p.j+.15,15.2,t,35,2,250,C.fog,.16);
 }
 /** Flickering, localized atmospheric accents, added before final port fog. */
 export function portDistrictFX(t){
