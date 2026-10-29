@@ -1,6 +1,7 @@
 import { renderThamesPort, withThamesCamera, portFightOutfit, thamesBlocked, startPortAfterFight } from './thames-port.js';
 import { PORT_BRAWL } from './port-story.js';
 import { DASH, dashTravel, dashPose, dashDirection } from './combat-dash.js';
+import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming } from './heavy-bruiser.js';
 /* Isometric fight: the prison's brawl, played in the isometric hub rooms (the Ward, the yard, the bath) with free movement in
    eight directions. The punches, guard, slip, stamina and damage are the rules of realtime-rules.js; the opponents, their
    styles, the knockdowns, the wounds and the result card are the fight's old ones. The people are the 3D-skeleton figures of
@@ -34,6 +35,8 @@ export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null
 
 /** Seconds from the start of a punch to contact and to the end of the recovery. */
 const PT=[{hit:.10,end:.30},{hit:.15,end:.40},{hit:.19,end:.48},{hit:.19,end:.48}];
+/** Keep the shared boxing rules and only stretch this rival's contact/recovery frames. */
+const punchT=(F,pid)=>bullTiming(PT[pid],!!F.bull);
 /** Farthest hip-to-hip distance (room units) at which each punch lands: the old side-on ranges 33/31/27/26 px scaled to the rooms. */
 const RANGE=[1.45,1.40,1.20,1.10];
 const LUNGE=[1.2,1.6,1.8,1.4];
@@ -129,6 +132,7 @@ export function startIsoFight(idx,venue,station){
   const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:startSpots(room);
   S.P=makeFighter(pa[0],pa[1],0.7071,-0.7071,hero.look,hero.wrap,{hpMax:100+PS.hpBonus,staCap:3*Math.max(25,cap),pow:PS.pow,regen:PS.regen,hunger:hungerLevel()},PS,-1);
   S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
+  if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.bullClock=0; }
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
   Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,push:null,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
     notice:'1-4 ciosy · F dash · LPM korpus · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
@@ -465,6 +469,7 @@ function impact(A,D){
   if(D.ko||D.down) return;
   if(gap>R){
     whiffPunch(A.rt,now);
+    if(A.bull) registerBullMiss(A.bull,pid,now);
     if(resolveNearMiss(A.rt,D.rt,{gap,range:R,now})){ onPerfectEvade(D); return; }   // out of reach by a hair while evading sideways or back
     if(pid>=1&&A.rt.sta<22){ A.stagger=.55; A.pk=null; popup(sparringState.T_OVER,hx(A),hy(A)-8,appearanceState.C_SPARK,1,28); }
     else if(A===S.P) say('Poza zasięgiem');
@@ -475,7 +480,12 @@ function impact(A,D){
   if(pid<=1){ if(k>=0.76&&k<=0.97) rangeMod=1.15; else if(k<0.64) rangeMod=0.75; }
   else if(k>=0.70&&k<=0.90) rangeMod=1.20;
   const o=resolvePunch(A.rt,D.rt,{pid,low,now,gap,range:R});
-  if(o.damage>0){ const extra=o.damage*(rangeMod-1); D.rt.hp=Math.max(0,D.rt.hp-extra); o.damage=Math.max(0,o.damage+extra); }
+  // The defender who slipped avoided contact, unlike a block or parry.
+  if(o.kind==='slip'&&A.bull) registerBullMiss(A.bull,pid,now);
+  if(o.damage>0){
+    const extra=o.damage*(rangeMod*(A.bull?BULL.damage[pid]:1)-1);
+    D.rt.hp=Math.max(0,D.rt.hp-extra); o.damage=Math.max(0,o.damage+extra);
+  }
   const px=hx(D), py=hy(D)+(low?10:0);
   if(o.kind==='parry'){
     D.c.blocks++; D.c.perfects++; A.stagger=.45; A.pk=null; A.stun+=16; popup(sparringState.T_PARRY,px,py-12,appearanceState.C_SPARK,1,30); sfxBlock(0.95,true);
@@ -498,8 +508,9 @@ function impact(A,D){
   }
   D.hurtT=blocked?.12:.3; D.hurtDir=pid; D.hurtLow=low;
   D.hurtPower=(blocked?0.25:1)*(1+0.8*(1-Math.max(0,Math.min(1,D.rt.sta/D.rt.staCapInitial))));
-  if(!stagger&&!blocked&&!low&&D.pk&&D.pk.t<PT[D.pk.pid].hit) D.pk=null;   /* a clean hit interrupts the windup */
-  const [ui,uj]=toward(A,D); walk(D,A,ui,uj,blocked?.05:.12);
+  if(!blocked&&o.damage>0&&D.bull?.mode==='WINDUP'){ D.bull.mode='RECOVERY'; D.bull.until=now+0.48; }
+  if(!stagger&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit) D.pk=null;   /* a clean hit interrupts the windup */
+  const [ui,uj]=toward(A,D); walk(D,A,ui,uj,(blocked?.05:.12)*(A.bull?BULL.knockback:1));
   if(o.damage>=1) popup(sparringState.T_DMG+Math.min(30,Math.max(1,Math.round(o.damage)))-1,px,py-14,blocked?appearanceState.C_GRAY:appearanceState.C_WHITE,1,32);
   spray(A,D,pid,low,blocked,o);   // the hit shows as drops, not a comic flash
   if(blocked) sfxBlock(0.6); else sfxPunch(Math.min(1.4,0.55+0.25*pid+(o.counter?0.2:0)),low?1:0.35+pid*0.15,true);
@@ -521,11 +532,51 @@ function hx(F){ return isoX(F.i,F.j)/gymState.ISO_K; }
 /** @param {any} F */
 function hy(F){ return isoY(F.i,F.j,15.6)/gymState.ISO_K; }
 
+/** Slow, readable slugger logic. All movement, attack, and fatigue events remain scoped to Briggs. */
+function bullAi(F,P,ui,uj,gap){
+  const now=state.t, b=F.bull, mode=advanceBull(b,now,!!F.pk);
+  if(F.grab||F.ko||F.down||P.ko||P.down){ if(F.rt.guarding) setGuard(F.rt,false,now); return; }
+  if(F.rt.guarding) setGuard(F.rt,false,now);
+  if(mode==='EXHAUSTED'){ F.buf=null; F.combo.length=0; return; }
+  if(mode==='RESUME') return;
+  if(F.stagger>0){
+    if(mode==='WINDUP'){ b.mode='RECOVERY'; b.until=now+0.5; }
+    return;
+  }
+  if(F.pk){ b.mode='ATTACK'; return; }
+  if(mode==='RECOVERY') return;
+  if(mode==='WINDUP'){
+    if(now>=b.until){
+      if(press(F,b.pid,false)){ b.mode='ATTACK'; }
+      else { b.mode='RECOVERY'; b.until=now+0.35; }
+    }
+    return;
+  }
+  if(gap>1.08){
+    b.mode='APPROACH';
+    const moved=walk(F,P,ui,uj,WALK*BULL.move*state.scale);
+    F.moving=moved>0; F.mf=1; F.ms=0; return;
+  }
+  b.mode='PRESSURE';
+  if(now<F.aiAt) return;
+  if(F.rt.sta<Math.min(punchCost(F.rt,1,now),punchCost(F.rt,2,now))){
+    F.aiAt=now+0.4; return;
+  }
+  const r=Math.random();
+  let pid=r<0.08?0:r<0.30?1:r<0.85?2:3;
+  if(gap>RANGE[pid]) pid=gap>RANGE[1]?0:1;
+  if(gap>RANGE[pid]) return;
+  b.pid=pid; b.mode='WINDUP';
+  b.until=now+(pid===0?0.25:pid===1?0.38:pid===2?0.57:0.51);
+  F.aiAt=b.until+0.22;
+}
+
 /** The opponent: keeps his distance, circles, reads the player's punches and answers in short combinations (the old styles). @param {any} F @param {any} P */
 function ai(F,P){
   const S=state, now=S.t, O=S.opp, [ui,uj,gap]=toward(F,P), si=-uj, sj=ui;
   const archKey=O.name==='DAN'?'tank':(ARCH[O.style]?O.style:'bal'), arch=ARCH[archKey], perks=O.perks||[];
   F.moving=false;
+  if(F.bull){ bullAi(F,P,ui,uj,gap); return; }
   if(F.grab||F.ko||F.down||P.ko||P.down){ if(F.rt.guarding) setGuard(F.rt,false,now); return; }
   if(F.rt.guarding&&now>=F.guardUntil) setGuard(F.rt,false,now);
   if(F.stagger>0||F.pk) return;
@@ -539,7 +590,7 @@ function ai(F,P){
   if(now-F.slipSince<TUNING.slipActive||F.rt.guarding) return;
   const hist=P.hist.filter((/** @type {any} */ h)=>now-h.at<5), recentStraights=hist.filter((/** @type {any} */ h)=>h.pid<=1).length, recentLow=hist.filter((/** @type {any} */ h)=>h.low).length, adaptSlip=recentStraights>=3?0.25:0;
   const pp=P.pk, nextEvCost=evadeCost(F.rt,now);
-  if(pp&&!pp.special&&pp.t>0.05&&pp.t<PT[pp.pid].hit&&F.seen!==P.rt.lastActionAt){
+  if(pp&&!pp.special&&pp.t>0.05&&pp.t<punchT(P,pp.pid).hit&&F.seen!==P.rt.lastActionAt){
     F.seen=P.rt.lastActionAt;
     if(gap<RANGE[pp.pid]*1.1&&Math.random()<Math.min(0.68,0.22+O.rank*0.018+adaptSlip*0.5)){
       if(pp.pid<=2&&F.rt.sta>=nextEvCost+6&&Math.random()<Math.min(0.85,arch.slipBias+adaptSlip)){
@@ -625,6 +676,7 @@ function tickFight(){
   }
   if(S.phase!=='fight') return;
   S.uiT+=rawDt; S.t+=dt; S.elapsed++; const now=S.t;
+  if(O.bull) O.bullClock=now;
   if(S.eTap&&S.uiT-S.eTap.at>TAP_WINDOW){ const {di,dj}=S.eTap; S.eTap=null; if(di||dj) evade(P,O,di,dj); }
   if(sparringState.timeLimit&&S.elapsed>=sparringState.timeLimit){ timeUp(); return; }
   for(const F of [P,O]){
@@ -647,7 +699,7 @@ function tickFight(){
     F.stun=Math.max(0,F.stun-dt*4);
     F.c.minSta=Math.min(F.c.minSta,F.rt.sta/F.rt.staCap);
     if(F.wounds.cuts&&!F.down&&!F.ko) F.rt.hp=Math.max(1,F.rt.hp-(0.25*F.wounds.cuts)*dt);
-    if(F.pk){ F.pk.t+=(F.pk.fastCounter?rawDt:dt)*(F.pk.exhausted?0.5:1)*(S.venue==='port'&&F===O?.5:1); if(!F.pk.hit&&F.pk.t>=PT[F.pk.pid].hit){ F.pk.hit=true; impact(F,G); if(S.phase!=='fight') return; } if(F.pk&&F.pk.t>=PT[F.pk.pid].end) F.pk=null; }
+    if(F.pk){ F.pk.t+=(F.pk.fastCounter?rawDt:dt)*(F.pk.exhausted?0.5:1)*(S.venue==='port'&&F===O?.5:1); if(!F.pk.hit&&F.pk.t>=punchT(F,F.pk.pid).hit){ F.pk.hit=true; impact(F,G); if(S.phase!=='fight') return; } if(F.pk&&F.pk.t>=punchT(F,F.pk.pid).end) F.pk=null; }
     if(F.buf&&!F.pk&&!F.dash&&F.stagger<=0&&!F.down&&(now-F.slipSince>=TUNING.slipActive||(F===P&&S.slowMo>0&&now<F.rt.counterUntil))){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
     if(F.buf&&now>F.buf.until) F.buf=null;
     if(F.down&&!F.ko){   /* the count: the player gets up with enough taps, the rival on his own */
@@ -683,7 +735,10 @@ function tickFight(){
   }
   ai(O,P);
   for(const F of [O,P]) updateCrowdGrab(F);
-  for(const F of [P,O]) if(!F.ko&&!F.down){ if((F.bleed||F.wounds.cuts)&&F.rt.hp/F.rt.hpMax<0.6&&Math.random()<0.02*scale) drip(F,'blood'); }
+  for(const F of [P,O]) if(!F.ko&&!F.down){
+    if((F.bleed||F.wounds.cuts)&&F.rt.hp/F.rt.hpMax<0.6&&Math.random()<0.02*scale) drip(F,'blood');
+    if(F.bull?.mode==='EXHAUSTED'&&Math.random()<0.045*scale) drip(F,'sweat');
+  }
   if(sparringState.rigged&&!S.rigKO&&(P.rt.hp/P.rt.hpMax-O.rt.hp/O.rt.hpMax>.15||now>35)){
     S.rigKO=true; P.rt.hp=0; P.ko=true; P.pk=null; if(!P.rd) startIsoRagdoll(P,O,2,true); S.phase='ko'; S.pt=0; S.winner=O; S.how='KASTET';
     banner('KASTET!',appearanceState.C_RED,150); sfxKO(); setInfo();
@@ -754,7 +809,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const dash=F.dash?dashPose(dashU):{load:0,push:0,land:0};
   let bob=-1.05+0.10*Math.sin(t*2.1+F.seed)+0.18*air-0.85*dash.load-0.48*dash.land-(F.rt.sta<25?0.5:0), lean=0.35+F.lagF*0.55+(mv?F.mf*0.3:0)+(F.dash?F.dash.fwd*1.05*dash.push:0), sl=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35+(F.dash?F.dash.side*.75*dash.push:0), lung=0, e=0, arm=0, follow=0, wind=0, pk=F.pk;
   const D=pk?DRIVE[pk.pid]:null, hook=pk?.pid===2, upper=pk?.pid===3;
-  if(pk){ const T=PT[pk.pid], striking=pk.t<T.hit, k=striking?pk.t/T.hit:Math.max(0,1-(pk.t-T.hit)/(T.end-T.hit));
+  if(pk){ const T=punchT(F,pk.pid), striking=pk.t<T.hit, k=striking?pk.t/T.hit:Math.max(0,1-(pk.t-T.hit)/(T.end-T.hit));
     e=striking&&(F===state.P||F===state.O)?punchSnap(k):smooth(Math.min(1,k));
     arm=striking?e:e*e;   // the fist snaps back ahead of the body
     if(!striking&&k>0.6) follow=Math.sin(Math.PI*(1-k)/0.4);   // the trunk carries on turning a moment past the contact
@@ -771,6 +826,9 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   if(F.hurtLow){ lean+=2.5*h; bob-=1.0*h; }
   else { lean-=(F.hurtDir===2?0.8:1.5)*h; sl+=(F.hurtDir===2?1.3*F.leadSide:0)*h; bob-=0.3*h; }
   if(F.stagger>0){ lean-=0.8; bob-=0.6; }
+  const breathing=F.bull?.mode==='EXHAUSTED', loading=F.bull?.mode==='WINDUP';
+  if(breathing){ lean+=2.1; bob-=1.25+0.28*Math.sin(t*9); sl+=0.14*Math.sin(t*4); }
+  if(loading){ lean-=0.5; sl+=0.6*F.leadSide; bob-=0.55; }
   const J={}, bodySide=hook?-ps*e*0.4:(pk&&pk.low?ps*e:0), walkRot=-stride*0.58-F.lagS*0.25, hipRot=stride*0.42, mill=pk?0:(1-F.gUp)*0.2;
   // the shoulders and the hips turn about the spine (the shoulders against the hips with every step, both with the punch), keeping their width
   const asin=(/** @type {number} */ v)=>Math.asin(Math.max(-1,Math.min(1,v)));
@@ -786,6 +844,8 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     let hd=[2.3+lean+lung+armSw*0.85+s*walkRot*0.5+Math.cos(ma)*mill,s*1.25+sl+F.lagS*0.25+bodySide*1.3,14.0+bob+0.35*armSw+Math.sin(ma)*mill];
     if(clinch){ el=[2.2+lean,s*2.3+sl,11+bob]; hd=[4.0+lean,s*1.5+sl,12.7+bob]; }
     if(F.gUp>0.02){ el=lerp3(el,[1.5+lean,s*2.0+sl+bodySide*1.3,10.4+bob],F.gUp); hd=lerp3(hd,[3.1+lean,s*0.9+sl+bodySide*1.3,15.1+bob],F.gUp); }
+    if(breathing){ el=[1.75+lean,s*3.3+sl,7.0+bob]; hd=[2.7+lean,s*2.9+sl,5.8+bob]; }
+    if(loading){ el=[-0.2+lean,s*3.7+sl,9.4+bob]; hd=[-0.4+lean,s*3.7+sl,11.2+bob]; }
     if(punching){ const dz=pk.low?-4.2:0;
       if(hook){ hd[0]-=0.4*wind; hd[1]+=s*0.9*wind; hd[2]-=0.3*wind; }   // the hook opens a little while the elbow comes up
       if(upper){ hd[0]-=0.8*wind; hd[1]+=s*0.6*wind; hd[2]-=3.2*wind; }   // the uppercut drops to the hip first
@@ -796,7 +856,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   }
   const jf=(/** @type {number} */ s)=>J[s];
   jf.pel=[lung*0.5-F.lagF*0.2,sl*0.5-F.lagS*0.2,6.6+bob]; jf.chest=[0.4+lean+lung*0.9,sl+bodySide*1.3+ps*tilt*0.6,12.2+bob];
-  jf.head=[0.35+lean*1.2+lung+F.hLagF*0.55+(D?D.head[0]*e:0),sl*1.25+F.hLagS*0.65+bodySide*3.8+(D?ps*(D.head[1]*e+(upper?0.6:0)*wind):0),15.6+bob-0.7*F.gUp-Math.abs(bodySide)*0.4-(F.stagger>0?0.6:0)-Math.abs(F.hLagF)*0.18];
+  jf.head=[0.35+lean*1.2+lung+F.hLagF*0.55+(D?D.head[0]*e:0),sl*1.25+F.hLagS*0.65+bodySide*3.8+(D?ps*(D.head[1]*e+(upper?0.6:0)*wind):0),15.6+bob-0.7*F.gUp-Math.abs(bodySide)*0.4-(F.stagger>0?0.6:0)-(breathing?0.65:0)-Math.abs(F.hLagF)*0.18];
   if(!F.hurtLow){
     jf.head[0]-=(F.hurtDir===2?0.25:F.hurtDir===3?0.5:0.8)*h;
     jf.head[1]+=(F.hurtDir===2?0.8*F.leadSide:0)*h;
