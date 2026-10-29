@@ -166,7 +166,7 @@ export function resize(){
   state.ox=(state.screen.width-appearanceState.W*state.scale)>>1; state.oy=(state.screen.height-appearanceState.H*state.scale)>>1;
   const H=state.hd; H.scale=Math.max(1,Math.floor(Math.min(state.screen.width/H.W,state.screen.height/H.H)));   // the 2× room: its own whole-pixel scale
   H.ox=(state.screen.width-H.W*H.scale)>>1; H.oy=(state.screen.height-H.H*H.scale)>>1;
-   const T=state.hd3; T.scale=Math.max(1,Math.floor(Math.min(state.screen.width/T.W,state.screen.height/T.H)));
+   const T=state.hd3; T.scale=Math.max(1,Math.min(state.screen.width/T.W,state.screen.height/T.H)); // fractional nearest-neighbour scale fills the fixed 1280x800 stage
    T.ox=(state.screen.width-T.W*T.scale)>>1; T.oy=(state.screen.height-T.H*T.scale)>>1;
   state.sctx.imageSmoothingEnabled=false;
 }
