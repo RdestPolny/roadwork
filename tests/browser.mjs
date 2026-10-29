@@ -440,15 +440,18 @@ try {
       // Run key press and 100 simulation steps atomically. The expanded port
       // render can take long enough for stray real-time ticks between Playwright
       // keyboard RPCs to invalidate a fixed-distance assertion.
-      await page.evaluate(async()=>{
+      const movement=await page.evaluate(async()=>{
         const T=await import('/src/thames-port.js');
+        const before=T.thamesPlayer();
         T.thamesKey('ArrowRight',true);
         window.__boxer.step(100);
         T.thamesKey('ArrowRight',false);
+        return {before,after:T.thamesPlayer()};
       });
       const carried=await player();
       assert.equal(carried.carrying,true);
-      assert.ok(Math.abs(Math.hypot(carried.i-initial.i,carried.j-initial.j)-1.56)<.15,'carrying speed is 20% faster than the docker’s pace: '+JSON.stringify([carried.i,carried.j,initial.i,initial.j]));
+      const traveled=Math.hypot(movement.after.i-movement.before.i,movement.after.j-movement.before.j);
+      assert.ok(Math.abs(traveled-1.56)<.15,'carrying speed remains 20% above the docker pace: '+JSON.stringify({traveled,from:movement.before,to:movement.after}));
       await page.keyboard.press('e');
       const dropped=await player();
       assert.equal(dropped.carrying,false,'E puts the sack down');
