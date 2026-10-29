@@ -291,7 +291,7 @@ function wkHeld(){ const p=state.WK.phase; return p==='lift'||p==='heave'||p==='
 }
 
 export // apron + cap (called from drawBoxer while workOutfit is on)
-export function drawApron(){
+function drawApron(){
   const ax=torsoEdge(boxingState.sy+4,true)-1, ay=boxingState.sy+4; let bx=Math.max(torsoEdge(boxingState.hipY-2,true),boxingState.hipX+3), by=boxingState.hipY+10;
   const mkx=Math.round((boxingState.lkx+boxingState.rkx)/2); if(mkx>bx) bx=mkx;                       // wide stance: the apron hangs between the knees
   by=boxingState.hipY+3;                                                                 // ends high, above the knees, so it doesn't clip the lead leg
@@ -420,7 +420,7 @@ function wkStartFinale(){
 export // left surface of the hanging half at height y
 /* Boxing the half uses the very same punch animations as the heavy bag (jab / cross / hook / uppercut): the shared
    state machine (startMove / samplePose / solve) runs the body, the apex event of a punch lands the hit on the meat. */
-export function wkSurf(gy){ if(!wkBoxing()||gy<state.WK_HOOKY||gy>state.WK_HOOKY+28) return 999; return wkMeatX(gy); } function wkBoxStart(){
+function wkSurf(gy){ if(!wkBoxing()||gy<state.WK_HOOKY||gy>state.WK_HOOKY+28) return 999; return wkMeatX(gy); } function wkBoxStart(){
   boxingState.state=animationState.IDLE; boxingState.stateT=0; boxingState.frameIdx=-1; boxingState.fired=0; boxingState.buffered=-1; boxingState.bufferedGrade=1; animationState.walkHeld=-1; boxingState.moveStep=0; sparringState.aimLow=0; sparringState.blockHeld=false; boxingState.flow=false; boxingState.curGrade=1;
   animationState.cur.set(animationState.GUARD); animationState.lastPose.set(animationState.cur); animationState.fromPose.set(animationState.cur); boxingState.idleT=0; resetClock(600,boxingState.simNow);
   animationState.posX=state.WK.hip-appearanceState.BASE_X;                                    // starts where he threw the half onto the hook...
@@ -469,7 +469,7 @@ function workPunch(kind){
 }
 
 export // the apex of a punch: it lands on the meat (or misses it)
-export function wkImpact(m){
+function wkImpact(m){
   const blow=state.WK.phase==='finBlow';
   if(!blow&&state.WK.phase!=='finale'&&state.WK.phase!=='finReady') return;
   const L=m.glove===0, gy=L?boxingState.lgy:boxingState.rgy, tip=L?boxingState.lTipRaw:boxingState.rTipRaw, surf=L?boxingState.lSurf:boxingState.rSurf;
