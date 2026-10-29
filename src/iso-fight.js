@@ -137,8 +137,8 @@ export function startIsoFight(idx,venue,station){
   Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,push:null,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
     notice:'1-4 ciosy · F dash · LPM korpus · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
-    const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2]];
-    const spectators=[...npcsState.CN,npcsState.STINK].filter(C=>String(C.name).toUpperCase()!==O.name).map((C,k)=>{
+    const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2],[-2.6,0.3],[2.6,0.3]];
+    const spectators=[...npcsState.CN,npcsState.STINK].filter(C=>!C.away&&String(C.name).toUpperCase()!==O.name).map((C,k)=>{
       const [di,dj]=positions[k%positions.length], i=center[0]+di, j=center[1]+dj, len=Math.hypot(di,dj);
       return {...C,i,j,fi:-di/len,fj:-dj/len,act:'cheer',after:null,step:{k:'spectator'},moving:false};
     });
@@ -536,9 +536,9 @@ function hy(F){ return isoY(F.i,F.j,15.6)/gymState.ISO_K; }
 function bullAi(F,P,ui,uj,gap){
   const now=state.t, b=F.bull, mode=advanceBull(b,now,!!F.pk);
   if(F.grab||F.ko||F.down||P.ko||P.down){ if(F.rt.guarding) setGuard(F.rt,false,now); return; }
+  if(mode==='RESUME'){ if(!F.rt.guarding) setGuard(F.rt,true,now); return; }
   if(F.rt.guarding) setGuard(F.rt,false,now);
   if(mode==='EXHAUSTED'){ F.buf=null; F.combo.length=0; return; }
-  if(mode==='RESUME') return;
   if(F.stagger>0){
     if(mode==='WINDUP'){ b.mode='RECOVERY'; b.until=now+0.5; }
     return;

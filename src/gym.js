@@ -307,7 +307,7 @@ export function figureHD(C,J,L,o={}){
   if(heavy){
     // A real forward-projecting belly, attached to the spine. Soft delay is visual only: IK bone lengths remain unchanged.
     const lag=Math.max(-0.28,Math.min(0.28,(C.lagF||0)*0.19)), r=2.35*bulk.belly;
-    ipAdd(P[0]+1.5+lag,P[1],P[2]+1.35,r*0.87+inhale, P[0]+2.15+lag,P[1],P[2]-1.05,r+inhale,T0);
+    ipAdd(...pp(1.5+lag,0,1.35),r*0.87+inhale, ...pp(2.15+lag,0,-1.05),r+inhale,T0);
   }
   ipAdd(SL[0],SL[1]*0.82,SL[2]-0.15,1.15*(bulk?.shoulders||1), SR[0],SR[1]*0.82,SR[2]-0.15,1.15*(bulk?.shoulders||1), T0);                               // shoulders
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
