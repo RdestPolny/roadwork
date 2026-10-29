@@ -1163,15 +1163,17 @@ function background(t){
 }
 /** Temporarily scale the original 2× Thames camera into the active native framebuffer.
  * Story and physics keep their existing 2× camera coordinates. */
+let portPixelsActive=false;
 function withPortPixels(fn){
   const ratio=gymState.ISO_K>1?gymState.ISO_K/2:1;
-  if(ratio===1) return fn();
+  if(ratio===1||portPixelsActive) return fn();
   const props=['x','y','ix','jx','iy','jy','z','figureScale'], previous=props.map(k=>camera[k]);
   for(let p=0;p<props.length;p++) camera[props[p]]=previous[p]*ratio;
-  try { return fn(); } finally { for(let p=0;p<props.length;p++) camera[props[p]]=previous[p]; }
+  portPixelsActive=true;
+  try { return fn(); } finally { for(let p=0;p<props.length;p++) camera[props[p]]=previous[p]; portPixelsActive=false; }
 }
 /** Use the port projection while rendering or advancing its fight. */
-export function withThamesCamera(fn){ const previous=setPropCamera(camera); try { return fn(); } finally { setPropCamera(previous); } }
+export function withThamesCamera(fn){ return withPortPixels(()=>{ const previous=setPropCamera(camera); try { return fn(); } finally { setPropCamera(previous); } }); }
 /** Restore the port after its fight without restarting the job. */
 export function resumeThamesPort(){ setGstate('port'); setPanelMode(); portStory(); setInfo(); }
 /** Outfit shared by the port opponent and his fight figure. */
