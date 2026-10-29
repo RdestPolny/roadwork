@@ -30,7 +30,7 @@ import { state as appearanceState } from './appearance.js';
 import { state as menuState } from './menu.js';
 import { state as dialogState } from './dialog.js';
 import { update } from './runtime.js';
-import { isoFightKey, isoFightRelease, isoFightPointer, isoFightPointerLeave, isoFightInfo, CONTROLS as ISO_CONTROLS } from './iso-fight.js';
+import { isoFightKey, isoFightRelease, isoFightPointer, isoFightPointerLeave, isoFightBodyAim, isoFightInfo, CONTROLS as ISO_CONTROLS } from './iso-fight.js';
 
 export const state = {};
 
@@ -259,6 +259,9 @@ addEventListener('keydown',e=>{
 addEventListener('keyup',e=>{ if(boxingState.gstate==='port'){ thamesKey(e.code,false); return; } if(charSheetOpen()||skillTreeKey(e)) return; if(boxingState.gstate==='arm'){ armKey(e,false); return; } if(boxingState.gstate==='isofight'){ isoFightKey(e,false); return; } if(e.code==='Space'||e.code==='KeyE'){ holdPullup(false); holdPushup(false); } if(boxingState.gstate==='roach') roachKey(e.code,false); if(boxingState.gstate==='crank') crankKey(e,false); if(boxingState.gstate==='hub'||boxingState.gstate==='menu') hubKey(e,false); const k=state.KEYMAP[e.code], mv=k===animationState.M_SLIPL?k:screenMove(k); /* releasing Q must not pick the next slip side */ if(mv===animationState.walkHeld)releaseWalk(); if(e.code==='ArrowDown')state.bodyHeld=false; });
 
 addEventListener('blur',clearHeldInput);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) clearHeldInput(); });
+addEventListener('pointerup',e=>{ if(e.button===0) isoFightBodyAim(false); });
+addEventListener('pointercancel',()=>isoFightBodyAim(false));
 
 document.querySelectorAll('#panel button[data-m]').forEach(b=>{ const mv=+b.dataset.m; if(mv===animationState.M_WALKF||mv===animationState.M_WALKB){
   b.addEventListener('pointerdown',()=>{walkTap(screenMove(mv));}); b.addEventListener('pointerup',releaseWalk); b.addEventListener('pointerleave',releaseWalk); }});
@@ -288,7 +291,12 @@ document.querySelectorAll('#panel [data-arm]').forEach(b=>{ const a=b.dataset.ar
 
 rendererState.stage.addEventListener('pointermove',e=>{ if(boxingState.gstate==='isofight') isoFightPointer(e); });
 rendererState.stage.addEventListener('pointerleave',()=>{ if(boxingState.gstate==='isofight') isoFightPointerLeave(); });
-rendererState.stage.addEventListener('pointerdown',()=>{initAudio();window.focus();});
+rendererState.stage.addEventListener('pointerdown',e=>{
+  initAudio(); window.focus();
+  if(e.button===0&&boxingState.gstate==='isofight'&&!state.paused){
+    e.preventDefault(); isoFightPointer(e); isoFightBodyAim(true);
+  }
+});
 
 state.sndEl=document.getElementById('snd');
 state.dbgEl=document.getElementById('dbg');

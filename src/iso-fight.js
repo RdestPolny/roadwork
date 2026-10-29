@@ -1,5 +1,6 @@
 import { renderThamesPort, withThamesCamera, portFightOutfit, thamesBlocked, startPortAfterFight } from './thames-port.js';
 import { PORT_BRAWL } from './port-story.js';
+import { DASH, dashTravel, dashPose, dashDirection } from './combat-dash.js';
 /* Isometric fight: the prison's brawl, played in the isometric hub rooms (the Ward, the yard, the bath) with free movement in
    eight directions. The punches, guard, slip, stamina and damage are the rules of realtime-rules.js; the opponents, their
    styles, the knockdowns, the wounds and the result card are the fight's old ones. The people are the 3D-skeleton figures of
@@ -87,7 +88,7 @@ const emptyCounts=()=>({thrown:0,landed:0,power:0,body:0,counters:0,evades:0,blo
  * @param {number} i @param {number} j @param {number} fi @param {number} fj @param {any} look @param {(fn:()=>void)=>void} wrap
  * @param {{hpMax:number,staCap:number,pow:number,regen:number,hunger?:number}} rules @param {{stunDealt:number,stunTaken:number}} S @param {number} [leadSide] */
 function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
-  const F={i,j,fi,fj,leadSide,lastHand:0,evadeHookHand:0,moving:false,mf:0,ms:0,rt:createCombatant(rules),pk:null,buf:null,slipSince:-9,slipDir:1,evKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */ ('slip'),evDi:0,evDj:0,evFwd:0,evSide:0,hurtT:0,hurtDir:0,hurtLow:false,hurtPower:1,stagger:0,stun:0,dmg:0,faceDamage:0,
+  const F={i,j,fi,fj,leadSide,lastHand:0,evadeHookHand:0,dash:null,dashReadyAt:0,lastMove:[fi,fj],moving:false,mf:0,ms:0,rt:createCombatant(rules),pk:null,buf:null,slipSince:-9,slipDir:1,evKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */ ('slip'),evDi:0,evDj:0,evFwd:0,evSide:0,hurtT:0,hurtDir:0,hurtLow:false,hurtPower:1,stagger:0,stun:0,dmg:0,faceDamage:0,
     grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,aiAt:1,combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
     stunDealt:S.stunDealt,stunTaken:S.stunTaken,c:emptyCounts(),wounds:/** @type {any} */ ({cuts:0,ribs:0}),bleed:false,hist:/** @type {any[]} */ ([]),draw:()=>{}};
   F.ft={1:{},'-1':{}}; F.li=i; F.lj=j; for(const s of [1,-1]) Object.assign(F.ft[s],stance(F,s),{sw:0,from:null,to:null});
@@ -130,7 +131,7 @@ export function startIsoFight(idx,venue,station){
   S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
   Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,push:null,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
-    notice:'1-4 ciosy · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
+    notice:'1-4 ciosy · F dash · LPM korpus · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
     const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2]];
     const spectators=[...npcsState.CN,npcsState.STINK].filter(C=>String(C.name).toUpperCase()!==O.name).map((C,k)=>{
@@ -157,7 +158,7 @@ export function isoFightFinish(side,how='KO'){
 }
 
 /** Leave the fight state (the hub entry restores the rest). */
-export function stopIsoFight(){ setFightSpectators(null); state.on=false; state.phase='off'; gymState.actors=null; gymState.preScene=null; state.keys={}; state.guardHeld=false; state.clinch=false; state.push=null; hideFightPlate(); }
+export function stopIsoFight(){ setFightSpectators(null); state.on=false; state.phase='off'; gymState.actors=null; gymState.preScene=null; state.keys={}; state.guardHeld=false; state.low=false; state.clinch=false; state.push=null; hideFightPlate(); }
 
 /** Return to the room where the HD preview was opened. */
 export function sandyFightReturnRoom(){ return state.returnRoom||'cell'; }
@@ -166,14 +167,14 @@ export function sandyFightReturnRoom(){ return state.returnRoom||'cell'; }
 export function isoFightOutcome(){ const S=state; return {idx:S.idx,venue:S.venue,won:S.phase==='end'&&S.winner===S.P,station:sparringState.cellFightSt}; }
 
 /** Drop held keys on blur, pause or mode change. */
-export function isoFightRelease(){ state.keys={}; state.tapAt={u:-9,d:-9,l:-9,r:-9}; state.upAt={u:-9,d:-9,l:-9,r:-9}; state.eTap=null; state.eHeld=false; state.guardHeld=false; state.spaceAt=-1; state.pointer=null; if(state.on&&state.P?.rt.guarding) setGuard(state.P.rt,false,state.t); }
+export function isoFightRelease(){ state.keys={}; state.tapAt={u:-9,d:-9,l:-9,r:-9}; state.upAt={u:-9,d:-9,l:-9,r:-9}; state.eTap=null; state.eHeld=false; state.guardHeld=false; state.low=false; state.spaceAt=-1; state.pointer=null; if(state.on&&state.P?.rt.guarding) setGuard(state.P.rt,false,state.t); }
 
 /** A big caption over the middle of the picture (not in the room: it does not zoom with the camera). @param {string} text @param {number} color @param {number} ticks */
 function banner(text,color,ticks){ state.banner={text,color,t:ticks}; }
 
 function say(/** @type {string} */ text){ state.notice=text; state.noticeUntil=state.t+1.4; }
 
-const FIGHT_KEYS=new Set(['Digit1','Digit2','Digit3','Digit4','KeyJ','KeyK','KeyL','KeyI','KeyQ','KeyE','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyA','KeyD','KeyW','KeyS']);
+const FIGHT_KEYS=new Set(['Digit1','Digit2','Digit3','Digit4','KeyJ','KeyK','KeyL','KeyI','KeyQ','KeyE','KeyF','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyA','KeyD','KeyW','KeyS']);
 
 /** Keyboard for the isometric fight. A double tap of a movement key is an evade in that direction. @param {KeyboardEvent} e @param {boolean} down @returns {boolean} */
 export function isoFightKey(e,down){
@@ -200,7 +201,7 @@ export function isoFightKey(e,down){
   }
   if(down&&S.on&&S.phase==='fight'&&S.P.down&&!S.P.ko&&FIGHT_KEYS.has(c)){ e.preventDefault(); mash(S.P); return true; }   /* on the boards every key is a breath towards the feet */
   if(move) return true;
-  if(c==='ShiftLeft'||c==='ShiftRight'){ S.low=down; return true; }
+  if(c==='ShiftLeft'||c==='ShiftRight') return true; // Shift no longer aims at the body.
   if(c==='Space'){
     e.preventDefault();
     if(down){
@@ -214,6 +215,7 @@ export function isoFightKey(e,down){
     return true;
   }
   if(S.clinch) return true;
+  if(c==='KeyF'){ e.preventDefault(); if(down&&!e.repeat&&S.on&&S.phase==='fight') startDash(S.P); return true; }
   if(c==='KeyE'){
     e.preventDefault();
     if(!down){ S.eHeld=false; return true; }
@@ -241,6 +243,9 @@ export function isoFightPointer(e){
 
 /** Stop following the pointer when it leaves the game. */
 export function isoFightPointerLeave(){ state.pointer=null; }
+
+/** Left mouse button is a held body-shot modifier only during an active fight. @param {boolean} held */
+export function isoFightBodyAim(held){ state.low=!!held&&state.on&&state.phase==='fight'&&!inputState.paused; }
 
 /** Direction from the fighter's feet to the pointer in room coordinates. @returns {[number,number]} */
 function pointerDirection(){ return state.venue==='port'?withThamesCamera(pointerDirectionInRoom):pointerDirectionInRoom(); }
@@ -303,17 +308,19 @@ function mash(F){
 function riseTaps(F){ return 4+F.kdN*3; }
 
 /** @param {any} F */
-function busy(F){ return F.grab||F.ko||F.down||F.stagger>0||F.pk||(state.t-F.slipSince<TUNING.slipActive); }
+function busy(F){ return F.grab||F.ko||F.down||F.stagger>0||F.pk||F.dash||(state.t-F.slipSince<TUNING.slipActive); }
 
 /** Start a costed punch; a press during a busy moment is kept for a quarter of a second. @param {any} F @param {number} pid @param {boolean} low @param {string} [special] */
 function press(F,pid,low,special){
   const now=state.t;
   if(F.grab||F.ko||F.down||F.stagger>0||state.phase!=='fight') return false;
+  if(F.dash&&now-F.dash.at<DASH.duration*DASH.punchFrom){ if(!special) F.buf={pid,low,until:now+DASH.buffer}; return false; }
   const counterEvade=F===state.P&&state.slowMo>0&&now<F.rt.counterUntil;
   if(F.pk||(!counterEvade&&now-F.slipSince<TUNING.slipActive)){ if(!special) F.buf={pid,low,until:now+.25}; return false; }
   if(F.rt.guarding) setGuard(F.rt,false,now);
   const exhausted=F===state.P&&F.rt.sta<punchCost(F.rt,pid,now);
   if(!beginPunch(F.rt,pid,now,F===state.P)) return false;
+  if(F.dash) F.dash.hitChain=true;
   if(counterEvade) F.slipSince=-Infinity;
   const hand=pid===2&&!special&&F.evadeHookHand?F.evadeHookHand:pid>=2&&F.lastHand&&!special?-F.lastHand:(F.leadSide===-1?[-1,1,1,1][pid]:HAND[pid]);
   if(!special){ F.lastHand=hand; F.evadeHookHand=0; }
@@ -355,12 +362,40 @@ function slip(F,dir){
 function toward(F,G){ const di=G.i-F.i, dj=G.j-F.j, d=Math.hypot(di,dj)||1; return [di/d,dj/d,d]; }
 
 /** Move F by (di,dj)*sp in the room, never into furniture, walls or the other fighter. @param {any} F @param {any} G @param {number} di @param {number} dj @param {number} sp */
+/** Swept small steps avoid dashing across thin furniture and the opponent. */
 function walk(F,G,di,dj,sp){
-  if(F.grab) return;
-  const d0=Math.hypot(F.i-G.i,F.j-G.j);
-  const ok=(/** @type {number} */ a,/** @type {number} */ b)=>{ if(fightBlocked(a,b)) return false; const d=Math.hypot(a-G.i,b-G.j); return d>=MIN_SEP||d>=d0; };
-  const ni=F.i+di*sp, nj=F.j+dj*sp;
-  if(ok(ni,F.j)) F.i=ni; if(ok(F.i,nj)) F.j=nj;
+  if(F.grab||!Number.isFinite(sp)||sp<=0) return 0;
+  const startI=F.i, startJ=F.j, d0=Math.hypot(F.i-G.i,F.j-G.j);
+  const ok=(/** @type {number} */ a,/** @type {number} */ b)=>{
+    if(fightBlocked(a,b)) return false;
+    if(F.dash&&gymState.fightSpectators?.some(c=>c.step?.k==='spectator'&&Math.hypot(c.i-a,c.j-b)<.35)) return false;
+    const d=Math.hypot(a-G.i,b-G.j); return d>=MIN_SEP||d>=d0;
+  };
+  const n=Math.ceil(Math.max(Math.abs(di*sp),Math.abs(dj*sp))/.035), step=sp/Math.max(1,n);
+  for(let k=0;k<n;k++){
+    const ni=F.i+di*step, nj=F.j+dj*step;
+    if(ok(ni,F.j)) F.i=ni;
+    if(ok(F.i,nj)) F.j=nj;
+  }
+  return Math.hypot(F.i-startI,F.j-startJ);
+}
+
+/** Short stamina-priced F dash; direction is fixed at the keyboard event, with no invulnerability. */
+function startDash(F){
+  const S=state, now=S.t;
+  if(!S.on||S.phase!=='fight'||S.clinch||busy(F)||now<F.dashReadyAt) return false;
+  if(F.rt.sta<DASH.cost){ if(F===S.P) say('Brak tchu na dash'); return false; }
+  const [di,dj]=dashDirection(pointerDirection(),F.lastMove);
+  if(!di&&!dj) return false;
+  F.rt.sta-=DASH.cost;
+  F.rt.regenReadyAt=Math.max(F.rt.regenReadyAt,now+.35);
+  F.dashReadyAt=now+DASH.cooldown;
+  if(F.rt.guarding) setGuard(F.rt,false,now);
+  const ui=F===S.P?S.O:S.P, [ti,tj]=toward(F,ui);
+  F.dash={at:now,di,dj,progress:0,hitChain:false,fwd:di*ti+dj*tj,side:di*-tj+dj*ti};
+  F.lastMove=[di,dj]; F.buf=null;
+  sfxWhoosh(.55);
+  return true;
 }
 
 /** A standing spectator restrains a fighter who reaches the crowd, until he escapes after two seconds. @param {any} F */
@@ -378,7 +413,7 @@ function updateCrowdGrab(F){
   if(!C) return;
   F.grab={person:C,until:S.t+2,origin:{i:C.i,j:C.j,fi:C.fi,fj:C.fj}}; F.grabExempt=C; C.grabbing=F; C.act='grab';
   C.i=F.i-F.fi*0.6; C.j=F.j-F.fj*0.6; C.fi=F.fi; C.fj=F.fj;
-  F.pk=null; F.buf=null; F.combo=[]; F.slipSince=-Infinity; F.rt.slipSince=-Infinity;
+  F.pk=null; F.dash=null; F.buf=null; F.combo=[]; F.slipSince=-Infinity; F.rt.slipSince=-Infinity;
   if(F.rt.guarding) setGuard(F.rt,false,S.t);
   S.clinch=false; S.push=null;
   if(F===S.P){ S.eTap=null; say('Tłum cię trzyma!'); } else say('Tłum trzyma rywala!');
@@ -473,11 +508,11 @@ function impact(A,D){
   if(D.rt.hp<=0){
     const brutal=D.kdN>=2||(D.kdN===1&&o.counter&&pid===3);
     if(!D.down&&!brutal){
-      D.down=true; D.downAt=now; D.kdN++; D.kdMash=0; D.pk=null; D.buf=null;
+      D.down=true; D.downAt=now; D.kdN++; D.kdMash=0; D.pk=null; D.dash=null; D.buf=null;
       D.rt.hp=Math.round(D.rt.hpMax*(D.kdN===1?0.32:0.20)); D.rt.sta=Math.max(D.rt.sta,D.rt.staCap*0.5); D.stun=0;
       startIsoRagdoll(D,A,pid,false); banner('NOKDAUN!',appearanceState.C_RED,80); sfxKO();
       say(D===S.P?'NOKDAUN! Wciskaj klawisze, żeby wstać!':'Rywal na deskach ('+D.kdN+'/3)');
-    } else { D.ko=true; D.pk=null; startIsoRagdoll(D,A,pid,true); spray(A,D,pid,low,false,o,true); endBout(A,D.kdN>=2?'TKO':'KO'); }
+    } else { D.ko=true; D.pk=null; D.dash=null; startIsoRagdoll(D,A,pid,true); spray(A,D,pid,low,false,o,true); endBout(A,D.kdN>=2?'TKO':'KO'); }
   }
 }
 
@@ -595,6 +630,14 @@ function tickFight(){
   for(const F of [P,O]){
     const G=F===P?O:P;
     tickCombatant(F.rt,dt,now);
+    if(F.dash&&(F.ko||F.down||F.grab||F.stagger>0)) F.dash=null;
+    if(F.dash){
+      const D=F.dash, u=Math.min(1,(now-D.at)/DASH.duration), next=dashTravel(u), moved=walk(F,G,D.di,D.dj,DASH.distance*Math.max(0,next-D.progress));
+      D.progress=next;
+      if(moved>1e-6){ F.moving=true; F.mf=D.di*F.fi+D.dj*F.fj; F.ms=D.di*-F.fj+D.dj*F.fi; }
+      if(F.buf&&u>=DASH.punchFrom&&!F.pk){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
+      if(u>=1) F.dash=null;
+    }
     const su=(now-F.slipSince)/TUNING.slipActive;
     if(su>=0&&su<1&&!F.ko&&!F.down){   // the evade is a quick eased move of the whole body, not a jump
       walk(F,G,F.evDi,F.evDj,(EVADE_SPEED[F.evKind]||0.01)*Math.sin(Math.PI*su)*scale);
@@ -605,7 +648,7 @@ function tickFight(){
     F.c.minSta=Math.min(F.c.minSta,F.rt.sta/F.rt.staCap);
     if(F.wounds.cuts&&!F.down&&!F.ko) F.rt.hp=Math.max(1,F.rt.hp-(0.25*F.wounds.cuts)*dt);
     if(F.pk){ F.pk.t+=(F.pk.fastCounter?rawDt:dt)*(F.pk.exhausted?0.5:1)*(S.venue==='port'&&F===O?.5:1); if(!F.pk.hit&&F.pk.t>=PT[F.pk.pid].hit){ F.pk.hit=true; impact(F,G); if(S.phase!=='fight') return; } if(F.pk&&F.pk.t>=PT[F.pk.pid].end) F.pk=null; }
-    if(F.buf&&!F.pk&&F.stagger<=0&&!F.down&&(now-F.slipSince>=TUNING.slipActive||(F===P&&S.slowMo>0&&now<F.rt.counterUntil))){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
+    if(F.buf&&!F.pk&&!F.dash&&F.stagger<=0&&!F.down&&(now-F.slipSince>=TUNING.slipActive||(F===P&&S.slowMo>0&&now<F.rt.counterUntil))){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
     if(F.buf&&now>F.buf.until) F.buf=null;
     if(F.down&&!F.ko){   /* the count: the player gets up with enough taps, the rival on his own */
       const down=now-F.downAt;
@@ -626,16 +669,17 @@ function tickFight(){
   }
   const K=S.keys; let dx=(K.r||0)-(K.l||0), dy=(K.d||0)-(K.u||0);
   let [di,dj]=pointerDirection(); if(dx||dy){ di=dx+dy; dj=dy-dx; const l=Math.hypot(di,dj); di/=l; dj/=l; }
-  const free=!P.grab&&!P.pk&&P.stagger<=0&&!P.down&&!P.ko;
+  const free=!P.grab&&!P.pk&&!P.dash&&P.stagger<=0&&!P.down&&!P.ko;
   if(S.clinch){
     if(P.grab||O.grab||P.down||P.ko||O.down||O.ko){ S.clinch=false; }
     else { if(di||dj) moveClinch(di,dj,scale); return; }
   }
-  if(S.guardHeld&&free&&!P.rt.guarding&&now-P.slipSince>=TUNING.slipActive) setGuard(P.rt,true,now);
+  if(S.guardHeld&&(free||P.dash&&now-P.dash.at>=DASH.duration*.80)&&!P.rt.guarding&&now-P.slipSince>=TUNING.slipActive) setGuard(P.rt,true,now);
   if(!S.guardHeld&&P.rt.guarding) setGuard(P.rt,false,now);
   if((di||dj)&&free&&now-P.slipSince>=TUNING.slipActive){
     const sp=WALK*(0.9+0.1*boxingState.STATS.speed)*(P.rt.guarding?0.5:1)*scale;
-    walk(P,O,di,dj,sp); P.moving=true; P.mf=di*P.fi+dj*P.fj; P.ms=di*(-P.fj)+dj*P.fi;
+    const moved=walk(P,O,di,dj,sp); P.moving=moved>0; P.mf=di*P.fi+dj*P.fj; P.ms=di*(-P.fj)+dj*P.fi;
+    if(moved>0) P.lastMove=[di,dj];
   }
   ai(O,P);
   for(const F of [O,P]) updateCrowdGrab(F);
@@ -705,8 +749,10 @@ function blendJoints(A,B,k){
 function fighterJoints(F, t=state.t, clinch=state.clinch){
   const mv=F.moving;
   const sw1=F.ft[1].sw?Math.sin(Math.PI*Math.min(1,F.ft[1].sw)):0, sw2=F.ft[-1].sw?Math.sin(Math.PI*Math.min(1,F.ft[-1].sw)):0;
-  const air=Math.max(sw1,sw2), stride=sw1-sw2, hop=Math.max(0,Math.sin(t*9+F.seed))*(air>0?0.4:1);   // stride > 0: the lead foot is in the air, < 0: the rear one
-  let bob=-1.1+0.55*hop+0.5*air-(F.rt.sta<25?0.5:0), lean=0.35+F.lagF*0.55+(mv?F.mf*0.3:0), sl=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35, lung=0, e=0, arm=0, follow=0, wind=0, pk=F.pk;
+  const air=Math.max(sw1,sw2), stride=sw1-sw2; // One planted foot at any time; idle never causes an artificial bounce.
+  const dashU=F.dash?Math.min(1,Math.max(0,(t-F.dash.at)/DASH.duration)):0;
+  const dash=F.dash?dashPose(dashU):{load:0,push:0,land:0};
+  let bob=-1.05+0.10*Math.sin(t*2.1+F.seed)+0.18*air-0.85*dash.load-0.48*dash.land-(F.rt.sta<25?0.5:0), lean=0.35+F.lagF*0.55+(mv?F.mf*0.3:0)+(F.dash?F.dash.fwd*1.05*dash.push:0), sl=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35+(F.dash?F.dash.side*.75*dash.push:0), lung=0, e=0, arm=0, follow=0, wind=0, pk=F.pk;
   const D=pk?DRIVE[pk.pid]:null, hook=pk?.pid===2, upper=pk?.pid===3;
   if(pk){ const T=PT[pk.pid], striking=pk.t<T.hit, k=striking?pk.t/T.hit:Math.max(0,1-(pk.t-T.hit)/(T.end-T.hit));
     e=striking&&(F===state.P||F===state.O)?punchSnap(k):smooth(Math.min(1,k));
@@ -732,7 +778,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const cS=Math.cos(shY), sS=Math.sin(shY), cH=Math.cos(hpY), sH=Math.sin(hpY), tilt=D?D.tilt*e+(upper?-0.6*wind:0):0;
   for(let s=-1;s<=1;s+=2){
     const lead=s===F.leadSide, fj=footJoint(F,s), ws=-s*0.45*(s===1?sw1:sw2), punching=!!D&&s===ps;
-    const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd+(lead?lung*0.8:0),fj.side,0.9+fj.lift+0.5*hop*(fj.u?0:1)+(punching?D.heel*e:0)];
+    const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd,fj.side,0.9+fj.lift+(punching?D.heel*e:0)]; // Keep planted shoes fixed even during a lunge.
     const [knee,toe]=limb(hip,foot,LEG_U,LEG_L,[(hip[0]+foot[0])/2+1.5+Math.abs(bodySide)*0.7,(hip[1]+foot[1])/2+s*0.35,(hip[2]+foot[2])/2]);
     const sh=[0.1+lean+lung-s*2.7*sS,s*2.7*cS+sl+bodySide*1.3,12.4+bob+s*walkRot*0.3+(hook?0:s*bodySide*0.6)+(D?(punching?D.rise:-0.3*D.rise)*e+s*ps*tilt*0.5:0)];
     const armSw=-s*stride*0.45+F.lagF*0.35, ma=t*5.5+F.seed+(s>0?0:Math.PI);
@@ -879,24 +925,28 @@ function tickFeet(F,scale=1,now=state.t){
   const sp=Math.hypot(vi,vj), mi=sp>1e-4?vi/sp:0, mj=sp>1e-4?vj/sp:0;
   const A=F.ft[1], B=F.ft[-1];
   for(const s of [1,-1]){ const f=F.ft[s];
-    if(f.sw>0){ f.sw+=scale/SWING; const T=stance(F,s); f.to={i:T.i+mi*STEP_LEAD*(sp>0.01?1:0),j:T.j+mj*STEP_LEAD*(sp>0.01?1:0)};
-      if(f.sw>=1){ f.sw=0; f.i=f.to.i; f.j=f.to.j; } } }
+    if(f.sw>0){ f.sw=Math.min(1,f.sw+scale/(F.dash?5:SWING));
+      // The landing spot was captured when the shoe left the ground, not chased each frame.
+      if(f.sw>=1){ f.sw=0; f.i=f.to.i; f.j=f.to.j; f.from=null; } } }
   if(A.sw>0||B.sw>0||F.ko) return;
   const cand=[];
   for(const s of [1,-1]){ const f=F.ft[s], T=stance(F,s), di=f.i-T.i, dj=f.j-T.j, along=di*mi+dj*mj, perp=Math.hypot(di-along*mi,dj-along*mj), d=along<0?Math.hypot(along,perp):perp;   /* a foot already ahead of its place is not late */
-    if(Math.hypot(di,dj)>1.4){ f.i=T.i; f.j=T.j; continue; }
+    // Never snap a lagging foot to its stance: catch up with another actual step.
     cand.push({s,d,score:(STANCE[s*F.leadSide][0]*(mi*F.fi+mj*F.fj)+s*1.7*(mi*-F.fj+mj*F.fi))+d});
   }
   if(!cand.some(c=>c.d>STEP_AT)) return;   /* one foot is late: of the two that are at all behind, the one on the side of the move goes first */
   cand.splice(0,cand.length,...cand.filter(c=>c.d>STEP_AT*0.45));
   cand.sort((a,b)=>b.score-a.score);
-  const f=F.ft[cand[0].s]; f.sw=scale/SWING; f.from={i:f.i,j:f.j}; const T=stance(F,cand[0].s); f.to={i:T.i+mi*STEP_LEAD,j:T.j+mj*STEP_LEAD};
+  const f=F.ft[cand[0].s]; f.sw=scale/(F.dash?5:SWING); f.from={i:f.i,j:f.j};
+  const T=stance(F,cand[0].s), ahead=Math.min(.43,STEP_LEAD+sp*3.2), ti=T.i+mi*ahead, tj=T.j+mj*ahead;
+  const dx=ti-f.i, dy=tj-f.j, len=Math.hypot(dx,dy)||1, limit=F.dash?.72:.56;
+  f.to={i:f.i+dx*Math.min(1,limit/len),j:f.j+dy*Math.min(1,limit/len)};
 }
 
 /** Foot s of F as a body-local joint [forward, side, height] and its air progress 0..1. @param {any} F @param {number} s */
 function footJoint(F,s){
   const f=F.ft[s]; let i=f.i, j=f.j, lift=0, u=0;
-  if(f.sw>0&&f.from){ u=Math.min(1,f.sw); const e=u*u*(3-2*u); i=f.from.i+(f.to.i-f.from.i)*e; j=f.from.j+(f.to.j-f.from.j)*e; lift=2.3*Math.sin(Math.PI*u); }
+  if(f.sw>0&&f.from){ u=Math.min(1,f.sw); const e=u*u*(3-2*u); i=f.from.i+(f.to.i-f.from.i)*e; j=f.from.j+(f.to.j-f.from.j)*e; lift=(F.dash?1.5:1.05)*Math.sin(Math.PI*u); }
   const di=(i-F.i)*7.5, dj=(j-F.j)*7.5;
   return {fwd:di*F.fi+dj*F.fj,side:di*-F.fj+dj*F.fi,lift,u};
 }
@@ -1148,4 +1198,4 @@ export function isoFightInfo(){
   const S=state, V=S.venue, where=V==='sandy'?'TEST HD 432×288 · BOHATER VS HARRY':V==='port'?'BÓJKA W PORCIE':V==='yard'?'BÓJKA NA SPACERNIAKU':V==='canteen'?'BÓJKA PRZY POSIŁKU':V==='laznia'?'BÓJKA W ŁAŹNI':'BÓJKA W WARDZIE';
   return where+' · '+(S.opp?S.opp.title:'')+' · '+(S.phase==='end'||S.phase==='ko'?'KONIEC':'DO KO')+(V==='sandy'?' · R restart · F9 PNG':'');
 }
-export const CONTROLS='mysz ruch · E unik · 2× E odskok · Spacja klincz / odepchnij (trzymaj: blok) · 1 jab · 2 cross · 3 hook · 4 uppercut · Shift korpus · Spacja blok · Q slip · F10 pauza · Esc wyjście';
+export const CONTROLS='mysz/WASD ruch · F dash ku kursorowi · E unik · 2× E odskok · 1 jab · 2 cross · 3 hook · 4 uppercut · LPM + cios: korpus · Spacja blok / klincz · Q slip · F10 pauza · Esc wyjście';
