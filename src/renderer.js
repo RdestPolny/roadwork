@@ -17,17 +17,20 @@ import { collodionFrame } from './collodion.js';
 // Runtime values owned by renderer; initialized explicitly by main.js.
 export const state = {};
 
-/** Standard Newgate rooms are rendered at 288×192; the Ward uses 432×288. */
+/** Legacy 2× scale is kept for side-view minigames and comic reference art. */
 export const HD_K = 2;
 // Close framing keeps the crank, hands and upper body between the labour HUD panels.
 const CRANK_VIEW={x:94,y:76,w:116,h:78};
 /** Is a high-resolution room on screen now? */
 export function hubHD(){ return (boxingState.gstate==='hub'||boxingState.gstate==='menu')&&hdRoom(); }
-/** Is the current hub room one of the 2× rooms (for baking its background and sprites)? */
+/** Is the current hub room one of the isometric rooms (for baking its background and sprites)? */
 export function hdRoom(){ return gymState.hubRoom==='cell'||gymState.hubRoom==='yard'||gymState.hubRoom==='laznia'; }
 
-/** Select the existing independent framebuffer for the current room. */
-export function roomFrame(){ return gymState.hubRoom==='cell'?state.hd3:state.hd; }
+/** Single source of truth for native isometric frame size; side-view modes retain 2×.
+ * @param {string} venue */
+export function isometricFrame(venue){ return ['cell','canteen','yard','laznia','port','sandy'].includes(venue)?state.hd3:state.hd; }
+/** Select the current room framebuffer. */
+export function roomFrame(){ return isometricFrame(gymState.hubRoom); }
 
 /** Run fn with a high-resolution framebuffer: picture size, buffers, background, projection and text scale.
  * Everything is restored afterwards, so the rest of the game never sees the large frame. @template T @param {()=>T} fn @returns {T} */
@@ -141,10 +144,10 @@ function present(face,blit=true){
 }
 
 export function render(){
-  if(boxingState.gstate==='port'){ withHD(()=>{ renderThamesPort(); present(false); }); return; }
+  if(boxingState.gstate==='port'){ withHD(()=>{ renderThamesPort(); present(false); },isometricFrame('port')); return; }
   if(boxingState.gstate==='crank'){ crankFrame(); withHD(()=>{ renderCrank(); present(false); }); return; }
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ if(hubHD()) withHD(()=>{ renderHub(); present(false); },roomFrame()); else { renderHub(); present(false); } return; }
-  if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); },isoFightState.venue==='sandy'||isoFightState.venue==='cell'||isoFightState.venue==='canteen'?state.hd3:state.hd); return; }
+  if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); },isometricFrame(isoFightState.venue)); return; }
   if(boxingState.gstate==='spar'){ renderSpar(); zoomBlit(1.2,72,49); drawProfShadow(); present(false); return; }
   if(boxingState.gstate==='pullup'){ renderPullup(); present(false); return; }
   if(boxingState.gstate==='roach'){ renderRoaches(); present(false); return; }
@@ -211,7 +214,7 @@ state.inHD = false;
   state.hd={W,H,off,octx,img,fb:new Uint32Array(img.data.buffer),bg:new Uint32Array(W*H),scale:1,ox:0,oy:0};
 }
 
-{ // Standalone 3x preview; never substitutes the production 2x room buffers.
+{ // Native 3× framebuffer shared by every isometric exploration and combat scene.
    const W=appearanceState.W*3, H=appearanceState.H*3, off=document.createElement('canvas'); off.width=W; off.height=H;
    const octx=/** @type {CanvasRenderingContext2D} */ (off.getContext('2d')), img=octx.createImageData(W,H);
    state.hd3={W,H,off,octx,img,fb:new Uint32Array(img.data.buffer),bg:new Uint32Array(W*H),scale:1,ox:0,oy:0};
