@@ -1,6 +1,7 @@
 import { checkIsoFight, checkIsoFightRooms } from './isofight.mjs';
 import { checkCombatDash, captureCombatDashFrames } from './combat-dash-browser.mjs';
 import { checkBull, captureBull } from './heavy-bruiser-browser.mjs';
+import { checkPortDistrict } from './port-district-browser.mjs';
 import { checkCrank } from './crank.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -153,6 +154,7 @@ try {
     assert.ok(room.yard.background>5000&&room.bath.background>5000,'room backgrounds must bake in native 3×');
     await page.screenshot({path:'artifacts/ward-432-288-regression.png'});
   });
+  await check('Thames district: 13 native exploration, NPC, brawl and story captures',()=>checkPortDistrict(page));
   await check('432x288: six native scene captures and Thames camera regression', async()=>{
     const capture=async(file)=>{
       const image=await page.evaluate(async()=>{
