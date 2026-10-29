@@ -9,6 +9,7 @@ import { startIsoFight } from './iso-fight.js';
 import { horse, coachWheel } from './carriage.js';
 import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTick, storyShot, storyLine, storyCaption, storyFade, storyBars, storyVanDoor, storyCast, state as storyState } from './port-story.js';
 import { portSurface, districtBlocked } from './port-district.js';
+import { DEBUG } from './config.js';
 import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX } from './port-extension.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
@@ -117,11 +118,21 @@ export function tickThamesPort(){
     portJob.entry={tick:0,i:player.i,j:player.j}; clearThamesInput();
   }
   player.fi=di; player.fj=dj; player.ph+=player.carrying?speed/TRIP.cycle:.045;
-  // The old camera is identical throughout the original playable quay. The
-  // lower limits ease open only after crossing into the new district.
+  followPortCamera();
+}
+/** Position-preserving camera follow; only new terrain relaxes the old bounds. */
+function followPortCamera(){
   const ext=Math.max(0,Math.min(1,(player.i-29.5)/13));
   camera.x=Math.max(-40-400*ext,Math.min(330,162-(player.i-player.j)*12));
   camera.y=Math.max(-180-290*ext,Math.min(170,84-(player.i+player.j)*6));
+}
+/** Debug-only viewpoint for deterministic 432×288 environment captures.
+ * Normal gameplay and story beats never call this function. */
+export function debugPortView(i,j){
+  if(!DEBUG||!portSurface(i,j)||districtBlocked(i,j)) return false;
+  player.i=i; player.j=j; player.moving=false; player.lift=-1;
+  followPortCamera();bake.key='';
+  return true;
 }
 /** Start a story scene from what the camera shows now: the shot eases over from the middle of the picture at zoom z. */
 function beginScene(begin,z=1){
