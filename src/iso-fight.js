@@ -6,7 +6,7 @@ import { PORT_BRAWL } from './port-story.js';
    the hub rooms (figureHD) posed for a stance, a punch and a slip. */
 
 import { state as boxingState, popup, drawText } from './boxing.js';
-import { renderSandyArena, drawSandyFighterDetails, drawSandyFootDust } from './hd-fight-scene.js';
+import { renderSandyArena, drawSandyFootDust } from './hd-fight-scene.js';
 import { state as appearanceState, rgb } from './appearance.js';
 import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, setFightSpectators } from './gym.js';
 import { state as rendererState, zoomBlit, screenToView, setFramebuffer } from './renderer.js';
@@ -760,7 +760,6 @@ function drawFighter(F){
   let jf=fighterJoints(F);
   if(F.rise){ jf=blendJoints(F.rise.joints,jf,smooth(Math.min(1,F.rise.t))); }
   figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0});
-  if(state.venue==='sandy') drawSandyFighterDetails(F,jf,F.look);
 }
 
 export const WARD_SPAR_SPEED=0.6;
