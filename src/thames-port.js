@@ -1,7 +1,7 @@
 import { rgb, setRamp, state as appearanceState } from './appearance.js';
 import { state as rendererState, line, taper, zoomBlit } from './renderer.js';
 import { state as boxingState, setGstate, h2 } from './boxing.js';
-import { quad, isoLine, isoLineThin, isoX, isoY, isoBox, figureHD, withCellOutfit, setPropCamera, shadeC } from './gym.js';
+import { state as gymState, quad, isoLine, isoLineThin, isoX, isoY, isoBox, figureHD, withCellOutfit, setPropCamera, shadeC } from './gym.js';
 import { mix } from './cast.js';
 import { setPanelMode, enterPrisonFromPort } from './navigation.js';
 import { setInfo, setPortSackPrompt } from './input.js';
@@ -10,7 +10,7 @@ import { horse, coachWheel } from './carriage.js';
 import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTick, storyShot, storyLine, storyCaption, storyFade, storyBars, storyVanDoor, storyCast, state as storyState } from './port-story.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
-export function startThamesPort(){ Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); view.z=1; portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; bake.key=''; clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
+export function startThamesPort(){ Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; bake.key=''; clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
 
 const C={black:rgb('#080a0a'), mortar:rgb('#211e1a'), brick:[rgb('#42322a'),rgb('#49372c'),rgb('#382d27'),rgb('#524034')],
   stock:[rgb('#4d4636'),rgb('#564d3b'),rgb('#443e31'),rgb('#5d523e')], brickC:[rgb('#3b2a25'),rgb('#45302a'),rgb('#33261f'),rgb('#4c362d')],
@@ -37,7 +37,7 @@ let glow=LAMPS.map(()=>1);
 const player={i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}, playerSack={i:20.9,j:8.5}, keys=new Set();
 const portJob={ticks:0,delivered:0,entry:null,finished:false};
 /** What a story scene's camera looks at (ground point, height) and its zoom; cx, cy: the zoom centre in the last frame. */
-const view={i:0,j:0,h:9,z:1,cx:144,cy:96};
+const view={i:0,j:0,h:9,z:1,cx:144,cy:96,pixelRatio:1};
 /** Update the foreman's line and the port task counter; during a scene only its closing caption, centred over the black. */
 function portStory(){
   const el=document.getElementById('portStory');
@@ -51,7 +51,7 @@ export function thamesPlayer(){ return {...player,pose:!!player.pose,zoom:view.z
 /** Keep the interaction hint in sync with the pickup range and animation. */
 function sackPrompt(){
   const show=!player.carrying&&player.lift<0&&!portJob.entry&&!storyPlaying()&&Math.hypot(player.i-playerSack.i,player.j-playerSack.j)<1.4;
-  const H=rendererState.hd, d=window.devicePixelRatio||1;
+  const H=rendererState.hd3, d=window.devicePixelRatio||1;
   setPortSackPrompt(show,(H.ox+isoX(playerSack.i,playerSack.j)*H.scale)/d,(H.oy+isoY(playerSack.i,playerSack.j,5)*H.scale)/d);
 }
 /** Ground-level footprints of the port props, including the movable sack. */
@@ -119,7 +119,7 @@ export function tickThamesPort(){
 }
 /** Start a story scene from what the camera shows now: the shot eases over from the middle of the picture at zoom z. */
 function beginScene(begin,z=1){
-  const [i,j]=ground(view.cx,view.cy,9); begin();
+  const [i,j]=ground(view.cx/view.pixelRatio,view.cy/view.pixelRatio,9); begin();
   Object.assign(view,{i,j,h:9,z}); portStory();
 }
 /** Ease the camera towards the scene's shot: pan to its point, then zoom; the pan keeps the quay inside the picture. */
@@ -133,6 +133,7 @@ function aim(){
 function sceneFrame(){
   const W=appearanceState.W, H=appearanceState.H, z=view.z, fb=rendererState.fb;
   view.cx=Math.max(W/(2*z),Math.min(W-W/(2*z),isoX(view.i,view.j))); view.cy=Math.max(H/(2*z),Math.min(H-H/(2*z),isoY(view.i,view.j,view.h)));
+  view.pixelRatio=gymState.ISO_K/2;
   if(z>1.001) zoomBlit(z,view.cx,view.cy);
   const bar=Math.round(14*storyBars()); if(bar>0){ fb.fill(C.black,0,bar*W); fb.fill(C.black,(H-bar)*W,H*W); }
   const f=storyFade(); if(f>0) for(let k=0;k<fb.length;k++) fb[k]=mix(fb[k],C.black,f);
@@ -144,7 +145,7 @@ function say(){
   if(!L){ el.hidden=true; el.dataset.text=''; return; }
   if(el.dataset.text!==L.text){ el.dataset.text=L.text; el.replaceChildren(document.createElement('span'),document.createElement('span')); el.lastChild.className='unsaid'; el.hidden=false; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
   el.firstChild.textContent=L.text.slice(0,L.shown); el.lastChild.textContent=L.text.slice(L.shown);
-  const Hd=rendererState.hd, d=window.devicePixelRatio||1, W=appearanceState.W, H=appearanceState.H, z=view.z;
+  const Hd=rendererState.hd3, d=window.devicePixelRatio||1, W=appearanceState.W, H=appearanceState.H, z=view.z;
   const x=(Hd.ox+(isoX(L.at[0],L.at[1])-(view.cx-W/(2*z)))*z*Hd.scale)/d, y=(Hd.oy+(isoY(...L.at)-(view.cy-H/(2*z)))*z*Hd.scale)/d;
   const half=el.offsetWidth/2+8, left=Hd.ox/d+half, right=(Hd.ox+W*Hd.scale)/d-half, cx=Math.max(left,Math.min(right,x));
   el.style.left=`${cx}px`; el.style.top=`${Math.max(Hd.oy/d+el.offsetHeight+24,y)}px`; el.style.setProperty('--tail',`${Math.max(-half+18,Math.min(half-18,x-cx))}px`);
@@ -200,6 +201,8 @@ function settAt(i,j){
   else if(wetN>.58) c=shadeC(c,.82);
   let L=0; for(let k=0;k<LAMPS.length;k++){ const l=LAMPS[k], q=Math.max(0,1-Math.hypot(i-l.i,j-l.j)/l.r); L+=q*q*glow[k]; }
   if(wetN>.64) L*=1.8;
+  if(gymState.ISO_K===3&&v>.2&&f>.13){ const grain=h2(Math.floor(i*24)+41,Math.floor(j*24));
+    if(grain<14) c=shadeC(c,.78); else if(grain>244) c=shadeC(c,1.12); }
   return L>0?mix(shadeC(c,1+L*.7),C.lamp,Math.min(.4,L*.22)):c;
 }
 /** Brick bond with a granite plinth, per-brick tone, soot streaks and rising damp; a runs along the face, z up it. */
@@ -208,7 +211,9 @@ function brickAt(a,z,pal,seed){
   const row=Math.floor(z*1.1), u=a*4.4+(row&1)*.5, f=frac(u), v=z*1.1-row, n=h2(Math.floor(u)+seed,row);
   if(v<.17||f<.07) return shadeC(C.mortar,.88+vn(a*2,z*.3)*.25);
   const streak=vn(a*1.6+seed,z*.035), patch=vn(a*.45+seed,z*.06);
-  return shadeC(pal[n&3],(.86+(n-128)/650)*(1.08-.34*streak*Math.min(1,z/26)-.16*patch)*(z<10?.8+z*.02:1));
+  const k=(.86+(n-128)/650)*(1.08-.34*streak*Math.min(1,z/26)-.16*patch)*(z<10?.8+z*.02:1);
+  const fleck=gymState.ISO_K===3?h2(Math.floor(a*18)+seed,Math.floor(z*11)):128;
+  return shadeC(pal[n&3],k*(fleck<17?.78:fleck>246?1.11:1));
 }
 /** A point on a wall face: f is {j:J} (faces +j) or {i:I} (faces +i), a runs along it. */
 const pt=(f,a,z)=>f.j!==undefined?[a,f.j+.03,z]:[f.i+.03,a,z];
@@ -832,7 +837,7 @@ const lerp=(a,b,u)=>a+(b-a)*u, lerp3=(a,b,u)=>[lerp(a[0],b[0],u),lerp(a[1],b[1],
 export function startPortAfterFight(hero,fallen){
   Object.assign(player,{i:hero.i,j:hero.j,moving:false,carrying:false,lift:-1});
   portJob.finished=true; clearThamesInput(); resumeThamesPort();
-  view.cx=isoX((hero.i+fallen.i)/2,(hero.j+fallen.j)/2); view.cy=isoY((hero.i+fallen.i)/2,(hero.j+fallen.j)/2,9); beginScene(()=>beginAfter(hero,fallen),2);
+  view.cx=isoX((hero.i+fallen.i)/2,(hero.j+fallen.j)/2); view.cy=isoY((hero.i+fallen.i)/2,(hero.j+fallen.j)/2,9); view.pixelRatio=1; beginScene(()=>beginAfter(hero,fallen),2);
 }
 /** Diagnostics and art review: the port with the story scene before ('before') or after ('after') the brawl. */
 export function startPortScene(kind){
@@ -1005,7 +1010,7 @@ function gulls(t){
 function sky(t){
   const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H;
   for(let y=0;y<H;y++){ const wy=y-camera.y, k=Math.max(0,Math.min(1,(wy+260)/200));
-    for(let x=0;x<W;x+=8){ const n=vn((x-camera.x)*.012+t*.0004,wy*.03), c=mix(C.skyTop,C.skyLow,Math.min(1,k*.8+n*.35)); fb.fill(c,y*W+x,y*W+Math.min(W,x+8)); } }
+    for(let x=0;x<W;x+=6){ const n=vn((x-camera.x)*.012+t*.0004,wy*.03), c=mix(C.skyTop,C.skyLow,Math.min(1,k*.8+n*.35)); fb.fill(c,y*W+x,y*W+Math.min(W,x+6)); } }
 }
 /** Slate roof behind a parapet; faces +j for the long range (front) or +i for the side range. */
 function roof(i0,i1,h,front=true,D=6,R=10.4){
@@ -1156,14 +1161,24 @@ function background(t){
     for(const j of [10.9,11.6]){ thin(0,j+.07,0,30,j+.07,0,C.black); thin(0,j,0,30,j,0,shadeC(C.ironHi,1.6)); }
     glow=keep;
 }
-/** Render the port as a detailed isometric room, at the same 2:1 angle and scale as the Ward. */
+/** Temporarily scale the original 2× Thames camera into the active native framebuffer.
+ * Story and physics keep their existing 2× camera coordinates. */
+function withPortPixels(fn){
+  const ratio=gymState.ISO_K>1?gymState.ISO_K/2:1;
+  if(ratio===1) return fn();
+  const props=['x','y','ix','jx','iy','jy','z','figureScale'], previous=props.map(k=>camera[k]);
+  for(let p=0;p<props.length;p++) camera[props[p]]=previous[p]*ratio;
+  try { return fn(); } finally { for(let p=0;p<props.length;p++) camera[props[p]]=previous[p]; }
+}
 /** Use the port projection while rendering or advancing its fight. */
 export function withThamesCamera(fn){ const previous=setPropCamera(camera); try { return fn(); } finally { setPropCamera(previous); } }
 /** Restore the port after its fight without restarting the job. */
 export function resumeThamesPort(){ setGstate('port'); setPanelMode(); portStory(); setInfo(); }
 /** Outfit shared by the port opponent and his fight figure. */
 export function portFightOutfit(fn){ const A=appearanceState; withCellOutfit(()=>{ setRamp(A.R_HSH,['#797974','#b7b4a7','#e1dbca'],false); setRamp(A.R_HSHF,['#797974','#b7b4a7','#e1dbca'],true); setRamp(A.R_HPT,['#181b1d','#2a2e31','#454a4a'],false); setRamp(A.R_HPTF,['#181b1d','#2a2e31','#454a4a'],true); fn(); }); }
-export function renderThamesPort(fighters=null){
+export function renderThamesPort(fighters=null){ return withPortPixels(()=>renderPortFrame(fighters)); }
+/** A Thames frame after selecting the native-resolution camera. */
+function renderPortFrame(fighters){
   const t=boxingState.tick, previous=setPropCamera(camera), fb=rendererState.fb, key=camera.x+','+camera.y+','+fb.length;
   glow=LAMPS.map((l,k)=>.86+.14*vn(t*.045+k*13,k*5)+.05*Math.sin(t*.37+k*2));
   try{
