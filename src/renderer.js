@@ -17,16 +17,19 @@ import { collodionFrame } from './collodion.js';
 // Runtime values owned by renderer; initialized explicitly by main.js.
 export const state = {};
 
-/** Newgate rooms are drawn at twice the native resolution (288×192); every other scene stays 144×96. */
+/** Standard Newgate rooms are rendered at 288×192; the Ward uses 432×288. */
 export const HD_K = 2;
 // Close framing keeps the crank, hands and upper body between the labour HUD panels.
 const CRANK_VIEW={x:94,y:76,w:116,h:78};
-/** Is the 2× room on screen now? */
+/** Is a high-resolution room on screen now? */
 export function hubHD(){ return (boxingState.gstate==='hub'||boxingState.gstate==='menu')&&hdRoom(); }
 /** Is the current hub room one of the 2× rooms (for baking its background and sprites)? */
 export function hdRoom(){ return gymState.hubRoom==='cell'||gymState.hubRoom==='yard'||gymState.hubRoom==='laznia'; }
 
-/** Run fn with the 2× frame as the drawing target: picture size, frame buffers, room background, projection and text scale.
+/** Select the existing independent framebuffer for the current room. */
+export function roomFrame(){ return gymState.hubRoom==='cell'?state.hd3:state.hd; }
+
+/** Run fn with a high-resolution framebuffer: picture size, buffers, background, projection and text scale.
  * Everything is restored afterwards, so the rest of the game never sees the large frame. @template T @param {()=>T} fn @returns {T} */
 export function withHD(fn, frame=state.hd){
   if(state.inHD) return fn();
@@ -140,8 +143,8 @@ function present(face,blit=true){
 export function render(){
   if(boxingState.gstate==='port'){ withHD(()=>{ renderThamesPort(); present(false); }); return; }
   if(boxingState.gstate==='crank'){ crankFrame(); withHD(()=>{ renderCrank(); present(false); }); return; }
-  if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ if(hubHD()) withHD(()=>{ renderHub(); present(false); }); else { renderHub(); present(false); } return; }
-  if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); },isoFightState.venue==='sandy'?state.hd3:state.hd); return; }
+  if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ if(hubHD()) withHD(()=>{ renderHub(); present(false); },roomFrame()); else { renderHub(); present(false); } return; }
+  if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); },isoFightState.venue==='sandy'||isoFightState.venue==='cell'||isoFightState.venue==='canteen'?state.hd3:state.hd); return; }
   if(boxingState.gstate==='spar'){ renderSpar(); zoomBlit(1.2,72,49); drawProfShadow(); present(false); return; }
   if(boxingState.gstate==='pullup'){ renderPullup(); present(false); return; }
   if(boxingState.gstate==='roach'){ renderRoaches(); present(false); return; }
@@ -202,7 +205,7 @@ state.vx = 0; state.vy = 0; state.vs = 1;
 new ResizeObserver(()=>resize()).observe(state.stage);   // the card fight folds the top line away: the stage grows without a window resize
 state.uiK = 1;
 state.inHD = false;
-{ // the 2× frame for the cell: its own canvas, image, frame buffer and room background
+{ // the 2× framebuffer for the yard, bath, port and arm wrestling
   const W=appearanceState.W*HD_K, H=appearanceState.H*HD_K, off=document.createElement('canvas'); off.width=W; off.height=H;
   const octx=/** @type {CanvasRenderingContext2D} */ (off.getContext('2d')), img=octx.createImageData(W,H);
   state.hd={W,H,off,octx,img,fb:new Uint32Array(img.data.buffer),bg:new Uint32Array(W*H),scale:1,ox:0,oy:0};
