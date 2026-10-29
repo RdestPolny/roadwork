@@ -26,7 +26,7 @@ export async function checkPortDistrict(page){
     ['06-dock-lane',41,6.2,120],
     ['07-trade-yard',46.7,8.3,180],
     ['08-timber-pier-and-boat',46.8,20.2,110],
-    ['09-river-distance',46.8,23.2,180],
+    ['09-river-distance',48.2,23.2,180],
     ['10-ambient-routines',45.7,8.4,280],
   ];
   for(const [name,i,j,steps] of frames){
