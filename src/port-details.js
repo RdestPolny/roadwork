@@ -158,9 +158,25 @@ export function pierCraftDetails(rect){
       stroke(xx,wj+.08,2.6,xx,wj+.85,2.6,IRON);
       stroke(xx,wj+.08,5.05,xx,wj+.85,5.05,IRON);
     }
+    // A small iron-rimmed ratchet wheel in the vertical j/z plane.
+    const hub=[wi+1.85,wj+.43,4.2];
+    const circle=q=>[hub[0],hub[1]+Math.cos(q)*.55,hub[2]+Math.sin(q)*2.15];
+    for(let n=0;n<16;n++){
+      thin(...circle(n*Math.PI/8),...circle((n+1)*Math.PI/8),n%4?C.ironHi:RUST);
+    }
+    for(let n=0;n<8;n++){
+      const p=circle(n*Math.PI/4);
+      thin(...hub,...p,n%2?IRON:C.ironHi);
+    }
+    cyl(wi+1.87,wj+.43,.17,3.5,4.4,()=>C.ironHi,()=>C.iron);
+    // Wooden crank handle, square-ended and hand-worn.
     stroke(wi+1.9,wj+.45,4.2,wi+2.5,wj+.45,4.2,IRON);
     stroke(wi+2.5,wj+.45,4.2,wi+2.5,wj+.45,6.9,C.ironHi);
     stroke(wi+2.2,wj+.45,6.9,wi+2.85,wj+.45,6.9,C.woodLight);
+    for(let n=0;n<7;n++){
+      const xx=wi+.52+n*.13;
+      stroke(xx,wj+.13,4.9,xx,wj+.76,4.9,C.ropeD);
+    }
     // The rope clearly leads to the head of the pier, explaining the winch.
     rope([wi+1.1,wj+.5,4.9],[wi+1.6,j1-.6,1.8],.5,C.rope);
   }
