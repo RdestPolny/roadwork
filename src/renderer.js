@@ -10,7 +10,7 @@ import { state as pushupsState, drawPushupMeter, drawPushupAtmos, drawPushupBody
 import { renderPullup } from './pullups.js';
 import { renderRoaches } from './roaches.js';
 import { crankFrame, renderCrank } from './crank.js';
-import { renderIsoFight } from './iso-fight.js';
+import { renderIsoFight, state as isoFightState } from './iso-fight.js';
 import { renderThamesPort } from './thames-port.js';
 import { collodionFrame } from './collodion.js';
 
@@ -28,11 +28,11 @@ export function hdRoom(){ return gymState.hubRoom==='cell'||gymState.hubRoom==='
 
 /** Run fn with the 2× frame as the drawing target: picture size, frame buffers, room background, projection and text scale.
  * Everything is restored afterwards, so the rest of the game never sees the large frame. @template T @param {()=>T} fn @returns {T} */
-export function withHD(fn){
+export function withHD(fn, frame=state.hd){
   if(state.inHD) return fn();
-  const A=appearanceState, H=state.hd, keep={W:A.W,H:A.H,FB:state.FB_MAIN,fb:state.fb,img:state.img,off:state.off,octx:state.octx,scale:state.scale,ox:state.ox,oy:state.oy,bg:gymState.bgHub};
+  const A=appearanceState, H=frame, K=H.W/A.W, keep={W:A.W,H:A.H,FB:state.FB_MAIN,fb:state.fb,img:state.img,off:state.off,octx:state.octx,scale:state.scale,ox:state.ox,oy:state.oy,bg:gymState.bgHub};
   A.W=H.W; A.H=H.H; state.FB_MAIN=H.fb; if(keep.fb===keep.FB) state.fb=H.fb; state.img=H.img; state.off=H.off; state.octx=H.octx;
-  state.scale=H.scale; state.ox=H.ox; state.oy=H.oy; gymState.bgHub=H.bg; gymState.ISO_K=HD_K; state.uiK=HD_K; state.inHD=true;
+  state.scale=H.scale; state.ox=H.ox; state.oy=H.oy; gymState.bgHub=H.bg; gymState.ISO_K=K; state.uiK=K; state.inHD=true;
   try{ return fn(); }
   finally{ A.W=keep.W; A.H=keep.H; state.FB_MAIN=keep.FB; state.fb=keep.fb; state.img=keep.img; state.off=keep.off; state.octx=keep.octx;
     state.scale=keep.scale; state.ox=keep.ox; state.oy=keep.oy; gymState.bgHub=keep.bg; gymState.ISO_K=1; state.uiK=1; state.inHD=false; }
@@ -141,7 +141,7 @@ export function render(){
   if(boxingState.gstate==='port'){ withHD(()=>{ renderThamesPort(); present(false); }); return; }
   if(boxingState.gstate==='crank'){ crankFrame(); withHD(()=>{ renderCrank(); present(false); }); return; }
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ if(hubHD()) withHD(()=>{ renderHub(); present(false); }); else { renderHub(); present(false); } return; }
-  if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); }); return; }
+  if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); },isoFightState.venue==='sandy'?state.hd3:state.hd); return; }
   if(boxingState.gstate==='spar'){ renderSpar(); zoomBlit(1.2,72,49); drawProfShadow(); present(false); return; }
   if(boxingState.gstate==='pullup'){ renderPullup(); present(false); return; }
   if(boxingState.gstate==='roach'){ renderRoaches(); present(false); return; }
@@ -166,6 +166,8 @@ export function resize(){
   state.ox=(state.screen.width-appearanceState.W*state.scale)>>1; state.oy=(state.screen.height-appearanceState.H*state.scale)>>1;
   const H=state.hd; H.scale=Math.max(1,Math.floor(Math.min(state.screen.width/H.W,state.screen.height/H.H)));   // the 2× room: its own whole-pixel scale
   H.ox=(state.screen.width-H.W*H.scale)>>1; H.oy=(state.screen.height-H.H*H.scale)>>1;
+   const T=state.hd3; T.scale=Math.max(1,Math.floor(Math.min(state.screen.width/T.W,state.screen.height/T.H)));
+   T.ox=(state.screen.width-T.W*T.scale)>>1; T.oy=(state.screen.height-T.H*T.scale)>>1;
   state.sctx.imageSmoothingEnabled=false;
 }
 
@@ -206,7 +208,13 @@ state.inHD = false;
   state.hd={W,H,off,octx,img,fb:new Uint32Array(img.data.buffer),bg:new Uint32Array(W*H),scale:1,ox:0,oy:0};
 }
 
-// light comes from above, slightly from the front
+{ // Standalone 3x preview; never substitutes the production 2x room buffers.
+   const W=appearanceState.W*3, H=appearanceState.H*3, off=document.createElement('canvas'); off.width=W; off.height=H;
+   const octx=/** @type {CanvasRenderingContext2D} */ (off.getContext('2d')), img=octx.createImageData(W,H);
+   state.hd3={W,H,off,octx,img,fb:new Uint32Array(img.data.buffer),bg:new Uint32Array(W*H),scale:1,ox:0,oy:0};
+ }
+
+ // light comes from above, slightly from the front
 state.LX = 0.42;
 state.LY = -0.91;
 
