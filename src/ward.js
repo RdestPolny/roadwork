@@ -2,7 +2,7 @@
    limewash. A wide plank guard-bed runs along the back wall with flattened straw pallets and iron rings with chains;
    the only window is a barred slot under the vault with a plank shutter, letting in cold smog; a night tub stands in
    the corner by the door in its own puddle; names, dates and crosses are scratched into the lime. The room is drawn at
-   2× (the cell is a 2× room); the light (a tallow lamp by the door, smog through the slot) is cell-light's.
+   3× (the cell is a 3× room); the light (a tallow lamp by the door, smog through the slot) is cell-light's.
    Mechanics keep the old item types: bunk / bunk2 = the guard-bed (sleep, sitting on its edge), cwc = the tub,
    csink = the water butt (washing), cwheel = Profesor's bath chair, ccom = the chest (goods), cdoor = the oak door. */
 
