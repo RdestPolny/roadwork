@@ -96,7 +96,7 @@ try {
         buffer:[R.state.hd3.W,R.state.hd3.H,R.state.hd3.fb.length],scale:G.state.ISO_K,
         hero:I.state.P.look.style,harry:I.state.O.look.style,room:G.state.hubRoom};
       I.state.O.aiAt=Infinity; // keep the end of the smoke test deterministic
-      I.isoFightFinish(0,'KO'); b.step(130);
+      I.isoFightFinish(0,'KO'); b.step(300);
       const finished=I.state.phase==='end';
       const unchanged=before===JSON.stringify({stats:P.state.save.stats,injuries:P.state.save.injuries,train:P.state.save.train});
       (await import('/src/navigation.js')).exitToHub();
