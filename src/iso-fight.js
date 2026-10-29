@@ -564,7 +564,7 @@ function tickFight(){
   if(S.banner&&S.kdSlow<=0&&--S.banner.t<=0) S.banner=null;   // the knockdown's words wait for the comic to end
   tickFeet(P,scale); tickFeet(O,scale); tickParts(scale);
   for(const F of [P,O]){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/27)>=1) F.rise=null; }
-  if(S.kdSlow>3) recordKnockdownFrame();
+  if(S.kdSlow>3&&S.venue!=='sandy') recordKnockdownFrame();
   for(const F of [P,O]){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
   const [pi,pj]=toward(P,O), [oi,oj]=toward(O,P);
   for(const [F,ti,tj] of [[P,pi,pj],[O,oi,oj]]){ if(F.ko||F.down) continue; F.fi+=(ti-F.fi)*0.22*scale; F.fj+=(tj-F.fj)*0.22*scale; const m=Math.hypot(F.fi,F.fj)||1; F.fi/=m; F.fj/=m; }
@@ -916,7 +916,7 @@ function startIsoRagdoll(F,A,pid,ko){
     return {i:w.i,j:w.j,z,pi:w.i-vi,pj:w.j-vj,pz:z-vz};
   });
   const len=RD_PAIRS.map(([p,q],k)=>{ const d=Math.hypot(loc[q][0]-loc[p][0],loc[q][1]-loc[p][1],loc[q][2]-loc[p][2]); return k>=10?d*0.85:d; });
-  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A){ state.kdSlow=3.8; startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); }
+  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A){ state.kdSlow=3.8; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
 }
 
 /** One 60 Hz step of the ragdoll. @param {any} F */
@@ -1112,7 +1112,7 @@ function comicCaption(){
 export function renderIsoFight(){ if(state.venue==='port') return withThamesCamera(renderFight); return renderFight(); }
 function renderFight(){
   const S=state; if(!S.on) return;
-  if(S.kdSlow>0&&knockdownComicOnScreen(3.8-S.kdSlow,S.kdSlow)){ drawKnockdownComic(3.8-S.kdSlow,comicCaption()); return; }
+  if(S.venue!=='sandy'&&S.kdSlow>0&&knockdownComicOnScreen(3.8-S.kdSlow,S.kdSlow)){ drawKnockdownComic(3.8-S.kdSlow,comicCaption()); return; }
   if(gymState.fightSpectators) for(const C of gymState.fightSpectators) C.t=S.t*60;
   if(S.venue==='port') renderThamesPort([S.P,S.O]);
   else if(S.venue==='sandy'){
