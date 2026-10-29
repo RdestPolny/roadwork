@@ -13,7 +13,9 @@ async function capture(page,name){
 }
 export async function checkPortDistrict(page){
   await mkdir(ROOT,{recursive:true});
-  await page.locator('[data-dev-scene="port"]').click();
+  // The developer scene picker can be inside a collapsed options panel.
+  // The existing browser tests activate this control through DOM click.
+  await page.evaluate(()=>document.querySelector('[data-dev-scene="port"]').click());
   let checks=0;
   const frames=[
     ['01-original-coal-wharf',21,9,140],
