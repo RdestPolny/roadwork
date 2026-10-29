@@ -20,12 +20,28 @@ export async function checkCombatDash(page){
       fresh(); S.P.lastMove=[i,j]; const start=[S.P.i,S.P.j]; key('KeyF'); key('KeyF',false); b.step(18);
       compass.push([S.P.i-start[0],S.P.j-start[1],S.P.dash===null]);
     }
+    // Reconstruct the cursor from the zoomed 432×288 image rather than using an unzoomed world vector.
+    fresh();
+    const R=await import('/src/renderer.js'), G=await import('/src/gym.js');
+    const frame=R.isometricFrame('sandy'), scale=frame.W/144, z=2.45;
+    const sx=G.isoX(S.P.i,S.P.j)*scale, sy=G.isoY(S.P.i,S.P.j,0)*scale;
+    S.cam.init=false; S.cam.z=z; S.cam.x=sx; S.cam.y=sy;
+    const cx=Math.round(Math.max(frame.W/(2*z),Math.min(frame.W-frame.W/(2*z),sx)));
+    const cy=Math.round(Math.max(frame.H/(2*z),Math.min(frame.H-frame.H/(2*z),sy)));
+    S.pointer={x:(frame.W/2+(sx-cx)*z)/scale+12,y:(frame.H/2+(sy-cy)*z)/scale};
+    key('KeyF'); key('KeyF',false);
+    const zoomAim=[S.P.dash?.di,S.P.dash?.dj];
     fresh(); const sta=S.P.rt.sta, start=[S.P.i,S.P.j];
     key('KeyF'); key('KeyF',false); const spent=sta-S.P.rt.sta;
     key('KeyF'); key('KeyF',false); const spamSpent=sta-S.P.rt.sta;
     b.step(18); const first=[S.P.i,S.P.j];
     S.P.lastMove=[-1,0]; key('KeyF'); key('KeyF',false); b.step(18);
     const chained=[S.P.i,S.P.j], secondSpent=sta-S.P.rt.sta;
+    fresh(6.9,5.15); S.P.lastMove=[-1,0];key('KeyF');key('KeyF',false);b.step(17);
+    S.P.lastMove=[1,0];key('KeyF');key('KeyF',false);b.step(4);key('Digit2');
+    const retreatCrossBuffered=!!S.P.buf&&S.P.buf.pid===1;
+    b.step(10);
+    const retreatCrossStarted=!!S.P.pk&&S.P.pk.pid===1&&S.P.c.thrown===1;
     fresh(); S.P.i=8.85;S.P.j=5.15;S.P.li=S.P.i;S.P.lj=S.P.j;S.O.i=5.55;S.O.j=5.15;
     key('KeyF'); key('KeyF',false); b.step(19);
     const collision=Math.hypot(S.P.i-5.55,S.P.j-5.15);
@@ -50,16 +66,18 @@ export async function checkCombatDash(page){
       const firstPos=[S.P.i,S.P.j];S.P.lastMove=[1,0];key('KeyF');key('KeyF',false);b.step(5);
       roomNames.push([venue,Number.isFinite(S.P.i),Number.isFinite(S.P.j),S.P.rt.sta>0]);
     }
-    return {dirs,compass,spent,spamSpent,first,chained,start,secondSpent,collision,attacks,lowBuffered,lowCommitted,lowHits,shiftStillHead,downAim,pauseCleared,blurCleared,roomNames,dashCost:DASH.cost};
+    return {dirs,compass,zoomAim,spent,spamSpent,first,chained,start,secondSpent,retreatCrossBuffered,retreatCrossStarted,collision,attacks,lowBuffered,lowCommitted,lowHits,shiftStillHead,downAim,pauseCleared,blurCleared,roomNames,dashCost:DASH.cost};
   });
   for(let i=0;i<8;i++){const [dx,dy,ended]=r.compass[i], [x,y]=r.dirs[i];
     assert.ok(dx*x+dy*y>0.25,'dash should travel in compass direction '+i);
     assert.equal(ended,true,'dash finishes with planted stance');
   }
+  assert.ok(r.zoomAim[0]>.5&&r.zoomAim[1]<-.5,'a rightward cursor at 2.45× zoom maps to room space');
   assert.equal(r.spent,r.dashCost,'dash uses stamina once');
   assert.equal(r.spamSpent,r.spent,'repeated F cannot restart dash');
   assert.ok(r.first[0]>r.start[0]+.5&&r.chained[0]<r.first[0]-.5,'second F can dash back');
   assert.equal(r.secondSpent,r.dashCost*2,'back and in consume stamina separately');
+  assert.ok(r.retreatCrossBuffered&&r.retreatCrossStarted,'retreat -> re-entry dash -> buffered cross is a continuous combo');
   assert.ok(r.collision<=3.61,'sandy pit boundary blocks F dash');
   for(const [i,a] of r.attacks.entries()){
     assert.equal(a.buffered,true,'punch '+i+' buffered during push-off');
