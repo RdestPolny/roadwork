@@ -8,7 +8,7 @@ import { quad, isoBox, isoX, isoY, shadeC } from './gym.js';
 import { h2 } from './boxing.js';
 import { DISTRICT, PORT_LIFE, portRoutine } from './port-district.js';
 import { C, floor, stroke, thin, rope, vn, frac, barrel, crate, chimney,
-  onI, onJ, brickAt, windowAt, lettering, fq, fl, contact, cyl, roundLit,
+  onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, contact, cyl, roundLit,
   smoke, spot, docker, dockPerson, walkJoints, hull, gasLamp, bollard } from './thames-port.js';
 
 const WOOD=rgb('#4b3527'), WOOD_HI=rgb('#75604a'), WOOD_DARK=rgb('#211b17');
@@ -35,12 +35,8 @@ function renderDeck(rect,seed){
     isoBox(i,j0-.08,i+.35,j1+.06,-.4,.08,WOOD,WOOD_HI,WOOD_DARK);
   }
   floor(i0,j0,i1,j1,DECK_Z,(x,y)=>{
-    // Inverse of the projective floor transform in the existing port camera.
-    // The deck grain is screen-stable while the camera pans.
-    const gi=isoX(i0,j0), gj=isoY(i0,j0,DECK_Z);
-    const a=(x-gi)/12, b=(y-gj)/6; // corrected for HD below by known camera scale
-    void a; void b;
-    return plankAt(x*.12,y*.17,seed);
+    const [a,b]=ground(x,y,DECK_Z);
+    return plankAt(a,b,seed);
   });
   // Explicit plank seams, frame edges, exposed beam ends.
   for(let j=j0+.32;j<j1;j+=.33) thin(i0,j,DECK_Z+.03,i1,j,DECK_Z+.03,shadeC(WOOD_DARK,.85));
@@ -212,6 +208,9 @@ const CLOTH=[
 ];
 /** Small pose variations, sharing exactly the main game's walk/skeleton rig. */
 function portLifeFigure(npc,p,t){
+  // No skeletal construction for actors completely outside the current view.
+  const x=isoX(p.i,p.j),y=isoY(p.i,p.j,0);
+  if(x< -65||x>appearanceState.W+65||y< -85||y>appearanceState.H+65) return;
   const moving=p.walking,phase=(t+npc.shift)*.013;
   const J=walkJoints(moving?phase:.25,false,1);
   const job=p.stage==='work',breath=Math.sin(t*.035+npc.shift)*.25;
