@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {mkdir} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
 
 /** Browser smoke + focused 60 Hz combat regression, on the real game scene. */
 export async function checkCombatDash(page){
@@ -80,7 +80,10 @@ export async function captureCombatDashFrames(page){
     await page.evaluate(async()=>{const I=await import('/src/iso-fight.js');const b=window.__boxer;b.pause();I.startIsoFight(0,'sandy');b.step(60);I.state.O.aiAt=Infinity;I.state.P.i=5.55;I.state.P.j=5.15;I.state.P.li=5.55;I.state.P.lj=5.15;I.state.O.i=7.25;I.state.O.j=5.15;I.state.P.lastMove=[1,0];});
   };
   const step=async n=>page.evaluate(async n=>{window.__boxer.step(n);(await import('/src/renderer.js')).render();},n);
-  const shot=async label=>{await step(0);await page.locator('#screen').screenshot({path:`${dir}/${label}.png`});};
+  const shot=async label=>{
+    const png=await page.evaluate(async()=>{const R=await import('/src/renderer.js');R.render();return R.state.hd3.off.toDataURL('image/png').split(',')[1];});
+    await writeFile(`${dir}/${label}.png`,Buffer.from(png,'base64')); // exact native 432×288, not the upscaled screen
+  };
   await setup();await page.evaluate(()=>dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowRight',bubbles:true})));await step(7);await shot('01-forward');
   await page.evaluate(()=>{dispatchEvent(new KeyboardEvent('keyup',{code:'ArrowRight',bubbles:true}));dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowLeft',bubbles:true}));});await step(9);await shot('02-back');
   await page.evaluate(()=>{dispatchEvent(new KeyboardEvent('keyup',{code:'ArrowLeft',bubbles:true}));dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowUp',bubbles:true}));});await step(10);await shot('03-lateral');
