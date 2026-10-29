@@ -113,6 +113,42 @@ try {
     assert.equal(snapshot.unchanged,true);
     assert.equal(snapshot.returned,'yard');
   });
+  await check('Ward 432x288: exploration, Harry fight and 2x yard/bath isolation',async()=>{
+    const room=await page.evaluate(async()=>{
+      const b=window.__boxer, R=await import('/src/renderer.js'), G=await import('/src/gym.js');
+      const I=await import('/src/iso-fight.js');
+      const frame=(f)=>[f.W,f.H,f.fb.length];
+      b.goRoom('cell'); b.pause(); b.step(1);
+      const ward={frame:frame(R.roomFrame()), background:R.state.hd3.bg.filter(c=>c!==0).length,
+        unique:new Set(R.state.hd3.fb).size, sprites:G.state.cellList.filter(it=>it.spr?.length===432*288).length};
+      b.startSpar(0,'cell'); b.step(65);
+      I.state.O.aiAt=Infinity;
+      const startI=I.state.P.i, startJ=I.state.P.j;
+      I.state.pointer={x:136,y:68}; b.step(18);
+      const fight={venue:I.state.venue,opp:I.state.opp.name,frame:frame(R.state.hd3),
+        unique:new Set(R.state.hd3.fb).size,moved:Math.hypot(I.state.P.i-startI,I.state.P.j-startJ)};
+      I.state.pointer=null;
+      (await import('/src/navigation.js')).exitToHub();
+      b.goRoom('yard'); b.step(1);
+      const yard={frame:frame(R.roomFrame()),unique:new Set(R.state.hd.fb).size};
+      b.goRoom('laznia'); b.step(1);
+      const bath={frame:frame(R.roomFrame()),unique:new Set(R.state.hd.fb).size};
+      return {ward,fight,yard,bath};
+    });
+    assert.deepEqual(room.ward.frame,[432,288,432*288]);
+    assert.ok(room.ward.background>5000,'the full Ward background is baked at 3x');
+    assert.ok(room.ward.unique>20,'the 3x Ward renders actual colour detail');
+    assert.ok(room.ward.sprites>=3,'cell furniture sprite buffers use 3x resolution');
+    assert.equal(room.fight.venue,'cell');
+    assert.equal(room.fight.opp,'HARRY');
+    assert.deepEqual(room.fight.frame,[432,288,432*288]);
+    assert.ok(room.fight.unique>20,'Ward brawl uses the full 3x framebuffer');
+    assert.ok(room.fight.moved>0.001,'the pointer moves a fighter with the 3x camera');
+    assert.deepEqual(room.yard.frame,[288,192,288*192]);
+    assert.deepEqual(room.bath.frame,[288,192,288*192]);
+    assert.ok(room.yard.unique>10&&room.bath.unique>10,'other rooms still render');
+    await page.screenshot({path:'artifacts/ward-432-288-regression.png'});
+  });
   await check('isometric fight: keys, stamina, body blows, block, slip, steps, AI, knockdown, pause and result',()=>checkIsoFight(page));
   await check('isometric fight in the yard and the bath rooms',()=>checkIsoFightRooms(page));
   await check('the unlit Ward lamp has no blinking ember', async () => {
