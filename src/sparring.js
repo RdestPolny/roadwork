@@ -490,6 +490,9 @@ state.YARD_OPP = [
 ];
 
 state.CELL_OPP.push(state.YARD_OPP[0],state.YARD_OPP[1]);
+// Index 5: a new cellmate, NOT Walter "Chudy" Pratt (index 4).
+state.CELL_OPP.push({name:'BRIGGS',title:'Edmund „The Bull” Briggs',style:'bull',hp:140,rank:10,eq:{},
+  heavy:true,look:{skin:'s2',hair:'h1',style:'skinhead',facial:'mustache'}});
 
 // Fights at the meal from Profesor's list (#3 Zeke, #9 Dan): in the Ward over the bowls, everybody watching.
 state.CANTEEN_OPP = [
