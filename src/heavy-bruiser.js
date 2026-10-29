@@ -35,7 +35,7 @@ export function advanceBull(b,now,punching=false){
     return b.mode;
   }
   if(b.pending&&!punching){
-    b.pending=false; b.missLoad=0; b.mode='EXHAUSTED'; b.until=now+BULL.exhaust;
+    b.pending=false; b.missLoad=0; b.mode='EXHAUSTED'; b.until=now+BULL.exhausted;
     return b.mode;
   }
   if(b.mode==='ATTACK'&&!punching){ b.mode='RECOVERY'; b.until=now+BULL.recovery; }
