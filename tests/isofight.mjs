@@ -173,6 +173,8 @@ export async function checkIsoFight(page){
       fresh(); S.P.down=true; S.P.downAt=S.t; S.P.kdN=1; S.P.pk=null; for(let k=0;k<8;k++){ key('Digit1'); b.step(10); } out.mash=[S.P.down,S.P.kdMash>=7];
       // the knockdown comic: its words outlast it, taps on the boards count in real time, and the port's panels frame the fighters
       fresh(); near(1.0); S.O.rt.hp=1; key('Digit1'); b.step(250); out.kdBanner=[S.kdSlow,S.banner?.text];
+       const comicWard=(await import('/src/knockdown-comic.js')).state.panels;
+       out.wardComic3x=comicWard.length===3&&comicWard[0].w>240&&comicWard[2].w>400;
       fresh(); near(1.0); S.P.rt.hp=1; R.beginPunch(S.O.rt,2,S.t); S.O.pk={pid:2,low:false,t:0,hit:false}; for(let n=0;n<60&&S.kdSlow<=0;n++) b.step(1); b.step(6);   // past the blow's hit-stop
       for(let k=0;k<12;k++){ key('Digit1'); b.step(6); } out.comicMash=[S.kdSlow>0,S.P.down,S.P.kdMash];
       I.startIsoFight(0,'port'); b.step(60); S.O.aiAt=Infinity; near(1.0); S.O.rt.hp=1; key('Digit2'); b.step(170);
@@ -232,6 +234,7 @@ export async function checkIsoFight(page){
   assert.deepEqual(r.kd,[true,1,true,true],'the first knockdown sends the rival to the boards (as a ragdoll) with a fraction of his health'); assert.deepEqual(r.kdSlow,[true,true],'knockdown slows the fight'); assert.equal(r.replayOutfit,true,'the knockdown replay draws the hero with his room outfit palette'); assert.equal(r.rose,true,'he gets up after the count and the ragdoll is released');
   assert.deepEqual(r.mash,[false,true],'taps get the player up');
   assert.deepEqual(r.kdBanner,[0,'NOKDAUN!'],'the knockdown banner is still up when the comic ends');
+   assert.equal(r.wardComic3x,true,'the Ward knockdown comic uses proportionally scaled 432x288 panels');
   assert.deepEqual(r.comicMash,[true,true,12],'every tap during the comic counts towards rising');
   assert.deepEqual(r.portFraming,[true,true,true],'every port panel frames the fighters near its middle');
   assert.deepEqual(r.ko,['ko','TKO',true],'the third knockdown stops the fight');
