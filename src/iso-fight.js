@@ -9,7 +9,7 @@ import { state as boxingState, popup, drawText } from './boxing.js';
 import { renderSandyArena, drawSandyFootDust } from './hd-fight-scene.js';
 import { state as appearanceState, rgb } from './appearance.js';
 import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, setFightSpectators } from './gym.js';
-import { state as rendererState, zoomBlit, screenToView, setFramebuffer } from './renderer.js';
+import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometricFrame } from './renderer.js';
 import { mix } from './cast.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
@@ -248,14 +248,15 @@ function pointerDirection(){ return state.venue==='port'?withThamesCamera(pointe
 function pointerDirectionInRoom(){
   const S=state; if(!S.pointer||!S.P) return [0,0];
   // Input is handled outside withHD(), where ISO_K has already returned to 1.
-  // Camera coordinates belong to the active framebuffer (2x normally, 3x in the Ward/sandbox).
-  const scale=S.venue==='sandy'||S.venue==='cell'||S.venue==='canteen'?3:2;
-  const frame=scale===3?rendererState.hd3:rendererState.hd;
+  // Camera coordinates belong to the active framebuffer (3× in all isometric venues).
+  const frame=isometricFrame(S.venue), scale=frame.W/144;
+  // The port's camera is already in legacy 2× pixels between render calls.
+  const projectionScale=S.venue==='port'?scale/2:scale;
   const C=S.cam, W=frame.W, H=frame.H, z=(Math.abs(C.z-2)<0.03?2:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
   const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
   const sx=isoX(S.P.i,S.P.j), sy=isoY(S.P.i,S.P.j,0);
-  const dx=S.pointer.x-(W/2+(sx*scale-cx)*z)/scale;
-  const dy=S.pointer.y-(H/2+(sy*scale-cy)*z)/scale;
+  const dx=S.pointer.x-(W/2+(sx*projectionScale-cx)*z)/scale;
+  const dy=S.pointer.y-(H/2+(sy*projectionScale-cy)*z)/scale;
   if(Math.hypot(dx,dy)<4) return [0,0];
   const di=dx+2*dy, dj=2*dy-dx, len=Math.hypot(di,dj); return [di/len,dj/len];
 }
