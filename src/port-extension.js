@@ -7,6 +7,7 @@ import { state as boxingState } from './boxing.js';
 import { quad, isoBox, isoX, isoY, shadeC } from './gym.js';
 import { h2 } from './boxing.js';
 import { DISTRICT, PORT_LIFE, portRoutine } from './port-district.js';
+import { pubCraftDetails, tradeCraftDetails, pierCraftDetails, yardCraftProps } from './port-details.js';
 import { C, floor, stroke, thin, rope, vn, frac, barrel, crate, chimney,
   onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, contact, cyl, roundLit,
   smoke, spot, docker, dockPerson, walkJoints, hull, gasLamp, bollard } from './thames-port.js';
@@ -42,6 +43,7 @@ function renderDeck(rect,seed){
   for(let j=j0+.32;j<j1;j+=.33) thin(i0,j,DECK_Z+.03,i1,j,DECK_Z+.03,shadeC(WOOD_DARK,.85));
   for(const j of [j0,j1]) stroke(i0,j,.4,i1,j,.4,C.woodLight);
   for(let i=i0;i<=i1;i+=2.3) thin(i,j1,-.5,i,j1,DECK_Z+.7,C.iron);
+  pierCraftDetails(rect);
 }
 function rail(i0,j0,i1,j1){
   const length=Math.hypot(i1-i0,j1-j0),n=Math.ceil(length/1.4);
@@ -146,6 +148,7 @@ function pub(t){
   // Rainwater pipe and old nail marks at the rear corner.
   thin(39.28,5.96,46,39.28,5.96,0,C.iron);
   for(let z=5;z<45;z+=8) thin(39.15,5.97,z,39.42,5.97,z,C.ironHi);
+  pubCraftDetails();
 }
 /** Two lower warehouses separated by a dark, recessed service lane. */
 function tradeBuildings(t){
@@ -173,12 +176,14 @@ function tradeBuildings(t){
   lettering(F2,47.2,53,'TIMBER',rgb('#aea187'),.45);
   for(const [x,z] of [[44.2,59],[49.1,65]]) chimney(x,-1.9,z,.8);
   for(const [i,j,z] of [[42.45,3.9,51],[46.7,4.5,57]]) thin(i,j,z-46,i,j,z,C.iron);
+  tradeCraftDetails();
 }
 /** Static architecture is cached by the parent port background bake. */
 export function portDistrictStatic(t){ tradeBuildings(t);pub(t); }
 /** Stacks, ropes and people are sorted in the parent dock rendering queue. */
 export function portDistrictProps(t){
   const result=[
+    [59,()=>yardCraftProps(t)],
     [36.9,()=>{barrel(31.45,6.75);barrel(31.9,6.85);}],
     [47.8,()=>{barrel(39.4,8.4);barrel(39.5,9.2);}],
     [57.2,()=>{crate(43.1,5.2,1.3,1.15,7,0,0,1);crate(43.2,5.25,1.15,1,5,7,2);}],
