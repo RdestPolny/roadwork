@@ -1176,6 +1176,8 @@ function background(t){
     floor(30,0,52,13,0,sett);
     warehouseDoors();
     portDistrictStatic(t);
+    // Timber decks, piles and joists do not move: bake once per camera pose.
+    portDecks();
     thin(0,13,0,52,13,0,C.edge); thin(52,0,0,52,13,0,C.edge);
     for(const j of [10.9,11.6]){ thin(0,j+.07,0,52,j+.07,0,C.black); thin(0,j,0,52,j,0,shadeC(C.ironHi,1.6)); }
     glow=keep;
@@ -1206,7 +1208,6 @@ function renderPortFrame(fighters){
     if(bake.key!==key){ background(t); bake.buf=fb.slice(); bake.key=key; } else fb.set(bake.buf);
     water(t);
     portRiverDistance(t);
-    portDecks();
     for(const c of CHIMNEYS) if(c[4]) smoke(c[0]+.25,c[1]+.45,c[2]+12.5,t,Math.floor(c[0]*3),8,520,C.fog,1.3);
     /* back-to-front props on the quay */
     const H=hoistAt(t), D=dockerNow(t), K=craneAt(t,-2.4);
