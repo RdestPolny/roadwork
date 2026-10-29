@@ -11,6 +11,10 @@ npm run dev
 
 Otwórz [http://127.0.0.1:5173](http://127.0.0.1:5173). Port można zmienić przez `PORT`. Projekt używa natywnego ESM i małego serwera Node.js, bez bundlera. Uruchamiaj przez HTTP.
 
+## Grafika i rozdzielczość
+
+Ward (cela), jego wyposażenie, wszystkie postacie oraz odbywające się w nim bójki, także przy posiłku, są renderowane w buforze **432×288**. W 3× dopracowano drobne piksele na cegle, kamiennych płytach, drewnianej pryczy, rysach ścian i przy zwierzętach oraz na twarzach i ubraniach współwięźniów. Zegar, AI, hitboxy, głębia, interakcje i format zapisu nie zmieniają się. Komiks nokdaunu dopasowuje panele do 3×. Spacerniak, łaźnia, port i pozostałe sceny używają dotychczasowych buforów; test piaskowej areny nadal jest w debug.
+
 ## Gra
 
 Nowa gra zaczyna się przyjęciem do Wardu. Dzień to trzy fazy — rano, południe, wieczór — po dwie akcje: posiłek, trening, praca przy korbie, walka, kąpiel albo drzemka. Przejścia między celą, spacerniakiem i łaźnią są darmowe. Trening, praca i walka męczą (krótszy pasek kondycji w bójce), głód osłabia ciosy, sen wieczorem kończy dzień. Szczegóły: [PRISON.md](PRISON.md) §3.
@@ -41,6 +45,8 @@ Autozapis oraz trzy sloty używają dotychczasowych kluczy `heavybag.save` i `he
 Narzędzia dostępne są wyłącznie pod [/?debug=1](http://127.0.0.1:5173/?debug=1). W Opcjach można włączyć tryb developera: autozapis i rozkład dnia zatrzymują się, a drzwi pozwalają wpisać godzinę i przejść do dowolnego pokoju Newgate. Tryb przetrwa przeładowanie z tym parametrem; wyłączenie wraca do ostatniego zapisu. Ręczne sloty nadal działają.
 
 Pod `?debug=1` w Opcjach → „Tryb developerski (przełącz scenę)” dostępny jest także animowany podgląd portu nad Tamizą. Strzałki lub WASD poruszają postacią, kamera podąża za nią, a Esc wraca do poprzedniego pokoju; scena nie wpływa na zapis. Po drugim worku zaczyna się scena z pijakiem, po wygranej bójce scena z wozem policyjnym i morderstwem, na końcu przeniesienie do Wardu; kamera najeżdża na mówiącego, a kwestie pojawiają się w dymkach nad głowami. Do oglądania scen: `(await import('/src/thames-port.js')).startPortScene('before')` albo `'after'`.
+
+Pod `?debug=1` w **Opcjach → Tryb developerski (przełącz scenę) → HD Fight Test — Bohater vs Harry (432×288)** dostępny jest osobny test wyższej rozdzielczości: piaskowa arena, ten sam izometryczny szkielet, ciosy i AI Harry’ego, ale bogatsze detale twarzy, włosów i więziennego ubrania. **R** zaczyna test od nowa, **F9** zapisuje PNG 432×288, **F8** zamraża klatkę (kropka — pojedynczy krok), **Esc** wraca do poprzedniego pokoju. Test nie przyznaje XP, nie dodaje kontuzji ani wpisów do bilansu bójek. Walka na spacerniaku i w łaźni zachowuje bufor 288×192; zwykłe bójki w Wardzie korzystają już z 432×288.
 
 Diagnostyka pod `?debug=1`: `window.__boxer.startSpar(0, 'cell')` uruchamia bójkę izometryczną (`isoFightFinish(0, 'KO')` kończy ją na korzyść gracza). Zestaw skilli, Cechy i drzewka ciosów z [CIOSY.md](CIOSY.md) są rozwojem postaci, który nie wpływa jeszcze na bójkę w czasie rzeczywistym.
 

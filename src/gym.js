@@ -2,7 +2,8 @@ import { state as appearanceState, rgb, setRamp } from './appearance.js';
 import { carryingTray, drawHeldTray, mealDoorOptions, mealBedOptions, mealMateOptions } from './ward-meal.js';
 import { buildBath, drawBathItem, bathTick, bathOptions, bathFX, BATH_W, BATH_H, LAMPS as BATH_LAMPS, state as bathState } from './bath.js';
 import { gateOptions, listTag, prisonFightStart, prisonFightExtras } from './prison.js';
-import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
+import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, roomFrame, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
+import { drawSandyFighterDetails } from './hd-fight-scene.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
 import { lightCell, drawCellLights, cellLights } from './cell-light.js';
@@ -103,12 +104,12 @@ export // plane j=c (runs along i) / plane i=c (runs along j): a = position alon
 function wallJ(c,a0,a1,Hh,fn){ quad(a0,c,0,a1,c,0,a1,c,Hh,a0,c,Hh,(x,y)=>{ const a=(x-state.HUB_OX)/6+c, z=state.HUB_OY+(a+c)*3-y; return fn(a,z,x,y); }); } function wallI(c,a0,a1,Hh,fn){ quad(c,a0,0,c,a1,0,c,a1,Hh,c,a0,Hh,(x,y)=>{ const a=c-(x-state.HUB_OX)/6, z=state.HUB_OY+(c+a)*3-y; return fn(a,z,x,y); }); }
 
 export function shadeC(c,k){ return (0xff000000|(Math.min(255,((c>>16)&255)*k)<<16)|(Math.min(255,((c>>8)&255)*k)<<8)|Math.min(255,(c&255)*k))>>>0; } function buildHub(){                       // room shell (walls, floor) + everything flat, baked into bgHub
-  if(hdRoom()&&!rendererState.inHD){ withHD(buildHub); return; }   // the rooms bake into the 2× background
+  if(hdRoom()&&!rendererState.inHD){ withHD(buildHub,roomFrame()); return; }   // the rooms bake into the 2× background
   if(state.hubRoom==='yard') buildYard(); else if(state.hubRoom==='laznia') buildBath(); else buildCell();   // the Ward
 }
 
 
-export function hubRebake(){ roomsState.homeWx=weatherNow(); const bake=()=>{ buildHub(); for(const it of state.gymItems) if(!state.GYM_TYPES[it.t].flat) renderItemSprite(it); }; if(hdRoom()) withHD(bake); else bake(); }   /* the cell bakes at 2× */
+export function hubRebake(){ roomsState.homeWx=weatherNow(); const bake=()=>{ buildHub(); for(const it of state.gymItems) if(!state.GYM_TYPES[it.t].flat) renderItemSprite(it); }; if(hdRoom()) withHD(bake,roomFrame()); else bake(); }   /* the cell bakes at 2× */
 
 
 export /* ---------- geometry helpers (footprint rectangles in tile space) ---------- */
@@ -350,7 +351,7 @@ export function figureHD(C,J,L,o={}){
   }
   bodyPt(...Q); const cd0=state.bpD, TD=sh(T0,0), TL=sh(T0,2);
   if(L.censor){ bodyPt(...pp(1.0,0,-0.5)); censor(Math.round(state.bpX),Math.round(state.bpY)); }
-  if(L.bare){ litFinish(); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
+  if(L.bare){ litFinish(); if(state.ISO_K===3&&state.ipPose===0) drawSandyFighterDetails(C,J,L); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
   dot(...tp(1.7,-0.55,0.15),TL,cd0); dot(...tp(1.7,0.55,0.15),TL,cd0);                     // collar points
   if(L.scarf!==undefined){ dot(...tp(1.75,0,0.25),L.scarf,cd0); dot(...tp(1.85,0.25,-0.3),L.scarf,cd0); dot(...tp(1.85,-0.2,-0.55),L.scarf,cd0); }   /* a knotted neckerchief */
   bodyPt(...tp(2.0,0,-0.9)); const ax=Math.round(state.bpX), ay=Math.round(state.bpY), ad=state.bpD;
@@ -362,7 +363,7 @@ export function figureHD(C,J,L,o={}){
     const IR=rgb('#3a3632'), IH=rgb('#7a7068'); for(let k=0;k<=12;k++){ const u=k/12, x=x0+(x1-x0)*u, y=y0+(y1-y0)*u+Math.sin(Math.PI*u)*3*state.ISO_K; pset(Math.round(x),Math.round(y),k&1?IH:IR); }
     for(const [x,y] of [[x0,y0],[x1,y1]]) for(let d=-1;d<=1;d++){ pset(Math.round(x)+d,Math.round(y)-1,IR); pset(Math.round(x)+d,Math.round(y),IH); } }
   if(L.baton){ bodyPt(...pp(0.3,nearS*2.05,1.0)); const x0=Math.round(state.bpX), y0=Math.round(state.bpY); bodyPt(...pp(0.7,nearS*2.2,-3.0)); line(x0,y0,Math.round(state.bpX),Math.round(state.bpY),sh(L.shoe,0),sh(L.shoe,0)); }   /* rubber baton on the hip */
-  litFinish(); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
+  litFinish(); if(state.ISO_K===3&&state.ipPose===0) drawSandyFighterDetails(C,J,L); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
 }
 
 /** A pixel mosaic over the groin: 4×3 blocks of 2×2 picture pixels, each the average of what is under it, lighter or darker by turns. @param {number} cx @param {number} cy */
@@ -504,7 +505,7 @@ function drawScene(){
 }
 
 export function renderHub(){
-  if(hdRoom()&&!rendererState.inHD){ withHD(renderHub); return; }   // Newgate rooms are drawn into the 2× frame
+  if(hdRoom()&&!rendererState.inHD){ withHD(renderHub,roomFrame()); return; }   // Newgate rooms are drawn into the 2× frame
   rendererState.fb=rendererState.FB_MAIN; rendererState.fb.set(state.bgHub);
   if(state.preScene) state.preScene();   // marks on the floor under the people (iso-fight.js)
   if(state.hubRoom==='cell') wardLife();   /* rats, flies and drips under the people */

@@ -85,6 +85,71 @@ async function check(name, run) {
   console.log(`PASS ${name}`);
 }
 try {
+  await check('HD sandy fight: 432x288, Harry AI, shared joints, clean save and room return',async()=>{
+    const snapshot=await page.evaluate(async()=>{
+      const b=window.__boxer, I=await import('/src/iso-fight.js');
+      const G=await import('/src/gym.js'), R=await import('/src/renderer.js'), P=await import('/src/progression.js');
+      b.goRoom('yard');
+      const before=JSON.stringify({stats:P.state.save.stats,injuries:P.state.save.injuries,train:P.state.save.train});
+      document.querySelector('[data-dev-scene="sandy"]').click(); b.pause(); b.step(60);
+      const atStart={mode:b.gstate,venue:I.state.venue,name:I.state.opp.name,
+        buffer:[R.state.hd3.W,R.state.hd3.H,R.state.hd3.fb.length],scale:G.state.ISO_K,
+        hero:I.state.P.look.style,harry:I.state.O.look.style,room:G.state.hubRoom};
+      I.state.O.aiAt=Infinity; // keep the end of the smoke test deterministic
+      I.isoFightFinish(0,'KO'); b.step(300);
+      const finished=I.state.phase==='end';
+      const unchanged=before===JSON.stringify({stats:P.state.save.stats,injuries:P.state.save.injuries,train:P.state.save.train});
+      (await import('/src/navigation.js')).exitToHub();
+      return {atStart,finished,unchanged,returned:G.state.hubRoom};
+    });
+    assert.equal(snapshot.atStart.mode,'isofight');
+    assert.equal(snapshot.atStart.venue,'sandy');
+    assert.equal(snapshot.atStart.name,'HARRY');
+    assert.deepEqual(snapshot.atStart.buffer,[432,288,432*288]);
+    assert.equal(snapshot.atStart.hero,'fringe');
+    assert.equal(snapshot.atStart.harry,'bald');
+    assert.equal(snapshot.atStart.room,'cell');
+    assert.equal(snapshot.finished,true);
+    assert.equal(snapshot.unchanged,true);
+    assert.equal(snapshot.returned,'yard');
+  });
+  await check('Ward 432x288: exploration, Harry fight and 2x yard/bath isolation',async()=>{
+    const room=await page.evaluate(async()=>{
+      const b=window.__boxer, R=await import('/src/renderer.js'), G=await import('/src/gym.js');
+      const I=await import('/src/iso-fight.js');
+      const frame=(f)=>[f.W,f.H,f.fb.length];
+      b.goRoom('cell'); b.pause(); b.step(1);
+      const ward={frame:frame(R.roomFrame()), background:R.state.hd3.bg.filter(c=>c!==0).length,
+        unique:new Set(R.state.hd3.fb).size, sprites:G.state.cellList.filter(it=>it.spr?.length===432*288).length};
+      b.startSpar(0,'cell'); b.step(65);
+      I.state.O.aiAt=Infinity;
+      const startI=I.state.P.i, startJ=I.state.P.j;
+      I.state.pointer={x:136,y:68}; b.step(18);
+      const fight={venue:I.state.venue,opp:I.state.opp.name,frame:frame(R.state.hd3),
+        unique:new Set(R.state.hd3.fb).size,moved:Math.hypot(I.state.P.i-startI,I.state.P.j-startJ)};
+      I.state.pointer=null;
+      (await import('/src/navigation.js')).exitToHub();
+      b.goRoom('yard'); b.step(1);
+      const yard={frame:frame(R.roomFrame()),unique:new Set(R.state.hd.fb).size};
+      b.goRoom('laznia'); b.step(1);
+      const bath={frame:frame(R.roomFrame()),unique:new Set(R.state.hd.fb).size};
+      b.goRoom('cell'); b.step(1); // the following screenshot must show the upgraded Ward, not the bath
+      return {ward,fight,yard,bath};
+    });
+    assert.deepEqual(room.ward.frame,[432,288,432*288]);
+    assert.ok(room.ward.background>5000,'the full Ward background is baked at 3x');
+    assert.ok(room.ward.unique>20,'the 3x Ward renders actual colour detail');
+    assert.ok(room.ward.sprites>=3,'cell furniture sprite buffers use 3x resolution');
+    assert.equal(room.fight.venue,'cell');
+    assert.equal(room.fight.opp,'HARRY');
+    assert.deepEqual(room.fight.frame,[432,288,432*288]);
+    assert.ok(room.fight.unique>20,'Ward brawl uses the full 3x framebuffer');
+    assert.ok(room.fight.moved>0.001,'the pointer moves a fighter with the 3x camera');
+    assert.deepEqual(room.yard.frame,[288,192,288*192]);
+    assert.deepEqual(room.bath.frame,[288,192,288*192]);
+    assert.ok(room.yard.unique>10&&room.bath.unique>10,'other rooms still render');
+    await page.screenshot({path:'artifacts/ward-432-288-regression.png'});
+  });
   await check('isometric fight: keys, stamina, body blows, block, slip, steps, AI, knockdown, pause and result',()=>checkIsoFight(page));
   await check('isometric fight in the yard and the bath rooms',()=>checkIsoFightRooms(page));
   await check('the unlit Ward lamp has no blinking ember', async () => {
@@ -880,18 +945,18 @@ try {
         for(let n=0;n<30000 && routine.length<8;n++){ b.step(1); const k=jack.step?.k; if(k && k!=='go' && k!=='idle' && k!==routine.at(-1)) routine.push(k); }
         jack.routine=4; N.cnEnter();
         const A = await import('/src/appearance.js');
-        R.withHD(() => { R.state.fb.fill(0); N.cnToiletStream(); });
-        const firstStream = R.state.hd.fb.slice(), streamPixels = firstStream.filter(c => c === A.rgb('#cec4a1') || c === A.rgb('#afa383')).length;
-        jack.t += 19; R.withHD(() => { R.state.fb.fill(0); N.cnToiletStream(); });
-        const animatedStream = firstStream.some((c,i) => c !== R.state.hd.fb[i]);
+        R.withHD(() => { R.state.fb.fill(0); N.cnToiletStream(); }, R.roomFrame());
+        const firstStream = R.state.hd3.fb.slice(), streamPixels = firstStream.filter(c => c === A.rgb('#cec4a1') || c === A.rgb('#afa383')).length;
+        jack.t += 19; R.withHD(() => { R.state.fb.fill(0); N.cnToiletStream(); }, R.roomFrame());
+        const animatedStream = firstStream.some((c,i) => c !== R.state.hd3.fb[i]);
         Math.random = savedRandom; P.state.save.sim.min = savedMin; N.cnEnter();
         const frame = min => {   // render only: stepping would let the schedule move the player
           P.state.save.sim.min = min; G.hubRebake(); G.renderHub(); B.state.tick += 40; G.renderHub();
-          const fb = R.state.hd.fb;   // the cell is drawn into the 2× frame
+          const fb = R.state.hd3.fb;   // the Ward is rendered at 3×
           let sum = 0; for (const c of fb) sum += (c & 255) + ((c >> 8) & 255) + ((c >> 16) & 255);
           return { bulb: L.state.bulb, sun: L.state.sun, light: sum / fb.length };
         };
-        const hd = { size: [R.state.hd.W, R.state.hd.H], native: [(await import('/src/appearance.js')).state.W, (await import('/src/appearance.js')).state.H], k: G.state.ISO_K };
+        const hd = { size: [R.roomFrame().W, R.roomFrame().H], native: [(await import('/src/appearance.js')).state.W, (await import('/src/appearance.js')).state.H], k: G.state.ISO_K };
         return { types, wash, toilet, routine, combinations, waiting, koSeen, helped, resumed, ragdollMoved, blended, streamPixels, animatedStream, sparring, bothPunch, punchKinds, stepped, dodged, hurt, nightRest, supplies, sinkPosition:[sink.i,sink.j], washSpot:W.WARD_WASH, washBlocked:G.hubBlocked(...W.WARD_WASH.p), hd, noon: frame(12 * 60), evening: frame(20 * 60), night: frame(23 * 60) };
       });
       for (const t of ['cwash', 'cnews', 'cradio', 'ctable', 'cstool', 'crad', 'ccurt', 'ccom']) assert.equal(r.types.includes(t), false, t + ' is gone (Newgate)');
@@ -916,7 +981,7 @@ try {
       assert.deepEqual(r.sinkPosition,[11.05,4.15]);
       assert.deepEqual(r.washSpot,{p:[10.55,4.45],f:[1,0]});
       assert.equal(r.washBlocked,false,'the washing place is accessible');
-      assert.deepEqual(r.hd, { size: [288, 192], native: [144, 96], k: 1 }, 'the cell has a 2× frame; outside a frame the game stays native');
+      assert.deepEqual(r.hd, { size: [432, 288], native: [144, 96], k: 1 }, 'the Ward has a 3× frame; outside a frame the game stays native');
       assert.equal(r.noon.bulb, 0, 'no tallow by day');
       assert.ok(r.evening.bulb > 0.5, 'the tallow lamp burns in the evening'); assert.equal(r.evening.sun, 0);
       assert.equal(r.night.bulb, 0, 'the lamp is out after 22:00');

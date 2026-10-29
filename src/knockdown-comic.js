@@ -21,7 +21,7 @@ const PAGE=rgb('#100e10'), INK=rgb('#060506'), RIM=rgb('#d2c4a7'), FLASH_C=rgb('
 const PAPER=rgb('#e3d6b6'), LETTER=rgb('#1b1516'), BLOOD=rgb('#8e1f1c');
 const PUNCH=['JAB','PROSTY','SIERPOWY','PODBRODKOWY'];
 
-/** The page at 288×192: two upper panels split by a slanted gutter and a wide strip below. turn: the camera's turn from a side-on
+/** The knockdown page is designed at 288×192 and scaled with the active room (2× or 3×). turn: the camera's turn from a side-on
  *  view of the blow (the attacker on the left, the victim on the right in every panel); zoom: picture pixels per figure pixel;
  *  light: radius of the pool of light in tiles; shift: the figures moved across the panel, as a share of its width. */
 const LAYOUT=[
@@ -57,8 +57,9 @@ export function drawKnockdownComic(elapsed,caption){
     }
   }
   const P1=S.panels[0], P3=S.panels[2];
-  if(P1) label(P1.x+8,P1.y+8,[[PUNCH[S.pid]+(S.low?' NA KORPUS':''),2,LETTER]],null);
-  if(P3&&elapsed>=P3_AT+0.3) label(P3.x+P3.w-8,P3.y+8,[[caption.title,3,BLOOD],[caption.line,2,LETTER]],caption.pips,true);
+  const q=gymState.ISO_K/HD_K;
+  if(P1) label(P1.x+Math.round(8*q),P1.y+Math.round(8*q),[[PUNCH[S.pid]+(S.low?' NA KORPUS':''),2,LETTER]],null);
+  if(P3&&elapsed>=P3_AT+0.3) label(P3.x+P3.w-Math.round(8*q),P3.y+Math.round(8*q),[[caption.title,3,BLOOD],[caption.line,2,LETTER]],caption.pips,true);
 }
 
 /** Which recorded tick a panel shows now: the moment of contact, the fall, then the landing held. @param {number} k @param {number} elapsed @param {number} n */
@@ -70,12 +71,13 @@ function frameAt(k,elapsed,n){
 
 /** A panel's fixed parts: its box, the ink/rim/inside mask, the turn and the point the camera looks at. @param {any} L @param {number} k @param {number} n */
 function panel(L,k,n){
-  const S=state, xs=L.poly.map((/** @type {number[]} */ p)=>p[0]), ys=L.poly.map((/** @type {number[]} */ p)=>p[1]);
+  const S=state, q=gymState.ISO_K/HD_K, poly=L.poly.map((/** @type {number[]} */ p)=>[Math.round(p[0]*q),Math.round(p[1]*q)]);
+  const xs=poly.map(p=>p[0]), ys=poly.map(p=>p[1]);
   const x=Math.min(...xs)-1, y=Math.min(...ys)-1, w=Math.max(...xs)-x+1, h=Math.max(...ys)-y+1, mask=new Uint8Array(w*h);
   for(let py=0;py<h;py++) for(let px=0;px<w;px++){
     let d=Infinity;
-    for(let e=0;e<L.poly.length;e++){   // the distance inside each edge of the convex panel (clockwise on screen)
-      const [x0,y0]=L.poly[e], [x1,y1]=L.poly[(e+1)%L.poly.length], dx=x1-x0, dy=y1-y0;
+    for(let e=0;e<poly.length;e++){   // the distance inside each edge of the convex panel (clockwise on screen)
+      const [x0,y0]=poly[e], [x1,y1]=poly[(e+1)%poly.length], dx=x1-x0, dy=y1-y0;
       d=Math.min(d,((y+py+0.5-y0)*dx-(x+px+0.5-x0)*dy)/Math.hypot(dx,dy));
     }
     mask[py*w+px]=d<-1?0:d<0?1:d<2?2:3;
@@ -104,7 +106,7 @@ function floorAt(i,j){
 
 /** Draw one recorded tick into a panel: the figures through the panel's camera, over its lit floor. @param {any} P @param {any[]} frame */
 function renderPanel(P,frame){
-  const W=appearanceState.W, H=appearanceState.H, K=HD_K, scratch=/** @type {Uint32Array} */ (state.scratch), F=P.focus;
+  const W=appearanceState.W, H=appearanceState.H, K=gymState.ISO_K, scratch=/** @type {Uint32Array} */ (state.scratch), F=P.focus;
   const cam={ix:6*K,jx:-6*K,iy:3*K,jy:3*K,z:K,figureScale:K,x:0,y:0};
   cam.x=W/2-(F.i*cam.ix+F.j*cam.jx); cam.y=H/2-(F.i*cam.iy+F.j*cam.jy-F.z*cam.z);
   if(!P.floor){   // the floor does not move: light it once from the point the camera looks at
@@ -137,17 +139,21 @@ function renderPanel(P,frame){
  *  @param {number} x @param {number} y @param {[string,number,number][]} lines @param {number[]|null} pips @param {boolean} [right] */
 function label(x,y,lines,pips,right=false){
   lines=lines.filter(l=>l[0]); if(!lines.length) return;
-  const pad=4, pipH=pips?10:0, w=Math.max(...lines.map(([t,sc])=>t.length*4*sc-sc),pips?pips[1]*9-3:0)+pad*2;
-  const h=lines.reduce((s,[,sc])=>s+5*sc+3,0)-3+pipH+pad*2, top=y, W=appearanceState.W, fb=rendererState.fb;
+  const q=gymState.ISO_K/HD_K, font=(/** @type {number} */ sc)=>Math.max(1,Math.round(sc*q));
+  const pad=Math.round(4*q), pipSize=Math.round(6*q), pipStep=Math.round(9*q), pipH=pips?Math.round(10*q):0;
+  const w=Math.max(...lines.map(([t,sc])=>t.length*4*font(sc)-font(sc)),pips?pips[1]*pipStep-Math.round(3*q):0)+pad*2;
+  const h=lines.reduce((s,[,sc])=>s+5*font(sc)+Math.round(3*q),0)-Math.round(3*q)+pipH+pad*2;
+  const top=y, W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb;
   if(right) x-=w;
   for(let yy=top-1;yy<=top+h;yy++) for(let xx=x-1;xx<=x+w;xx++){
-    if(xx<0||yy<0||xx>=W||yy>=appearanceState.H) continue;
+    if(xx<0||yy<0||xx>=W||yy>=H) continue;
     fb[yy*W+xx]=yy<top||yy===top+h||xx<x||xx===x+w?INK:PAPER;
   }
   let ly=top+pad;
-  for(const [t,sc,c] of lines){ for(let k=0;k<t.length;k++) drawChar(t.charCodeAt(k),x+pad+k*4*sc,ly,c,sc); ly+=5*sc+3; }
-  if(pips) for(let k=0;k<pips[1];k++) for(let yy=0;yy<6;yy++) for(let xx=0;xx<6;xx++){
-    const edge=xx===0||yy===0||xx===5||yy===5;
-    if(k<pips[0]||edge) fb[(ly+yy)*W+x+pad+k*9+xx]=k<pips[0]?BLOOD:LETTER;
+  for(const [t,sc,c] of lines){ const fs=font(sc); for(let k=0;k<t.length;k++) drawChar(t.charCodeAt(k),x+pad+k*4*fs,ly,c,fs); ly+=5*fs+Math.round(3*q); }
+  if(pips) for(let k=0;k<pips[1];k++) for(let yy=0;yy<pipSize;yy++) for(let xx=0;xx<pipSize;xx++){
+    const edge=xx===0||yy===0||xx===pipSize-1||yy===pipSize-1, tx=x+pad+k*pipStep+xx, ty=ly+yy;
+    if(tx<0||ty<0||tx>=W||ty>=H) continue;
+    if(k<pips[0]||edge) fb[ty*W+tx]=k<pips[0]?BLOOD:LETTER;
   }
 }

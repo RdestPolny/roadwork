@@ -5,7 +5,7 @@ import { state as boxingState, setFlow, resetClock } from './boxing.js';
 import { state as armState } from './armwrestle.js';
 import { profOpen } from './profesor.js';
 import { workReset } from './work.js';
-import { stopIsoFight, isoFightOutcome } from './iso-fight.js';
+import { stopIsoFight, isoFightOutcome, sandyFightReturnRoom } from './iso-fight.js';
 import { sparExit, state as sparringState, isShadowboxing, setRigged, setFightLimit } from './sparring.js';
 import { puReset, state as pushupsState } from './pushups.js';
 import { resetPullups } from './pullups.js';
@@ -69,6 +69,7 @@ export function exitToHub(){
   if(boxingState.gstate==='isofight'){
     const {idx,venue:room,won,station}=isoFightOutcome();
     if(room==='port'){ stopIsoFight(); inputState.overEl.hidden=true; document.body.classList.remove('spar'); resumeThamesPort(); return; }
+    if(room==='sandy'){ const back=sandyFightReturnRoom(); setRoomRaw(back); enterHub(null); setRigged(false); setFightLimit(0); return; }
     if(gymState.hubRoom!==room) setRoomRaw(room);
     enterHub(station); if(room!=='canteen'&&room!=='laznia') finishPrisonFight(idx,won,room==='yard'); setRigged(false); setFightLimit(0);
     return; }
