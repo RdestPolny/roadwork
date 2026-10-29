@@ -138,7 +138,7 @@ export function startIsoFight(idx,venue,station){
     notice:'1-4 ciosy · F dash · LPM korpus · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
     const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2],[-2.6,0.3],[2.6,0.3]];
-    const spectators=[...npcsState.CN,npcsState.STINK].filter(C=>!C.away&&String(C.name).toUpperCase()!==O.name).map((C,k)=>{
+    const spectators=[...npcsState.CN,npcsState.STINK].filter(C=>String(C.name).toUpperCase()!==O.name).map((C,k)=>{
       const [di,dj]=positions[k%positions.length], i=center[0]+di, j=center[1]+dj, len=Math.hypot(di,dj);
       return {...C,i,j,fi:-di/len,fj:-dj/len,act:'cheer',after:null,step:{k:'spectator'},moving:false};
     });

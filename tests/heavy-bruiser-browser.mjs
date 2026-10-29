@@ -6,9 +6,7 @@ async function saveBullFrame(page,name){
   const png=await page.evaluate(async()=>{
     const R=await import('/src/renderer.js');
     R.render();
-    assertFrame: {
-      if(R.state.hd3.W!==432||R.state.hd3.H!==288) throw new Error('Expected 432x288 HD frame');
-    }
+    if(R.state.hd3.W!==432||R.state.hd3.H!==288) throw new Error('Expected 432x288 HD frame');
     return R.state.hd3.off.toDataURL('image/png');
   });
   await mkdir('artifacts/the-bull',{recursive:true});
@@ -19,7 +17,7 @@ async function saveBullFrame(page,name){
 export async function checkBull(page){
   const result=await page.evaluate(async()=>{
     const b=window.__boxer, I=await import('/src/iso-fight.js'), N=await import('/src/npcs.js'),
-      S=await import('/src/sparring.js'), G=await import('/src/gym.js'), A=await import('/src/appearance.js');
+      S=await import('/src/sparring.js'), G=await import('/src/gym.js'), R=await import('/src/renderer.js');
     b.goRoom('cell');b.pause();b.step(3);
     const npc=N.state.CN.find(c=>c.name==='Briggs');
     const seated={act:npc?.act,bed:npc?.bed?.t,seat:npc?.after?.t,body:npc?.hd?.bodyType};
@@ -28,7 +26,7 @@ export async function checkBull(page){
     // Spectators should not interfere with this isolated mechanical test.
     for(const c of G.state.fightSpectators||[]) if(c.step?.k==='spectator') c.i+=20;
     const start={name:I.state.opp.name,heavy:!!B,body:O.look.bodyType,scale:G.state.ISO_K,
-      dimensions:[A.state.W,A.state.H],hp:O.rt.hpMax,
+      dimensions:[R.state.hd3.W,R.state.hd3.H],hp:O.rt.hpMax,
       other:S.state.CELL_OPP[4].name};
     // Each synthetic attack enters the real contact/whiff calculation at its contact frame.
     P.i=O.i-2;P.j=O.j+2;P.li=P.i;P.lj=P.j;
