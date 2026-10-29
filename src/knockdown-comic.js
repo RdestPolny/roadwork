@@ -139,7 +139,7 @@ function renderPanel(P,frame){
  *  @param {number} x @param {number} y @param {[string,number,number][]} lines @param {number[]|null} pips @param {boolean} [right] */
 function label(x,y,lines,pips,right=false){
   lines=lines.filter(l=>l[0]); if(!lines.length) return;
-  const q=gymState.ISO_K/HD_K, font=/** @type {number} */ (sc)=>Math.max(1,Math.round(sc*q));
+  const q=gymState.ISO_K/HD_K, font=(/** @type {number} */ sc)=>Math.max(1,Math.round(sc*q));
   const pad=Math.round(4*q), pipSize=Math.round(6*q), pipStep=Math.round(9*q), pipH=pips?Math.round(10*q):0;
   const w=Math.max(...lines.map(([t,sc])=>t.length*4*font(sc)-font(sc)),pips?pips[1]*pipStep-Math.round(3*q):0)+pad*2;
   const h=lines.reduce((s,[,sc])=>s+5*font(sc)+Math.round(3*q),0)-Math.round(3*q)+pipH+pad*2;
