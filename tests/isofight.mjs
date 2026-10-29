@@ -6,6 +6,7 @@ export async function checkIsoFight(page){
     const b=window.__boxer, I=await import('/src/iso-fight.js'), R=await import('/src/realtime-rules.js'), P=await import('/src/progression.js'), In=await import('/src/input.js'), S=I.state, out={};
     const rng=Math.random;
     const key=(code,down=true)=>dispatchEvent(new KeyboardEvent(down?'keydown':'keyup',{code,bubbles:true,cancelable:true}));
+    const mouseLow=held=>{ In.state.paused=false; if(held) (document.getElementById('stage')).dispatchEvent(new PointerEvent('pointerdown',{button:0,bubbles:true,cancelable:true})); else dispatchEvent(new PointerEvent('pointerup',{button:0,bubbles:true})); In.state.paused=true; };
     const near=gap=>{ S.P.i=S.O.i-0.7071*gap; S.P.j=S.O.j+0.7071*gap; S.P.li=S.P.i; S.P.lj=S.P.j; for(const s of [1,-1]){ S.P.ft[s].i=S.P.i; S.P.ft[s].j=S.P.j; } };
     const fresh=(opp=0)=>{ Math.random=()=>.99; b.goRoom('cell'); b.pause(); b.startSpar(opp,'cell'); b.step(60); S.O.aiAt=Infinity; };
     try{
@@ -29,7 +30,7 @@ export async function checkIsoFight(page){
       near(1.1); const hp0=S.O.rt.hp, quote=R.punchCost(S.P.rt,0,S.t), s0=S.P.rt.sta; key('Digit1'); out.jabCost=s0-S.P.rt.sta-quote; b.step(30);
       out.jab=[S.O.rt.hp<hp0,S.P.c.thrown,S.P.c.landed];
       const faceAfterHead=S.O.faceDamage;
-      fresh(); near(1.1); key('ShiftLeft'); key('Digit1'); b.step(30); key('ShiftLeft',false);
+      fresh(); near(1.1); mouseLow(true); key('Digit1'); b.step(30); mouseLow(false);
       out.faceDamage=[faceAfterHead>0,S.O.c.landed,S.P.c.landed,S.O.faceDamage];
       out.tiredPunches=[];
       for(const sta of [0,2]){
@@ -56,8 +57,9 @@ export async function checkIsoFight(page){
       fresh(); near(1.1); key('Digit1'); b.step(30);
       // the repeat is dearer
       b.step(60); near(1.1); const q2=R.punchCost(S.P.rt,0,S.t), s1=S.P.rt.sta; key('Digit1'); out.repeat=[Math.abs(s1-S.P.rt.sta-q2)<.001,q2>quote];
-      // the body target latches with Shift and survives its release
-      fresh(); near(1.1); key('ShiftLeft'); key('Digit2'); key('ShiftLeft',false); b.step(40); out.body=S.P.c.body;
+      // the body target latches on LMB+attack and survives release, Shift alone does not change aim
+      fresh(); near(1.1); mouseLow(true); key('Digit2'); mouseLow(false); b.step(40); out.body=S.P.c.body;
+      fresh(); near(1.1); key('ShiftLeft'); key('Digit1'); key('ShiftLeft',false); out.shiftIgnored=S.P.pk?.low===false;
       // holding the block drains breath; a pause lets it go
       fresh(); const g0=S.P.rt.sta; key('Space'); b.step(60); out.guard=[S.P.rt.guarding,g0-S.P.rt.sta>4];
       In.setPaused(false); In.setPaused(true); out.pauseRelease=[S.P.rt.guarding,S.guardHeld]; key('Space',false);
@@ -203,7 +205,8 @@ export async function checkIsoFight(page){
   assert.equal(r.slipHook[1],-r.slipHook[0],'a hook after a slip uses the opposite hand');
   assert.equal(r.punchAfterSlip,1,'an intervening punch restores the usual combo hand');
   assert.deepEqual(r.repeat,[true,true],'the second punch pays the dearer repeat cost');
-  assert.equal(r.body,1,'Shift targets the body and the target survives its release');
+  assert.equal(r.body,1,'LMB targets the body and the target survives its release');
+  assert.equal(r.shiftIgnored,true,'Shift is no longer the body-shot modifier');
   assert.deepEqual(r.guard,[true,true]); assert.deepEqual(r.pauseRelease,[false,false],'a pause releases the held block');
   assert.deepEqual(r.clinch,[true,true,true],'clinch turns the opponent while keeping the pair together');
   assert.deepEqual(r.clinchPush,[false,true],'Space releases and pushes the opponent');
