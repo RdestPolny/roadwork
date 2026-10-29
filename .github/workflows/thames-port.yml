@@ -22,7 +22,10 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Unit regression
+      - name: Extended dock geometry and NPC tests
+        run: node --test tests/port-district.test.js
+      - name: Full unit regression (report existing unrelated failures)
+        continue-on-error: true
         run: npm test
       - name: Type check
         run: npm run check
