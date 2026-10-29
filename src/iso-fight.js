@@ -118,7 +118,7 @@ function foeFigure(venue,idx,O){
  * @param {number} idx @param {string} [venue] @param {any} [station] */
 export function startIsoFight(idx,venue,station){
   const S=state, save=progressionState.save, V=venue??sparringState.sparVenue, sandbox=V==='sandy', room=V==='port'?'port':V==='yard'||V==='laznia'?V:'cell';
-  const returnRoom=sandbox?(S.venue==='sandy'?S.returnRoom:gymState.hubRoom):null;
+  const returnRoom=sandbox?(S.on&&S.venue==='sandy'?S.returnRoom:gymState.hubRoom):null;
   S.portraits=null;
   initAudio(); inputState.overEl.hidden=true;
   setSparFight(idx,sandbox?'cell':V,station);
@@ -246,7 +246,7 @@ function pointerDirection(){ return state.venue==='port'?withThamesCamera(pointe
 /** Resolve the pointer using the current room projection. */
 function pointerDirectionInRoom(){
   const S=state; if(!S.pointer||!S.P) return [0,0];
-  const C=S.cam, W=rendererState.hd.W, H=rendererState.hd.H, z=(Math.abs(C.z-2)<0.03?2:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
+  const C=S.cam, W=(S.venue==='sandy'?rendererState.hd3:rendererState.hd).W, H=(S.venue==='sandy'?rendererState.hd3:rendererState.hd).H, z=(Math.abs(C.z-2)<0.03?2:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
   const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
   const K=S.venue==='port'?1:2/gymState.ISO_K;
   const dx=S.venue==='sandy'?S.pointer.x-(W/2+(isoX(S.P.i,S.P.j)-cx)*z)/gymState.ISO_K:S.pointer.x-(W/2+(isoX(S.P.i,S.P.j)*K-cx)*z)/2;
@@ -758,7 +758,7 @@ function drawFighter(F){
   if((F.ko||F.down)&&F.rd){ figureHD(F,ragdollJoints(F),F.look,{pose:0,base:0,noShadow:true,light:true,tilt:true}); return; }
   let jf=fighterJoints(F);
   if(F.rise){ jf=blendJoints(F.rise.joints,jf,smooth(Math.min(1,F.rise.t))); }
-  figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:true,tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0});
+  figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0});
   if(state.venue==='sandy') drawSandyFighterDetails(F,jf,F.look);
 }
 
