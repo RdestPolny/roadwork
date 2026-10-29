@@ -25,6 +25,16 @@ export function setRamp(slot,hex,far){
   for(let j=0;j<3;j++){ let c=rgb(hex[j]); if(far){ const r=c&255,g=(c>>8)&255,b=(c>>16)&255; c=(0xff000000|((b*0.72+6)<<16)|((g*0.66)<<8)|(r*0.64))>>>0; } state.PAL[slot*3+j]=c; }
 }
 
+/** Base shirt, apron and trousers ramps shared by Newgate and the optional Smithfield prototype.
+ * They were previously initialized by work.js on every boot; keep normal gameplay visually unchanged. */
+export function initializeClothingPalette(){
+  setRamp(state.R_SHIRT,['#8e949e','#c9cdd6','#eef0f4'],false);
+  setRamp(state.R_SHIRTF,['#8e949e','#c9cdd6','#eef0f4'],true);
+  setRamp(state.R_APRON,['#b4b8c2','#e6e8ee','#ffffff'],false);
+  setRamp(state.R_PANT,['#262a34','#3a404e','#565e70'],false);
+  setRamp(state.R_PANTF,['#262a34','#3a404e','#565e70'],true);
+}
+
 export function applyGear(eq){   // eq = {trunks:id, gloves:id, boots:id}
   const t=GEAR_BY_ID[eq.trunks]||GEAR.trunks[0], g=GEAR_BY_ID[eq.gloves]||GEAR.gloves[0], b=GEAR_BY_ID[eq.boots]||GEAR.boots[0];
   setRamp(state.R_TRUNK,t.base,false); setRamp(state.R_TRUNKF,t.base,true); setRamp(state.R_TT,t.trim,false); setRamp(state.R_TTF,t.trim,true); setRamp(state.R_TA,t.acc,false); setRamp(state.R_TAF,t.acc,true);

@@ -1,4 +1,4 @@
-import { initialize as initializeAppearance } from './appearance.js';
+import { initialize as initializeAppearance, initializeClothingPalette } from './appearance.js';
 import { initialize as initializeRenderer } from './renderer.js';
 import { initialize as initializeAnimation } from './animation.js';
 import { initialize as initializeBoxing } from './boxing.js';
@@ -55,6 +55,7 @@ initializeExerciseYard();
 initializeWeather();
 initializeRooms();
 initializeNpcs();
+initializeClothingPalette(); // Keep the normal Ward palette unchanged after removing the eager Smithfield import.
 // Keep the original palette/boot order in debug sessions while avoiding Smithfield in normal play.
 if (DEBUG) {
   const work = await import('./work.js');

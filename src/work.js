@@ -1,4 +1,4 @@
-import { setRamp, state as appearanceState, rgb, rampIndex } from './appearance.js';
+import { setRamp, initializeClothingPalette, state as appearanceState, rgb, rampIndex } from './appearance.js';
 import { state as sparringState } from './sparring.js';
 import { state as boxingState, h2, drawText, solve, ik, torsoEdge, drawLeg, drawBoxer, drawParticles, drawPopups, popup, spawn, resetClock, predictApex, startMove, commitWalk, handleEvents, spawnSweat, setFlow } from './boxing.js';
 import { state as rendererState, line, pset, taper } from './renderer.js';
@@ -738,13 +738,7 @@ state.WK_L = 28;
 state.WK_T = 64;
 state.WK_STRIDE = 10;
 
-setRamp(appearanceState.R_SHIRT,['#8e949e','#c9cdd6','#eef0f4'],false);
- setRamp(appearanceState.R_SHIRTF,['#8e949e','#c9cdd6','#eef0f4'],true);
-
-setRamp(appearanceState.R_APRON,['#b4b8c2','#e6e8ee','#ffffff'],false);
-
-setRamp(appearanceState.R_PANT,['#262a34','#3a404e','#565e70'],false);
- setRamp(appearanceState.R_PANTF,['#262a34','#3a404e','#565e70'],true);
+initializeClothingPalette(); // Uses the same base ramps as the normal prison session.
 
 sparringState.WORK_RAMPS=appearanceState.PAL.slice(appearanceState.R_SHIRT*3,(appearanceState.R_PANTF+1)*3);
 
