@@ -144,6 +144,26 @@ export function pierCraftDetails(rect){
       thin(i+.33,j,.34,i+.38,j,.34,shadeC(IRON,.65));
     }
   }
+  if(j1-j0>6){
+    // A modest, manually operated hand winch near the far end of the pier.
+    // Two trestles take the load; there is no motor or exaggerated gears.
+    const wi=44.25,wj=22.55;
+    for(const x of [wi,wi+1.6]){
+      isoBox(x,wj,x+.32,wj+.82,.3,5.4,C.woodLight,OAK,END);
+      thin(x+.18,wj+.83,1.1,x+.18,wj+.83,5.3,C.ironHi);
+    }
+    stroke(wi+.2,wj+.45,4.2,wi+1.92,wj+.45,4.2,IRON);
+    isoBox(wi+.37,wj+.15,wi+1.52,wj+.78,2.65,5,C.woodLight,OAK,END);
+    for(const xx of [wi+.43,wi+1.5]){
+      stroke(xx,wj+.08,2.6,xx,wj+.85,2.6,IRON);
+      stroke(xx,wj+.08,5.05,xx,wj+.85,5.05,IRON);
+    }
+    stroke(wi+1.9,wj+.45,4.2,wi+2.5,wj+.45,4.2,IRON);
+    stroke(wi+2.5,wj+.45,4.2,wi+2.5,wj+.45,6.9,C.ironHi);
+    stroke(wi+2.2,wj+.45,6.9,wi+2.85,wj+.45,6.9,C.woodLight);
+    // The rope clearly leads to the head of the pier, explaining the winch.
+    rope([wi+1.1,wj+.5,4.9],[wi+1.6,j1-.6,1.8],.5,C.rope);
+  }
   // Cast-iron mooring rings at extremities, with a short slack line.
   for(const i of [i0+.72,i1-.72]){
     const j=j1-.5;
