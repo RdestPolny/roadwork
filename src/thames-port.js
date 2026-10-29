@@ -8,6 +8,8 @@ import { setInfo, setPortSackPrompt } from './input.js';
 import { startIsoFight } from './iso-fight.js';
 import { horse, coachWheel } from './carriage.js';
 import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTick, storyShot, storyLine, storyCaption, storyFade, storyBars, storyVanDoor, storyCast, state as storyState } from './port-story.js';
+import { portSurface, districtBlocked } from './port-district.js';
+import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX } from './port-extension.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
 export function startThamesPort(){ Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; bake.key=''; clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
@@ -28,7 +30,7 @@ const WL=-7;
 /** Warehouse fronts along the back of the quay: run along i, roof height and brick. */
 const FRONTS=[{i0:0,i1:11,h:74,pal:C.brick,seed:19},{i0:11,i1:21,h:62,pal:C.stock,seed:41},{i0:21,i1:30,h:68,pal:C.brickC,seed:67}];
 /** Gas lamps: three on the quay edge, two on wall brackets; z is the centre of the lantern. */
-const LAMPS=[{i:4.6,j:12.1,z:25.5,r:5.5},{i:13.6,j:12.1,z:25.5,r:5.5},{i:21,j:12.1,z:25.5,r:5.5},{i:.95,j:11.2,z:30,r:4.5,wall:'i'},{i:17.25,j:.95,z:30,r:4.5,wall:'j'}];
+const LAMPS=[{i:4.6,j:12.1,z:25.5,r:5.5},{i:13.6,j:12.1,z:25.5,r:5.5},{i:21,j:12.1,z:25.5,r:5.5},{i:.95,j:11.2,z:30,r:4.5,wall:'i'},{i:17.25,j:.95,z:30,r:4.5,wall:'j'},{i:40.2,j:12.05,z:25.5,r:6.2},{i:48.2,j:12.2,z:25.5,r:6.2},{i:36.1,j:6.85,z:30,r:5.2,wall:'j'}];
 /** Per-frame lamp brightness, flickering independently. */
 let glow=LAMPS.map(()=>1);
 
@@ -56,7 +58,8 @@ function sackPrompt(){
 }
 /** Ground-level footprints of the port props, including the movable sack. */
 export function thamesBlocked(i,j){
-  if(i<.5||j<.5||i>29.5||j>12.4) return true;
+  if(i<.5||j<.5||!portSurface(i,j)||districtBlocked(i,j)) return true;
+  if(i<30&&j>12.4) return true;
   const boxes=[[.5,.5,2.3,2.2],[4.55,1.65,5.65,2.75],[5.6,9.7,9.55,10.85],
     [2.1,9.9,3,10.8],[6.7,3.6,10.6,6.1],[11,3.5,14,6.3],
     [17.6,2.2,21.55,3.6],[21.6,1,24.6,3.6],
@@ -114,8 +117,11 @@ export function tickThamesPort(){
     portJob.entry={tick:0,i:player.i,j:player.j}; clearThamesInput();
   }
   player.fi=di; player.fj=dj; player.ph+=player.carrying?speed/TRIP.cycle:.045;
-  camera.x=Math.max(-40,Math.min(330,162-(player.i-player.j)*12));
-  camera.y=Math.max(-180,Math.min(170,84-(player.i+player.j)*6));
+  // The old camera is identical throughout the original playable quay. The
+  // lower limits ease open only after crossing into the new district.
+  const ext=Math.max(0,Math.min(1,(player.i-29.5)/13));
+  camera.x=Math.max(-40-400*ext,Math.min(330,162-(player.i-player.j)*12));
+  camera.y=Math.max(-180-290*ext,Math.min(170,84-(player.i+player.j)*6));
 }
 /** Start a story scene from what the camera shows now: the shot eases over from the middle of the picture at zoom z. */
 function beginScene(begin,z=1){
@@ -189,7 +195,7 @@ function contact(i0,j0,i1,j1,z=0,k=.55){
 /** Wet granite setts with puddles, grime by the walls and pools of gas light. */
 function sett(x,y){ const [i,j]=ground(x,y); return settAt(i,j); }
 /** The quay's setts at a ground point, or 0 off the quay (the knockdown comic's floor). @param {number} i @param {number} j */
-export function quayFloor(i,j){ return i<0||j<0||i>30||j>13?0:settAt(i,j); }
+export function quayFloor(i,j){ const s=portSurface(i,j); return !s?0:s==='stone'?settAt(i,j):shadeC(C.woodLight,.75+vn(i*1.4,j*3)*.25); }
 /** @param {number} i @param {number} j */
 function settAt(i,j){
   const row=Math.floor(j*2.3), u=i*1.25+frac(row*.37)*.9, v=j*2.3-row, f=frac(u);
@@ -242,7 +248,7 @@ function poster(f,a,z,w,h,k){
   fq(f,a,z,a+w,z+h,(x,y)=>{ const n=vn((x-camera.x)*.45+k*9,(y-camera.y)*.3); return n<.28?0:mix(under(x,y),paper,.85*Math.min(1,(n-.28)*6)); });
   for(let r=0;r<4;r++){ const zz=z+h*(.78-r*.18); fl(f,a+w*.12,zz,a+w*(r?.82:.88),zz,shadeC(paper,r?.55:.35)); }
 }
-const FONT={V:'101101101101010',W:'101101111111101',A:'010101111101101',P:'110101110100100',I:'111010010010111',N:'101111111101101',G:'011100101101011',H:'101101111101101',R:'110101110101101',F:'111100110100100',' ':'000000000000000'};
+const FONT={V:'101101101101010',W:'101101111111101',A:'010101111101101',P:'110101110100100',I:'111010010010111',N:'101111111101101',G:'011100101101011',H:'101101111101101',R:'110101110101101',F:'111100110100100',B:'110101110101110',C:'011100100100011',D:'110101101101110',E:'111100110100111',K:'101101110101101',L:'100100100100111',M:'101111111101101',O:'010101101101010',S:'011100010001110',T:'111010010010010',U:'101101101101111',Y:'101101010010010',' ':'000000000000000'};
 /** Faded painted lettering across a wall face, one font pixel = 2×2 screen pixels; col and k set the paint and how much of it is left. */
 function lettering(f,a,z,text,col=rgb('#c9bf9d'),k=.38){
   for(let n=0;n<text.length;n++){ const g=FONT[text[n]]; for(let p=0;p<15;p++) if(g[p]==='1'){
@@ -1128,11 +1134,11 @@ function water(t){
     if(y===py&&x===px+1&&(x&1)) return pc;
     px=x; py=y;
     const [i,j]=ground(x,y,WL), r=fbm((i-j)*.45+t*.0025,(i+j)*2.6-t*.009), hi=Math.max(0,Math.min(1,(r-.6)*9))*(.5+vn((i-j)*.2,(i+j)*.3));
-    let c=hi>0?mix(C.water,C.waterHi,hi*.75):C.water; c=shadeC(c,(j<15&&i<30.5?.62+.38*Math.max(0,j-13)/2:1)*(.85+(r-.5)*.3));
+    let c=hi>0?mix(C.water,C.waterHi,hi*.75):C.water; c=shadeC(c,(j<15&&i<52.5?.62+.38*Math.max(0,j-13)/2:1)*(.85+(r-.5)*.3));
     for(const l of refl){ if(y<l.top||Math.abs(x-l.x)>12) continue; const dx=x-l.x+(vn(y*.35,t*.03+l.x)-.5)*7, w=Math.exp(-dx*dx/14)*Math.max(0,1-Math.abs(y-l.y)/46)*l.k;
       if(w>.02) c=mix(c,C.lamp,Math.min(.85,w*(.25+.9*hi+.3*Math.max(0,Math.sin(y*1.3+t*.07+x*.2))))); }
     return pc=c; };
-  floor(-30,13,80,70,WL,shade); floor(30,-8,80,13,WL,shade);
+  floor(-30,13,80,70,WL,shade); floor(52,-8,80,13,WL,shade);
 }
 
 /** Chimney stacks [i, j, base z, width]; the first pot of each lit one smokes. */
@@ -1149,16 +1155,18 @@ function background(t){
     for(const c of CHIMNEYS) chimney(c[0],c[1],c[2],c[3]);
     quad(11,0,62,11,-6,62,11,-6,84.4,11,0,74,(x,y)=>{ const [a,z]=onI(11,x,y); return shadeC(brickAt(-a,z,C.brick,23),.68); });
     sideWall(t); fronts(t);
-    quad(30,0,WL,30,-6,WL,30,-6,68,30,0,68,(x,y)=>{ const [a,z]=onI(30,x,y); return z<0?shadeC(quayFace(-a,z),.8):shadeC(brickAt(-a,z,C.brickC,71),.62); });
-    floor(-30,13,80,70,WL,()=>RIVER); floor(30,-8,80,13,WL,()=>RIVER);
-    quad(0,13,WL-.5,30,13,WL-.5,30,13,0,0,13,0,(x,y)=>{ const [a,z]=onJ(13,x,y); return quayFace(a,z); });
-    quad(30,0,WL-.5,30,13,WL-.5,30,13,0,30,0,0,(x,y)=>{ const [a,z]=onI(30,x,y); return shadeC(quayFace(a,z),.78); });
+    // The former solid end wall (i=30) is now the open continuation of Wapping.
+    floor(-30,13,80,70,WL,()=>RIVER); floor(52,-8,80,13,WL,()=>RIVER);
+    quad(0,13,WL-.5,52,13,WL-.5,52,13,0,0,13,0,(x,y)=>{ const [a,z]=onJ(13,x,y); return quayFace(a,z); });
+    quad(52,0,WL-.5,52,13,WL-.5,52,13,0,52,0,0,(x,y)=>{ const [a,z]=onI(52,x,y); return shadeC(quayFace(a,z),.78); });
     for(let i=1;i<30;i+=2.6){ isoBox(i,13.02,i+.4,13.42,WL-.6,-1,C.woodLight,C.wood,C.woodDark); thin(i+.2,13.43,WL+.6,i+.2,13.43,-1.2,C.woodDark); }
     for(let z=WL+.4;z<0;z+=1.2) thin(12.4,13.05,z,12.95,13.05,z,C.ironHi); for(const i of [12.4,12.95]) thin(i,13.05,WL,i,13.05,.9,C.iron);
     floor(0,0,30,13,0,sett);
+    floor(30,0,52,13,0,sett);
     warehouseDoors();
-    thin(0,13,0,30,13,0,C.edge); thin(30,0,0,30,13,0,C.edge);
-    for(const j of [10.9,11.6]){ thin(0,j+.07,0,30,j+.07,0,C.black); thin(0,j,0,30,j,0,shadeC(C.ironHi,1.6)); }
+    portDistrictStatic(t);
+    thin(0,13,0,52,13,0,C.edge); thin(52,0,0,52,13,0,C.edge);
+    for(const j of [10.9,11.6]){ thin(0,j+.07,0,52,j+.07,0,C.black); thin(0,j,0,52,j,0,shadeC(C.ironHi,1.6)); }
     glow=keep;
 }
 /** Temporarily scale the original 2× Thames camera into the active native framebuffer.
@@ -1186,6 +1194,8 @@ function renderPortFrame(fighters){
   try{
     if(bake.key!==key){ background(t); bake.buf=fb.slice(); bake.key=key; } else fb.set(bake.buf);
     water(t);
+    portRiverDistance(t);
+    portDecks();
     for(const c of CHIMNEYS) if(c[4]) smoke(c[0]+.25,c[1]+.45,c[2]+12.5,t,Math.floor(c[0]*3),8,520,C.fog,1.3);
     /* back-to-front props on the quay */
     const H=hoistAt(t), D=dockerNow(t), K=craneAt(t,-2.4);
@@ -1222,8 +1232,9 @@ function renderPortFrame(fighters){
       [36.3,()=>{ for(let k=0;k<3;k++){ const i=29+k*.1,j=11.6+k*.1; rope([i,j,.05],[i+.8-k*.2,j,.05],0,C.rope); rope([i+.8-k*.2,j,.05],[i+.8-k*.2,j+.5-k*.2,.05],0,C.rope); rope([i+.8-k*.2,j+.5-k*.2,.05],[i,j+.5-k*.2,.05],0,C.rope); } }],
       [CRANE.i+CRANE.j,()=>{ crane(t,K); craneHand(t,K); }],
       [D.i+D.j,()=>sackCarrier(t)],
+      ...portDistrictProps(t),
     ];
-    for(const [x,ll] of [[4.6,0],[13.6,1],[21,2]]) props.push([x+12.1,()=>gasLamp(x,12.1,glow[ll],t)]);
+    for(let k=0;k<LAMPS.length;k++){ const l=LAMPS[k]; if(!l.wall) props.push([l.i+l.j,()=>gasLamp(l.i,l.j,glow[k],t)]); }
     for(const i of [2.2,8.5,16.5,21.8,28.2]) props.push([i+12.6,()=>bollard(i,12.6)]);
     props.sort((a,b)=>a[0]-b[0]).forEach(p=>p[1]());
     const B=barge(t), L=lighter(t);
@@ -1235,6 +1246,7 @@ function renderPortFrame(fighters){
     skiff(t);
     smoke(...B.chimney,t,3,9,380,C.fog,1);
     gulls(t);
+    portDistrictFX(t);
     atmosphere(t);
     if(!fighters) sackPrompt();
     if(!fighters&&storyPlaying()){ sceneFrame(); say(); }
@@ -1256,4 +1268,4 @@ function atmosphere(t){
   LAMPS.forEach((l,k)=>{ const x=isoX(l.i,l.j), y=isoY(l.i,l.j,l.z-(l.wall?1:0)); spot(x,y,30,26,.2*glow[k],C.lamp); spot(x,y,9,8,.45*glow[k],C.flame); });
 }
 /* drawing helpers shared with the vehicles (carriage.js) and the story's cast (port-story.js) */
-export { C, contact, toWorld, spot, thin, stroke, floor, rod, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, withRamps };
+export { C, contact, toWorld, spot, thin, stroke, floor, rod, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, withRamps, barrel, crate, chimney, onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, docker, dockPerson, hull, gasLamp, bollard };
