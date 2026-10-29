@@ -85,6 +85,34 @@ async function check(name, run) {
   console.log(`PASS ${name}`);
 }
 try {
+  await check('HD sandy fight: 432x288, Harry AI, shared joints, clean save and room return',async()=>{
+    const snapshot=await page.evaluate(async()=>{
+      const b=window.__boxer, D=await import('/src/devtools.js'), I=await import('/src/iso-fight.js');
+      const G=await import('/src/gym.js'), R=await import('/src/renderer.js'), P=await import('/src/progression.js');
+      b.goRoom('yard');
+      const before=JSON.stringify({stats:P.state.save.stats,injuries:P.state.save.injuries,train:P.state.save.train});
+      D.devSwitchScene('sandy'); b.pause(); b.step(60);
+      const atStart={mode:b.gstate,venue:I.state.venue,name:I.state.opp.name,
+        buffer:[R.state.hd3.W,R.state.hd3.H,R.state.hd3.fb.length],scale:G.state.ISO_K,
+        hero:I.state.P.look.style,harry:I.state.O.look.style,room:G.state.hubRoom};
+      I.state.O.aiAt=Infinity; // keep the end of the smoke test deterministic
+      I.isoFightFinish(0,'KO'); b.step(130);
+      const finished=I.state.phase==='end';
+      const unchanged=before===JSON.stringify({stats:P.state.save.stats,injuries:P.state.save.injuries,train:P.state.save.train});
+      (await import('/src/navigation.js')).exitToHub();
+      return {atStart,finished,unchanged,returned:G.state.hubRoom};
+    });
+    assert.equal(snapshot.atStart.mode,'isofight');
+    assert.equal(snapshot.atStart.venue,'sandy');
+    assert.equal(snapshot.atStart.name,'HARRY');
+    assert.deepEqual(snapshot.atStart.buffer,[432,288,432*288]);
+    assert.equal(snapshot.atStart.hero,'fringe');
+    assert.equal(snapshot.atStart.harry,'bald');
+    assert.equal(snapshot.atStart.room,'cell');
+    assert.equal(snapshot.finished,true);
+    assert.equal(snapshot.unchanged,true);
+    assert.equal(snapshot.returned,'yard');
+  });
   await check('isometric fight: keys, stamina, body blows, block, slip, steps, AI, knockdown, pause and result',()=>checkIsoFight(page));
   await check('isometric fight in the yard and the bath rooms',()=>checkIsoFightRooms(page));
   await check('the unlit Ward lamp has no blinking ember', async () => {
