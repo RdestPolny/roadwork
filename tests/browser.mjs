@@ -1,4 +1,5 @@
 import { checkIsoFight, checkIsoFightRooms } from './isofight.mjs';
+import { checkCombatDash, captureCombatDashFrames } from './combat-dash-browser.mjs';
 import { checkCrank } from './crank.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -181,6 +182,8 @@ try {
   });
   await check('isometric fight: keys, stamina, body blows, block, slip, steps, AI, knockdown, pause and result',()=>checkIsoFight(page));
   await check('isometric fight in the yard and the bath rooms',()=>checkIsoFightRooms(page));
+  await check('combat dash and LMB: eight directions, chained punches, collisions and resets',()=>checkCombatDash(page));
+  await check('combat dash visual poses: eight native snapshots',()=>captureCombatDashFrames(page));
   await check('the unlit Ward lamp has no blinking ember', async () => {
     const colors=await page.evaluate(async()=>{
       const R=await import('/src/renderer.js'), L=await import('/src/cell-light.js'), G=await import('/src/gym.js'), W=await import('/src/ward.js'), B=await import('/src/boxing.js'), A=await import('/src/appearance.js');
