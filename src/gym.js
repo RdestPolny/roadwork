@@ -272,7 +272,8 @@ function litEnd(lit,st,cx,cy){
  * A person in the 2× room, modelled for the larger picture: realistic proportions (a smaller head with a jaw, ears and hair,
  * a neck, square shoulders, a pelvis, hands and shoes), a face (eyes, brows, nose, mouth, stubble or a beard) and the drelich
  * (collar, button placket, waist seam, breast pocket). J(s) gives the limb joints {hip,knee,foot,sh,el,hd} of side s;
- * J.pel, J.chest and J.head are the body joints, all in body coordinates [forward, side, height] like ipAdd.
+ * J.pel, J.chest and J.head are the body joints; J.abd (optional) is the waist/abdominal hinge.
+ * All are in body coordinates [forward, side, height] like ipAdd.
  * @param {any} C @param {any} J
  * In the bath L.bare strips the drelich (top and trousers take the skin), L.waist wraps a towel round the hips
  * and L.censor puts a pixel mosaic over the groin.
@@ -308,8 +309,8 @@ export function figureHD(C,J,L,o={}){
   const at=(/** @type {number[]} */ o,/** @type {number[]|null} */ fr)=>(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>fr?[o[0]+a*fr[0]+b*fr[3]+c*fr[6],o[1]+a*fr[1]+b*fr[4]+c*fr[7],o[2]+a*fr[2]+b*fr[5]+c*fr[8]]:[o[0]+a,o[1]+b,o[2]+c];
   // look: the head turned (yaw) and bowed (pitch) on the neck while the body keeps its facing, as a frame [forward, side, up].
   const look=o.look?(()=>{ const [y,p]=o.look, cy=Math.cos(y), sy=Math.sin(y), cp=Math.cos(p), sp=Math.sin(p); return [cy*cp,sy*cp,-sp,-sy,cy,0,cy*sp,sy*sp,cp]; })():null;
-  const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],look||(o.tilt?frame(Q,J.head):null)), tp=at(Q,o.tilt?frame(P,Q):null), pp=at(P,o.tilt?frame(P,Q):null), H=hp(0,0,0);
-  const B=J.belly;   // a ragdoll's mid-spine joint: the torso is then two segments that can fold at the waist
+  const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],look||(o.tilt?frame(Q,J.head):null)), tp=at(Q,o.tilt?frame(J.abd||P,Q):null), pp=at(P,o.tilt?frame(P,J.abd||Q):null), H=hp(0,0,0);
+  const B=J.abd||J.belly;   // a mid-spine joint (the abdomen of a body-shot reaction, or a ragdoll's belly): the torso is then two segments that can fold at the waist
   if(L.waist){ if(B){ ipAdd(P[0],P[1],P[2]+0.5,1.85, ...B,2.0, T0,L.waist,0.24,0.24,L.waist); ipAdd(...B,2.0, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist); }
     else ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist); }              /* bare torso, the towel tucked in at the waist */
   else if(B){ ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),(L.tuckedShirt?1.55:1.85)*(bulk?.chest||1), ...B,2.0*(bulk?.chest||1), T0); ipAdd(...B,2.0*(bulk?.chest||1), Q[0],Q[1],Q[2]-0.3,2.2*(bulk?.chest||1), T0); }
