@@ -46,9 +46,9 @@ void main(){
   c*=mix(soot,tallow,smoothstep(.08,.75,l));          // cold soot in the shadows, tallow in the lights
   c=mix(c,c*c*(3.-2.*c),.2)*1.1;                      // gentle S curve, a touch more exposure
   vec2 gq=pp/uRes;
-  vec3 g=textureLod(uGlow,gq,1.5).rgb*.8+textureLod(uGlow,gq,2.8).rgb*.8+textureLod(uGlow,gq,4.).rgb*.7;
+  vec3 g=textureLod(uGlow,gq,1.5).rgb*.4+textureLod(uGlow,gq,2.8).rgb*.35+textureLod(uGlow,gq,4.).rgb*.25;
   float gl=dot(g,vec3(.299,.587,.114));
-  c=1.-(1.-c)*(1.-gl*vec3(1.,.52,.26)*1.25);          // halation: a red-orange bleed around the flame and the window
+  c=1.-(1.-c)*(1.-gl*vec3(1.,.68,.45)*.18);          // halation: a red-orange bleed around the flame and the window
   float mot=vnoise(px/22.+vec2(uTime*.05,0.))-.5;     // unevenly poured emulsion
   c*=1.+mot*.07;
   float grain=hash(px+uFrame*vec2(17.13,31.71))-.5;

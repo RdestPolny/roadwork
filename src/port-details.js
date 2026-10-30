@@ -192,17 +192,8 @@ export function pierCraftDetails(rect){
     rope([i,j,1.85],[i+.42,j-1.4,.3],.3,C.ropeD);
   }
 }
-/** Workshop hand tools, a rope coil and a wooden trestle, only small silhouettes. */
+/** A net rack, a rope coil on the pier and a tackle hook: small static silhouettes (the timber yard's bench lives in port-scenes). */
 export function yardCraftProps(t){
-  // Cooperage trestle, saw and uneven planks near the timber goods.
-  const i=45.35,j=10.15;
-  isoBox(i,j,i+1.8,j+.32,4.4,5.2,C.woodLight,OAK,END);
-  for(const x of [i+.15,i+1.6]){
-    stroke(x,j,4.4,x-.27,j+.3,.4,END);
-    stroke(x,j+.28,4.4,x+.24,j+.4,.4,END);
-  }
-  thin(i+.3,j+.1,5.4,i+1.2,j+.1,5.4,C.ironHi);
-  stroke(i+.25,j+.05,5.35,i+.1,j+.12,7.6,END);
   // Heavy net on a low rack instead of a row of identical crates.
   for(let k=0;k<5;k++){
     const x=41.1+k*.27;

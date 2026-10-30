@@ -1,5 +1,5 @@
 import { rgb, setRamp, state as appearanceState } from './appearance.js';
-import { state as rendererState, line, taper, zoomBlit } from './renderer.js';
+import { state as rendererState, line, taper, zoomBlit, setFramebuffer } from './renderer.js';
 import { state as boxingState, setGstate, h2 } from './boxing.js';
 import { state as gymState, quad, isoLine, isoLineThin, isoX, isoY, isoBox, figureHD, withCellOutfit, setPropCamera, shadeC } from './gym.js';
 import { mix } from './cast.js';
@@ -9,11 +9,12 @@ import { startIsoFight } from './iso-fight.js';
 import { horse, coachWheel } from './carriage.js';
 import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTick, storyShot, storyLine, storyCaption, storyFade, storyBars, storyVanDoor, storyCast, state as storyState } from './port-story.js';
 import { portSurface, districtBlocked } from './port-district.js';
+import { walkJoints } from './port-life.js';
 import { DEBUG } from './config.js';
 import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX } from './port-extension.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
-export function startThamesPort(){ Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; bake.key=''; clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
+export function startThamesPort(){ Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; invalidateBackground(); clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
 
 const C={black:rgb('#080a0a'), mortar:rgb('#211e1a'), brick:[rgb('#42322a'),rgb('#49372c'),rgb('#382d27'),rgb('#524034')],
   stock:[rgb('#4d4636'),rgb('#564d3b'),rgb('#443e31'),rgb('#5d523e')], brickC:[rgb('#3b2a25'),rgb('#45302a'),rgb('#33261f'),rgb('#4c362d')],
@@ -131,7 +132,7 @@ function followPortCamera(){
 export function debugPortView(i,j){
   if(!DEBUG||!portSurface(i,j)||districtBlocked(i,j)) return false;
   player.i=i; player.j=j; player.moving=false; player.lift=-1;
-  followPortCamera();bake.key='';
+  followPortCamera();invalidateBackground();
   return true;
 }
 /** Start a story scene from what the camera shows now: the shot eases over from the middle of the picture at zoom z. */
@@ -798,24 +799,25 @@ function heaver(t,heapR){
 }
 /** The filled coal sacks on the heaver's pile, lying every which way, one more each time he lays a sack down. */
 function coalSacks(t){ const n=Math.min(HEAVER.pile.length,heaverAt(t).done); HEAVER.pile.slice(0,n).forEach(p=>sackAt([p[0],p[1],p[2]+1.5],Math.cos(p[3]),Math.sin(p[3]),1,COALSACK)); }
-/** Pixels of the coal mounds, kept per camera position and mound shape; the mounds only change while coal is tipped. */
+/** Pixels of the coal mounds as offsets from the camera, kept per mound shape; the mounds only change while coal is tipped, never when the camera moves. */
 const mounds=new Map();
 /** A heap of coal made of one or more irregular cones {i,j,ri,rj,h} rising from height z0: each picture pixel shows the highest
  * slice whose ragged outline (noise round the rim) covers it, shaded darker towards the foot and on the near flank. */
 function coalMound(cones,z0,seed){
-  const key=camera.x+','+camera.y+','+z0.toFixed(1)+','+cones.map(c=>[c.i,c.j,c.ri,c.rj,c.h].map(v=>v.toFixed(1)).join(':')).join('|');
+  const key=z0.toFixed(1)+','+cones.map(c=>[c.i,c.j,c.ri,c.rj,c.h].map(v=>v.toFixed(1)).join(':')).join('|');
   let px=mounds.get(key);
   if(!px){ if(mounds.size>40) mounds.clear(); px=[];
-    const W=appearanceState.W, Ht=appearanceState.H, top=Math.max(...cones.map(c=>c.h)), step=.45;
+    const cx0=Math.round(camera.x), cy0=Math.round(camera.y), top=Math.max(...cones.map(c=>c.h)), step=.45;
     let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
     for(const c of cones) for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ const x=isoX(c.i+a*c.ri*1.2,c.j+b*c.rj*1.2), y=isoY(c.i+a*c.ri*1.2,c.j+b*c.rj*1.2,z0); x0=Math.min(x0,x); x1=Math.max(x1,x); y0=Math.min(y0,y-c.h*camera.z); y1=Math.max(y1,y); }
-    for(let y=Math.max(0,Math.floor(y0));y<=Math.min(Ht-1,Math.ceil(y1));y++) for(let x=Math.max(0,Math.floor(x0));x<=Math.min(W-1,Math.ceil(x1));x++){
+    for(let y=Math.floor(y0);y<=Math.ceil(y1);y++) for(let x=Math.floor(x0);x<=Math.ceil(x1);x++){
       for(let z=top;z>=0;z-=step){ const [gi,gj]=ground(x+.5,y+.5,z0+z); let best=-1;
         for(const c of cones){ if(z>c.h) continue; const u=(gi-c.i)/c.ri, v=(gj-c.j)/c.rj, ang=Math.atan2(v,u), rag=1+.42*(vn(ang*1.9+seed+c.i,z*.45+c.j)-.5), q=(u*u+v*v)/(rag*rag), lim=Math.pow(1-z/c.h,1.25);
           if(q<=lim) best=Math.max(best,q/lim); }
-        if(best>=0){ const k=(.5+.6*z/top)*(best>.7?.82:1)*(1.06-.12*Math.sign(gj-cones[0].j)); px.push(y*W+x,coalAt(x,y,k)); break; } } }
+        if(best>=0){ const k=(.5+.6*z/top)*(best>.7?.82:1)*(1.06-.12*Math.sign(gj-cones[0].j)); px.push(x-cx0,y-cy0,coalAt(x,y,k)); break; } } }
     mounds.set(key,px); }
-  const fb=rendererState.fb; for(let k=0;k<px.length;k+=2) fb[px[k]]=px[k+1];
+  const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, ox=Math.round(camera.x), oy=Math.round(camera.y);
+  for(let k=0;k<px.length;k+=3){ const x=px[k]+ox, y=px[k+1]+oy; if(x>=0&&y>=0&&x<W&&y<H) fb[y*W+x]=px[k+2]; }
 }
 /** The heap on the setts where the crane tips its tubs: a main cone with a slumped shoulder beside it. */
 function coalHeap(i,j,R,Hh){
@@ -842,11 +844,11 @@ function craneLoad(t,K){
 }
 /** A point given in a figure's own frame (forward, side, up, in height units) placed in the world. */
 const toWorld=(P,f,s,z)=>[P.i+(f*P.fi-s*P.fj)/7.5,P.j+(f*P.fj+s*P.fi)/7.5,z+(P.z0||0)];
-/** Draw a docker in his work clothes with the joint function J. */
-function docker(P,J,top=['#2b2620','#4a3f31','#6a5a44']){
+/** Draw a docker in his work clothes with the joint function J; o passes figureHD options (head look, hands-only redraw). */
+function docker(P,J,top=['#2b2620','#4a3f31','#6a5a44'],o={}){
   const A=appearanceState;
   withCellOutfit(()=>{ setRamp(A.R_HSH,top,false); setRamp(A.R_HSHF,top,true);
-    figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'flatcap',stubble:true},{noShadow:true}); });
+    figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'flatcap',stubble:true},{noShadow:true,...o}); });
 }
 const ease=u=>{ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); };
 const lerp=(a,b,u)=>a+(b-a)*u, lerp3=(a,b,u)=>[lerp(a[0],b[0],u),lerp(a[1],b[1],u),lerp(a[2],b[2],u)];
@@ -874,17 +876,6 @@ function behindFront(fn,hole,dark,J=0){
 const archHole=(a,z)=>z>=0&&a>=12&&a<=14.3&&Math.hypot((a-13.15)/1.15,Math.max(0,z-15.5)/3.5)<=1;
 const bayHole=(a,z)=>a>=4.3&&a<=5.9&&z>=50.2&&z<=67;
 
-/** Walking legs: q is the phase of one stride cycle (two steps); returns foot forward offset and lift. */
-const stride=q=>{ const D=.62; if(q<D) return [1.6-3.2*q/D,0]; const u=(q-D)/(1-D); return [-1.6+3.2*ease(u),Math.sin(Math.PI*u)]; };
-/** Joints of a walking man at stride phase g; loaded = a sack held on the shoulder of side `side`. */
-function walkJoints(g,loaded,side){
-  const bob=-.22*Math.cos(4*Math.PI*g)-(loaded?.15:0), lean=loaded?.8:.5, swing=stride(frac(g+.5))[0], swing2=stride(frac(g))[0];
-  const J=s=>{ const [fx,lift]=stride(frac(g+(s>0?0:.5))), hip=[0,s*1.2,7.2+bob], sw=s>0?swing:swing2;
-    return {hip,knee:[fx*.5+.55+lift*.35,s*1.3,(hip[2]+.9+lift)/2+.2],foot:[fx,s*1.4,.9+lift*.9],sh:[lean*.5,s*2.6,12.1+bob],
-      el:loaded&&s===side?[.6,s*3.1,14.4+bob]:[.2-sw*.45,s*3.4,9.8+bob],hd:loaded&&s===side?[.9,s*2.3,16+bob]:[.5-sw*.8,s*3.5,7.7+bob]}; };
-  J.pel=[0,0,6.6+bob];J.chest=[lean,0,12+bob];J.head=[lean+.2,0,15.3+bob];
-  return J;
-}
 
 /** Sacks in the stack beside the cab, bottom first; the docker takes the top one each trip. */
 const SACKS=[[19.75,6.6,0,1.3],[20.45,6.75,0,.2],[19.8,7.65,0,-.25],[20.5,7.75,0,1.75],[20.05,6.95,2.2,.55],[20.15,7.6,2.2,-.9],[20.05,7.25,4.4,1.1]];
@@ -1156,8 +1147,6 @@ function water(t){
 const CHIMNEYS=[[-4.6,6,81.5,1.2,true],...[[2.5,74,1.6,true],[8,74,1.2,false],[15.4,62,1.6,true],[25.2,68,1.6,true]].map(([i,h,w,lit])=>[i,-4.4,h+.8+10.4*(4.4/6),w,lit])];
 /** Marks the river's pixels in the baked background, for the per-frame water to fill. */
 const RIVER=0xff010203;
-/** The static background baked for the current camera position. */
-const bake={key:'',buf:new Uint32Array(0)};
 /** Sky, roofs, warehouses, the quay walls and the setts: nothing here moves, so it is drawn once per camera position. */
 function background(t){
     const keep=glow; glow=LAMPS.map(()=>1);
@@ -1182,6 +1171,37 @@ function background(t){
     for(const j of [10.9,11.6]){ thin(0,j+.07,0,52,j+.07,0,C.black); thin(0,j,0,52,j,0,shadeC(C.ironHi,1.6)); }
     glow=keep;
 }
+/** Static scenery is cached as square chunks of the world's pixel grid (a pixel is world-fixed: screen − camera), so the cost of a
+ * frame is the visible chunks' blit, never the size of the world. Chunks are drawn on demand, the ring around the view one per frame
+ * ahead of the walk, and the least recently used fall out of the cache. Moving the camera therefore never redraws the scenery. */
+const CHUNK=144, CHUNK_LIMIT=48;
+const bake={chunks:new Map(),ix:0,jx:0,iy:0,jy:0,z:0};
+/** Forget every chunk: call when anything the scenery shows has changed. */
+function invalidateBackground(){ bake.chunks.clear(); }
+/** Draw chunk (cx,cy) of the static scenery into its own buffer, exactly as the full frame would have drawn those pixels. */
+function buildChunk(cx,cy,t){
+  const A=appearanceState, oldX=camera.x, oldY=camera.y, oldW=A.W, oldH=A.H, buf=new Uint32Array(CHUNK*CHUNK), previous=setFramebuffer(buf);
+  camera.x=-cx*CHUNK; camera.y=-cy*CHUNK; A.W=A.H=CHUNK;
+  try{ background(t); } finally { A.W=oldW; A.H=oldH; camera.x=oldX; camera.y=oldY; setFramebuffer(previous); }
+  return buf;
+}
+/** The cached chunk (cx,cy), drawn if it is missing; touching it makes it the most recently used. */
+function chunkAt(cx,cy,t){
+  const key=cx+','+cy, chunks=bake.chunks; let buf=chunks.get(key);
+  if(buf) chunks.delete(key); else { buf=buildChunk(cx,cy,t); if(chunks.size>=CHUNK_LIMIT) chunks.delete(chunks.keys().next().value); }
+  chunks.set(key,buf); return buf;
+}
+/** Copy the camera window from the visible chunks, then warm one chunk of the ring around it. */
+function cachedBackground(t,fb){
+  const A=appearanceState, W=A.W, H=A.H, x=Math.round(camera.x), y=Math.round(camera.y);
+  if(bake.ix!==camera.ix||bake.jx!==camera.jx||bake.iy!==camera.iy||bake.jy!==camera.jy||bake.z!==camera.z){ invalidateBackground(); Object.assign(bake,{ix:camera.ix,jx:camera.jx,iy:camera.iy,jy:camera.jy,z:camera.z}); }
+  const c0=Math.floor(-x/CHUNK), c1=Math.floor((W-1-x)/CHUNK), r0=Math.floor(-y/CHUNK), r1=Math.floor((H-1-y)/CHUNK);
+  for(let cy=r0;cy<=r1;cy++) for(let cx=c0;cx<=c1;cx++){
+    const buf=chunkAt(cx,cy,t), ox=cx*CHUNK+x, oy=cy*CHUNK+y, x0=Math.max(0,ox), x1=Math.min(W,ox+CHUNK), y0=Math.max(0,oy), y1=Math.min(H,oy+CHUNK);
+    for(let row=y0;row<y1;row++) fb.set(buf.subarray((row-oy)*CHUNK+x0-ox,(row-oy)*CHUNK+x1-ox),row*W+x0);
+  }
+  for(let cy=r0-1;cy<=r1+1;cy++) for(let cx=c0-1;cx<=c1+1;cx++) if(!bake.chunks.has(cx+','+cy)){ chunkAt(cx,cy,t); return; }
+}
 /** Temporarily scale the original 2× Thames camera into the active native framebuffer.
  * Story and physics keep their existing 2× camera coordinates. */
 let portPixelsActive=false;
@@ -1202,10 +1222,10 @@ export function portFightOutfit(fn){ const A=appearanceState; withCellOutfit(()=
 export function renderThamesPort(fighters=null){ return withPortPixels(()=>renderPortFrame(fighters)); }
 /** A Thames frame after selecting the native-resolution camera. */
 function renderPortFrame(fighters){
-  const t=boxingState.tick, previous=setPropCamera(camera), fb=rendererState.fb, key=camera.x+','+camera.y+','+fb.length;
+  const t=boxingState.tick, previous=setPropCamera(camera), fb=rendererState.fb;
   glow=LAMPS.map((l,k)=>.86+.14*vn(t*.045+k*13,k*5)+.05*Math.sin(t*.37+k*2));
   try{
-    if(bake.key!==key){ background(t); bake.buf=fb.slice(); bake.key=key; } else fb.set(bake.buf);
+    cachedBackground(t,fb);
     water(t);
     portRiverDistance(t);
     for(const c of CHIMNEYS) if(c[4]) smoke(c[0]+.25,c[1]+.45,c[2]+12.5,t,Math.floor(c[0]*3),8,520,C.fog,1.3);

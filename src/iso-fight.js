@@ -261,7 +261,7 @@ function pointerDirectionInRoom(){
   const frame=isometricFrame(S.venue), scale=frame.W/144;
   // The port's camera is already in legacy 2× pixels between render calls.
   const projectionScale=S.venue==='port'?scale/2:scale;
-  const C=S.cam, W=frame.W, H=frame.H, z=(Math.abs(C.z-2)<0.03?2:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
+  const C=S.cam, W=frame.W, H=frame.H, z=(Math.abs(C.z-2.35)<0.03?2.35:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
   const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
   const sx=isoX(S.P.i,S.P.j), sy=isoY(S.P.i,S.P.j,0);
   const dx=S.pointer.x-(W/2+(sx*projectionScale-cx)*z)/scale;
@@ -654,7 +654,7 @@ function tickFight(){
   const rawDt=1/60, scale=S.kdSlow>0?(S.kdSlow>3?0.85:S.kdSlow>1.8?0.35:0.16):(S.phase==='fight'?timeScale():1), dt=rawDt*scale, P=S.P, O=S.O;
   S.scale=scale; if(S.kdSlow>0) S.kdSlow=Math.max(0,S.kdSlow-rawDt); if(S.slowMo>0) S.slowMo=Math.max(0,S.slowMo-rawDt);
   if(S.banner&&S.kdSlow<=0&&--S.banner.t<=0) S.banner=null;   // the knockdown's words wait for the comic to end
-  tickFeet(P,scale); tickFeet(O,scale); tickParts(scale);
+  tickFeet(P,scale); tickFeet(O,scale); tickSpurt(P,scale); tickSpurt(O,scale); tickParts(scale);
   for(const F of [P,O]){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/27)>=1) F.rise=null; }
   if(S.kdSlow>3&&S.venue!=='sandy') recordKnockdownFrame();
   for(const F of [P,O]){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
@@ -796,6 +796,7 @@ function blendJoints(A,B,k){
   const m=(/** @type {number[]} */ a,/** @type {number[]} */ b)=>lerp3(a,b,k), side=(/** @type {number} */ s)=>{ const a=A(s), b=B(s); return {hip:m(a.hip,b.hip),knee:m(a.knee,b.knee),foot:m(a.foot,b.foot),sh:m(a.sh,b.sh),el:m(a.el,b.el),hd:m(a.hd,b.hd)}; };
   const J={1:side(1),'-1':side(-1)}, f=(/** @type {number} */ s)=>J[s];
   f.pel=m(A.pel,B.pel); f.chest=m(A.chest,B.chest); f.head=m(A.head,B.head);
+  if(A.belly||B.belly){ const mid=(/** @type {any} */ X)=>X.belly||lerp3(X.pel,X.chest,0.5); f.belly=lerp3(mid(A),mid(B),k); }
   return f;
 }
 
@@ -1011,26 +1012,27 @@ function footJoint(F,s){
   return {fwd:di*F.fi+dj*F.fj,side:di*-F.fj+dj*F.fi,lift,u};
 }
 
-/* RAGDOLL. A knocked-down fighter is a Verlet skeleton in room space (i, j in tiles, z in body units): 11 nodes joined by the bones he
+/* RAGDOLL. A knocked-down fighter is a Verlet skeleton in room space (i, j in tiles, z in body units): 12 nodes joined by the bones he
    was standing with, falling under gravity onto the boards and sliding against the walls and furniture (hubBlocked). The pelvis
    carries the fighter's position, so the camera, the speech bubbles and the depth sorter keep working.
-   Nodes: 0 pelvis, 1 chest, 2 head, 3 knee, 4 foot, 5 knee, 6 foot, 7 elbow, 8 hand, 9 elbow, 10 hand (3-4 and 7-8 are side +1). */
-const RD_PAIRS=[[0,1],[1,2],[0,3],[3,4],[0,5],[5,6],[1,7],[7,8],[1,9],[9,10],[0,2],[3,5]];   // the last two only push apart (spine-head, knees)
-const RD_RAD=[1.4,1.6,1.5,0.9,0.8,0.9,0.8,0.8,0.7,0.8,0.7];
+   Nodes: 0 pelvis, 1 chest, 2 head, 3 knee, 4 foot, 5 knee, 6 foot, 7 elbow, 8 hand, 9 elbow, 10 hand, 11 belly (the middle of the spine: the torso folds there; 3-4 and 7-8 are side +1). */
+const RD_PAIRS=[[0,11],[11,1],[1,2],[0,3],[3,4],[0,5],[5,6],[1,7],[7,8],[1,9],[9,10],[0,2],[3,5],[0,1]];   // the last three only push apart (spine-head, knees, a spine folded double)
+const RD_SOFT=11, RD_SOFT_MIN=[0.85,0.85,0.55];
+const RD_RAD=[1.4,1.6,1.5,0.9,0.8,0.9,0.8,0.8,0.7,0.8,0.7,1.5];
 const RD_GRAV=0.07;
 
 /** Put a fighter into the ragdoll from the pose he stands in, with the blow's push (away from attacker A). @param {any} F @param {any} A @param {number} pid @param {boolean} ko */
 function startIsoRagdoll(F,A,pid,ko){
-  const J=fighterJoints(F), a=J(1), b=J(-1), loc=[J.pel,J.chest,J.head,a.knee,a.foot,b.knee,b.foot,a.el,a.hd,b.el,b.hd];
+  const J=fighterJoints(F), a=J(1), b=J(-1), loc=[J.pel,J.chest,J.head,a.knee,a.foot,b.knee,b.foot,a.el,a.hd,b.el,b.hd,J.pel.map((v,k)=>(v+J.chest[k])/2)];
   let af=-1, as=0; if(A){ const [ui,uj]=toward(A,F); af=ui*F.fi+uj*F.fj; as=ui*-F.fj+uj*F.fi; }
   if(pid===2){ const side=A?.pk?.hand||1; af*=0.25; as=side; }
-  const sp=ko?0.75:0.62, kick=pid===3?0.3:0.1;
+  const sp=ko?0.75:0.62, kick=pid===3?0.3:0.1, gut=!!A?.pk?.low;   // a body blow caves the belly in while the chest and head fold forward over the fist
   const nodes=loc.map(([f,s,z],k)=>{
-    const w=world(F,f,s), m=k===2?1.35:k===1?0.95:k===0?0.45:k>=7?1.1:0.15;
-    const vf=af*sp*m+rnd(-0.03,0.03), vs=as*sp*m+rnd(-0.03,0.03), vi=(vf*F.fi-vs*F.fj)/7.5, vj=(vf*F.fj+vs*F.fi)/7.5, vz=k<=2?kick*m:0;
+    const w=world(F,f,s), m=gut?(k===11?1.5:k===0?0.9:k===1?-0.15:k===2?0.05:k>=7&&k<=10?0.6:0.3):k===11?0.7:k===2?1.35:k===1?0.95:k===0?0.45:k>=7?1.1:0.15;
+    const vf=af*sp*m+rnd(-0.03,0.03), vs=as*sp*m+rnd(-0.03,0.03), vi=(vf*F.fi-vs*F.fj)/7.5, vj=(vf*F.fj+vs*F.fi)/7.5, vz=k<=2||k===11?kick*m:0;
     return {i:w.i,j:w.j,z,pi:w.i-vi,pj:w.j-vj,pz:z-vz};
   });
-  const len=RD_PAIRS.map(([p,q],k)=>{ const d=Math.hypot(loc[q][0]-loc[p][0],loc[q][1]-loc[p][1],loc[q][2]-loc[p][2]); return k>=10?d*0.85:d; });
+  const len=RD_PAIRS.map(([p,q],k)=>{ const d=Math.hypot(loc[q][0]-loc[p][0],loc[q][1]-loc[p][1],loc[q][2]-loc[p][2]); return k>=RD_SOFT?d*RD_SOFT_MIN[k-RD_SOFT]:d; });
   F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A){ state.kdSlow=3.8; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
 }
 
@@ -1041,7 +1043,7 @@ function stepIsoRagdoll(F){
   for(let it=0;it<4;it++){
     for(let b=0;b<RD_PAIRS.length;b++){
       const A=N[RD_PAIRS[b][0]], B=N[RD_PAIRS[b][1]], dx=(B.i-A.i)*7.5, dy=(B.j-A.j)*7.5, dz=B.z-A.z, d=Math.hypot(dx,dy,dz)||1e-4;
-      if(b>=10&&d>=L[b]) continue;
+      if(b>=RD_SOFT&&d>=L[b]) continue;
       const k=(L[b]-d)/d*0.5;
       A.i-=dx*k/7.5; A.j-=dy*k/7.5; A.z-=dz*k; B.i+=dx*k/7.5; B.j+=dy*k/7.5; B.z+=dz*k;
     }
@@ -1068,7 +1070,7 @@ function ragdollJoints(F){
   const at=(/** @type {number[]} */ o,/** @type {number} */ k)=>[o[0]+sx*k,o[1]+sy*k,o[2]+sz*k];
   const side=(/** @type {number} */ s,/** @type {number} */ kn,/** @type {number} */ ft,/** @type {number} */ el,/** @type {number} */ hd)=>({hip:at(pel,s*1.25),knee:loc(N[kn]),foot:loc(N[ft]),sh:at(chest,s*2.7),el:loc(N[el]),hd:loc(N[hd])});
   const J={1:side(1,3,4,7,8),'-1':side(-1,5,6,9,10)}, f=(/** @type {number} */ s)=>J[s];
-  f.pel=pel; f.chest=chest; f.head=head;
+  f.pel=pel; f.chest=chest; f.head=head; f.belly=loc(N[11]);
   return f;
 }
 
@@ -1095,13 +1097,26 @@ function spray(A,D,pid,low,blocked,o,ko){
         vz:pid===3&&!low?rnd(0.45,0.95)*power:rnd(0.15,0.65)*(0.5+power*0.45),size:kind==='blood'&&heavy&&Math.random()<0.28?2:1,
         age:0,maxAge:mist?10+(Math.random()*8|0):999,creep:0,host:null,df:0,ds:0,pi:D.i,pj:D.j,pz:z0}); } };
   if(blocked||o.damage<=0) return;
-  if(hpF>=0.6){
+  if(hpF>=0.6&&!ko){
     fire('mist',Math.max(1,Math.round((3+pid*2+(o.counter?2:0))*0.4)),0.85+pid*0.15);
     if(heavy) fire('sweat',Math.max(1,Math.round((2+pid+(o.counter?2:0))*0.4)),0.95+pid*0.18);
-  } else if(!low){
+  } else if(!low||ko){
     D.bleed=true;
     const amount=0.4+0.6*Math.max(0,1-hpF/0.6);
     fire('blood',Math.max(1,Math.round((ko?16:3+pid*3+(o.counter?4:0))*amount)),ko?1.45:1+0.18*pid);
+    if(ko) D.spurt={t:34,ui,uj,si,sj};
+  }
+}
+
+/** The blood that keeps jetting from a finished fighter: pulses from the head, arcing away from the attacker and fading out. @param {any} F @param {number} scale */
+function tickSpurt(F,scale){
+  const S=F.spurt; if(!S) return;
+  S.t-=scale; if(S.t<=0){ F.spurt=null; return; }
+  const h=F.rd?F.rd.nodes[2]:{i:F.i,j:F.j,z:14}, fade=Math.min(1,S.t/12), pulse=0.55+0.45*Math.sin(S.t*0.9), n=1+Math.round(3*pulse*fade);
+  for(let k=0;k<n;k++){
+    const along=rnd(0.9,1.9)*(0.5+0.5*pulse)*(0.6+0.4*fade), across=rnd(-0.55,0.55), sp=0.021;
+    state.parts.push({kind:'blood',i:h.i,j:h.j,z:h.z,vi:(S.ui*along+S.si*across)*sp,vj:(S.uj*along+S.sj*across)*sp,vz:rnd(0.3,0.85)*(0.5+0.5*pulse),size:Math.random()<0.3?2:1,
+      age:0,maxAge:999,creep:0,host:null,df:0,ds:0,pi:h.i,pj:h.j,pz:h.z});
   }
 }
 
@@ -1186,9 +1201,9 @@ function knockdownZoom(){
 function camera(){
   const S=state, C=S.cam, K=gymState.ISO_K, W=appearanceState.W, H=appearanceState.H, P=S.P, O=S.O;
   const px=isoX(P.i,P.j), py=isoY(P.i,P.j,9), ox=isoX(O.i,O.j), oy=isoY(O.i,O.j,9);
-  const need=Math.max(Math.abs(px-ox)+70*K,(Math.abs(py-oy)+60*K)*1.5), zt=need>W/2?Math.max(1.3,W/need):2;
+  const need=Math.max(Math.abs(px-ox)+52*K,(Math.abs(py-oy)+48*K)*1.5), zt=Math.min(2.35,Math.max(1.3,W/need));
   if(C.init){ C.init=false; C.z=zt; C.x=(px+ox)/2; C.y=(py+oy)/2+4*K; }
-  C.z+=(zt-C.z)*0.08; const z=(Math.abs(C.z-2)<0.03?2:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
+  C.z+=(zt-C.z)*0.08; const z=(Math.abs(C.z-2.35)<0.03?2.35:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
   const tx=(px+ox)/2, ty=(py+oy)/2+4*K;
   C.x+=(tx-C.x)*0.1; C.y+=(ty-C.y)*0.1;
   const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
@@ -1209,10 +1224,12 @@ function applySlowMoTint(){
 
 /** Save a presentation-only snapshot so the comic can replay the same fall. */
 function recordKnockdownFrame(){
-  recordKnockdownComicFrame([state.P,state.O].map(F=>({
+  const frame=/** @type {any} */ ([state.P,state.O].map(F=>({
     C:{i:F.i,j:F.j,fi:F.fi,fj:F.fj}, look:F.look, wrap:F.wrap,
     joints:F.rd?ragdollJoints(F):fighterJoints(F), tilt:!!F.rd||!!F.pk?.low||F.pk?.pid===2
   })));
+  frame.blood=state.parts.filter(p=>p.kind==='blood').map(({i,j,z,pi,pj,pz,size})=>({i,j,z,pi,pj,pz,size}));   // the drops in the air, for the comic to replay
+  recordKnockdownComicFrame(frame);
 }
 
 /** The comic's closing words: the knockdown or the stoppage, the count, and the taps the player still needs to rise. */

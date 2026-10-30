@@ -3,7 +3,7 @@
    own camera, centred on the fighters and turned around them, over the venue's floor seen from the same turn. Presentation only. */
 
 import { state as appearanceState, rgb } from './appearance.js';
-import { state as gymState, figureHD, setPropCamera, shadeC } from './gym.js';
+import { state as gymState, figureHD, setPropCamera, shadeC, isoX, isoY } from './gym.js';
 import { state as rendererState, setFramebuffer, HD_K } from './renderer.js';
 import { drawChar } from './boxing.js';
 import { floorCol as wardFloor } from './ward.js';
@@ -19,6 +19,7 @@ export const state = {frames:/** @type {any[]} */ ([]),victim:1,pid:0,low:false,
 const ENTER=0.3, P2_AT=1.0, P3_AT=2.2, FLASH=0.035, LEAVE=0.25;
 const PAGE=rgb('#100e10'), INK=rgb('#060506'), RIM=rgb('#d2c4a7'), FLASH_C=rgb('#f4eee2'), VOID=rgb('#1c191d');
 const PAPER=rgb('#e3d6b6'), LETTER=rgb('#1b1516'), BLOOD=rgb('#8e1f1c');
+const JET=rgb('#a81c28'), JET_DARK=rgb('#6a0f18');
 const PUNCH=['JAB','PROSTY','SIERPOWY','PODBRODKOWY'];
 
 /** The knockdown page is designed at 288×192 and scaled with the active room (2× or 3×). turn: the camera's turn from a side-on
@@ -34,7 +35,7 @@ export function startKnockdownComic(victim,pid,low,venue){
   Object.assign(state,{frames:[],victim,pid,low,venue,panels:[],framing:[]});
 }
 
-/** Keep one tick of the fall: per fighter its place, facing, look, outfit and joints. @param {any[]} frame */
+/** Keep one tick of the fall: per fighter its place, facing, look, outfit and joints; frame.blood holds the drops in the air. @param {any[]} frame */
 export function recordKnockdownComicFrame(frame){ state.frames.push(frame); }
 
 /** Is the page on screen at this moment, rather than the live close-up around it? @param {number} elapsed @param {number} left real seconds */
@@ -123,7 +124,10 @@ function renderPanel(P,frame){
     .sort((a,b)=>a.C.i+a.C.j-b.C.i-b.C.j);
   scratch.fill(0);
   const prevFb=setFramebuffer(scratch), prevCam=setPropCamera(cam);
-  try { for(const {f,C} of figures) f.wrap(()=>figureHD(C,f.joints,f.look,{noShadow:true,tilt:f.tilt})); }
+  try {
+    for(const {f,C} of figures) f.wrap(()=>figureHD(C,f.joints,f.look,{noShadow:true,tilt:f.tilt}));
+    for(const b of frame.blood||[]) bloodDrop(P,b,scratch,W,H);
+  }
   finally { setPropCamera(prevCam); setFramebuffer(prevFb); }
   let sx=0, sy=0, seen=0;
   for(let py=0;py<P.h;py++) for(let px=0;px<P.w;px++){
@@ -133,6 +137,16 @@ function renderPanel(P,frame){
     P.img[q]=c||P.floor[q];
   }
   P.framing=seen?{dx:(sx/seen-P.cx)/P.w,dy:(sy/seen-P.h/2)/P.h}:null;   // where the figures sit in the panel, for the tests
+}
+
+/** One drop of the jet through the panel's camera: a streak from where it was a tick ago, a bright head on a dark tail.
+ *  @param {any} P @param {{i:number,j:number,z:number,pi:number,pj:number,pz:number,size:number}} b @param {Uint32Array} img @param {number} W @param {number} H */
+function bloodDrop(P,b,img,W,H){
+  const [ri,rj]=turn(P,b.i,b.j), [qi,qj]=turn(P,b.pi,b.pj), x1=isoX(ri,rj), y1=isoY(ri,rj,b.z), x0=isoX(qi,qj), y0=isoY(qi,qj,b.pz);
+  const steps=Math.max(1,Math.ceil(Math.max(Math.abs(x1-x0),Math.abs(y1-y0))));
+  const put=(/** @type {number} */ x,/** @type {number} */ y,/** @type {number} */ c)=>{ x=Math.round(x); y=Math.round(y); if(x>=0&&y>=0&&x<W&&y<H) img[y*W+x]=c; };
+  for(let k=0;k<steps;k++) put(x0+(x1-x0)*k/steps,y0+(y1-y0)*k/steps,JET_DARK);
+  put(x1,y1,JET); if(b.size>1){ put(x1+1,y1,JET_DARK); put(x1,y1+1,JET); }
 }
 
 /** A caption box of capital lines (text, letter size, colour), with an optional row of taps; (x,y) is its top left corner, or top right.

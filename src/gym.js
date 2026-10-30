@@ -278,7 +278,7 @@ function litEnd(lit,st,cx,cy){
  * and L.censor puts a pixel mosaic over the groin.
  * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,beard?:boolean,stubble?:boolean,mustache?:boolean,cut?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
  * Newgate: style 'flatcap' (L.cap ramp), L.chops mutton-chop whiskers, L.scarf a neckerchief colour, L.irons leg irons.
- * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean}} [o]   light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
+ * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,look?:number[],only?:string,side?:number}} [o]   look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
 export function figureHD(C,J,L,o={}){
   state.ipC=C; state.ipN=0; state.ipPose=o.pose||0; state.ipBase=o.base||0;
@@ -287,6 +287,7 @@ export function figureHD(C,J,L,o={}){
   const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   for(let s=-1;s<=1;s+=2){
     const k=s===nearS?0:1, A=J(s), SK=L.sk[k], PT=L.pt[k], TP=L.top[k], wr=mix(A.el,A.hd,0.8), toe=[A.foot[0]+0.85,A.foot[1],A.foot[2]-0.25];
+    if(o.only==='hands'){ if(!o.side||o.side===s){ ipAdd(...A.el,0.88, ...wr,0.76, L.rolledSleeves?SK:TP); ipAdd(...wr,0.62, ...A.hd,0.7, SK); } continue; }   // forearm and hand only (of one side), over a prop
     if(L.waist) ipAdd(...A.hip,1.3, ...A.knee,1.08, PT,L.waist,0.5,0.5,L.waist); else ipAdd(...A.hip,1.3*(bulk?.thighs||1), ...A.knee,1.08*(bulk?.thighs||1), PT);   /* thigh (the towel over its top half) */
     ipAdd(...A.knee,1.02*(bulk?.calves||1), ...A.foot,0.84*(bulk?.calves||1), PT);                                                                   // shin
     ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15,0.92, ...toe,0.74, L.shoe);                                   // prison shoe
@@ -294,6 +295,10 @@ export function figureHD(C,J,L,o={}){
     ipAdd(...wr,0.62, ...A.hd,0.7, SK);                                                                          // hand
     ipAdd(A.hip[0],A.hip[1],A.hip[2]+0.3,1.35*(bulk?.thighs||1), A.hip[0],A.hip[1]*0.4,A.hip[2]+0.4,1.4*(bulk?.thighs||1), L.waist||PT);            // seat of the trousers
   }
+  if(o.only==='hands'){ for(let k=0;k<state.ipN;k++) state.ipOrd[k]=k;
+    for(let a=1;a<state.ipN;a++){ const v=state.ipOrd[a]; let b=a-1; while(b>=0&&state.ipD[state.ipOrd[b]]>state.ipD[v]){ state.ipOrd[b+1]=state.ipOrd[b]; b--; } state.ipOrd[b+1]=v; }
+    for(let p=0;p<2;p++) for(let a=0;a<state.ipN;a++){ const k=state.ipOrd[a]; taper(Math.round(state.ipX0[k]),Math.round(state.ipY0[k]),state.ipR0[k],Math.round(state.ipX1[k]),Math.round(state.ipY1[k]),state.ipR1[k],p,state.ipRp[k],state.ipRp2[k],state.ipZ1[k],state.ipZ2[k],state.ipRp3[k]); }
+    state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
   const P=J.pel, Q=J.chest, SL=J(-1).sh, SR=J(1).sh, T0=L.top[0], S0=L.sk[0];
   // The head and chest fixtures (face, collar, pocket...) sit in a frame that follows the neck and the spine, so a ragdoll that lies or
   // tumbles carries its face with it; standing figures use the plain body axes and draw exactly as before.
@@ -301,8 +306,13 @@ export function figureHD(C,J,L,o={}){
     let sx=-uy*ux, sy=1-uy*uy, sz=-uy*uz, sl=Math.hypot(sx,sy,sz); if(sl<0.2){ sx=1-ux*ux; sy=-ux*uy; sz=-ux*uz; sl=Math.hypot(sx,sy,sz)||1; } sx/=sl; sy/=sl; sz/=sl;
     return [sy*uz-sz*uy,sz*ux-sx*uz,sx*uy-sy*ux,sx,sy,sz,ux,uy,uz]; };   // forward = side × up, side = body side made square to the axis
   const at=(/** @type {number[]} */ o,/** @type {number[]|null} */ fr)=>(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>fr?[o[0]+a*fr[0]+b*fr[3]+c*fr[6],o[1]+a*fr[1]+b*fr[4]+c*fr[7],o[2]+a*fr[2]+b*fr[5]+c*fr[8]]:[o[0]+a,o[1]+b,o[2]+c];
-  const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],o.tilt?frame(Q,J.head):null), tp=at(Q,o.tilt?frame(P,Q):null), pp=at(P,o.tilt?frame(P,Q):null), H=hp(0,0,0);
-  if(L.waist) ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist);              /* bare torso, the towel tucked in at the waist */
+  // look: the head turned (yaw) and bowed (pitch) on the neck while the body keeps its facing, as a frame [forward, side, up].
+  const look=o.look?(()=>{ const [y,p]=o.look, cy=Math.cos(y), sy=Math.sin(y), cp=Math.cos(p), sp=Math.sin(p); return [cy*cp,sy*cp,-sp,-sy,cy,0,cy*sp,sy*sp,cp]; })():null;
+  const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],look||(o.tilt?frame(Q,J.head):null)), tp=at(Q,o.tilt?frame(P,Q):null), pp=at(P,o.tilt?frame(P,Q):null), H=hp(0,0,0);
+  const B=J.belly;   // a ragdoll's mid-spine joint: the torso is then two segments that can fold at the waist
+  if(L.waist){ if(B){ ipAdd(P[0],P[1],P[2]+0.5,1.85, ...B,2.0, T0,L.waist,0.24,0.24,L.waist); ipAdd(...B,2.0, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist); }
+    else ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist); }              /* bare torso, the towel tucked in at the waist */
+  else if(B){ ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),(L.tuckedShirt?1.55:1.85)*(bulk?.chest||1), ...B,2.0*(bulk?.chest||1), T0); ipAdd(...B,2.0*(bulk?.chest||1), Q[0],Q[1],Q[2]-0.3,2.2*(bulk?.chest||1), T0); }
   else ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),(L.tuckedShirt?1.55:1.85)*(bulk?.chest||1), Q[0],Q[1],Q[2]-0.3,2.2*(bulk?.chest||1), T0);
   if(heavy){
     // A real forward-projecting belly, attached to the spine. Soft delay is visual only: IK bone lengths remain unchanged.

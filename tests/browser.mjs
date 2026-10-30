@@ -1,3 +1,4 @@
+import { checkPortLife } from './port-life-browser.mjs';
 import { checkIsoFight, checkIsoFightRooms } from './isofight.mjs';
 import { checkCombatDash, captureCombatDashFrames } from './combat-dash-browser.mjs';
 import { checkBull, captureBull } from './heavy-bruiser-browser.mjs';
@@ -154,6 +155,7 @@ try {
     assert.ok(room.yard.background>5000&&room.bath.background>5000,'room backgrounds must bake in native 3×');
     await page.screenshot({path:'artifacts/ward-432-288-regression.png'});
   });
+  await check('Thames life: fixed routine phases',()=>checkPortLife(page));
   await check('Thames district: 13 native exploration, NPC, brawl and story captures',()=>checkPortDistrict(page));
   await check('432x288: six native scene captures and Thames camera regression', async()=>{
     const capture=async(file)=>{

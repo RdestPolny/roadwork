@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DISTRICT, PLAN_AREA, PORT_LIFE, portRoutine, portSurface, districtBlocked } from '../src/port-district.js';
+import { DISTRICT, PLAN_AREA, portSurface, districtBlocked } from '../src/port-district.js';
 
 test('extended port builds at least twice the original plan with connected timber decks',()=>{
   assert.ok(PLAN_AREA>2*30*13,`expanded plan: ${PLAN_AREA} tiles²`);
@@ -24,20 +24,18 @@ test('buildings and stored goods block travel, with public passages left open',(
   assert.deepEqual(DISTRICT.pier,[42.2,13,51.8,25]);
 });
 
-test('13 decorative characters have staggered multi-phase routines with no teleport at the loop seam',()=>{
-  assert.ok(PORT_LIFE.length>=10&&PORT_LIFE.length<=14);
-  assert.equal(new Set(PORT_LIFE.map(n=>n.id)).size,PORT_LIFE.length);
-  const phases=new Set();
-  for(const n of PORT_LIFE){
-    const seen=new Set();
-    for(let t=0;t<n.cycle;t+=Math.max(1,Math.floor(n.cycle/80))){
-      const p=portRoutine(t-n.shift,n); seen.add(p.stage); phases.add(p.stage);
-      assert.equal(Number.isFinite(p.i)&&Number.isFinite(p.j),true);
-      assert.equal(portSurface(p.i,p.j)!==null,true,`${n.id} stays on port terrain`);
-    }
-    assert.ok(seen.size>=3,`${n.id} has working phases`);
-    const before=portRoutine(n.cycle-1-n.shift,n),after=portRoutine(n.cycle-n.shift,n);
-    assert.ok(Math.hypot(before.i-after.i,before.j-after.j)<.1,`${n.id} has seamless loop`);
+test('background routines remain deterministic on the port and cycle through their activities', async()=>{
+  const { portLife, LOOPS } = await import('../src/port-life.js');
+  const fish=new Set(), work=new Set();
+  for(let t=0;t<LOOPS.FISH.T;t+=13){
+    const p=portLife(t); assert.deepEqual(p,portLife(t));
+    fish.add(p.fisher.state); work.add(p.yard.wood.state);
+    for(const a of [p.fisher,p.pub.a,p.pub.b,p.loner,p.keeper,p.yard.wood,p.yard.hand,p.yard.fore])
+      assert.ok(Number.isFinite(a.P.i)&&Number.isFinite(a.P.j)&&portSurface(a.P.i,a.P.j),`actor outside port at ${t}`);
+    assert.ok(['ON_TABLE','HELD_BY_NPC'].includes(p.pub.mug.state));
+    assert.ok(['ON_TABLE','HELD_BY_NPC'].includes(p.pub.bottle.state));
+    assert.ok(Number.isFinite(p.fisher.rod.tip[0]));
   }
-  assert.deepEqual([...phases].sort(),['approach','rest','return','work']);
+  for(const state of ['WAIT','CAST','REEL','UNHOOK','DROP_FISH']) assert.ok(fish.has(state),state);
+  for(const state of ['PICK_UP_PLANK','WALK_TO_BENCH','SAW','PLACE_ON_STACK']) assert.ok(work.has(state),state);
 });
