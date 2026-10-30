@@ -11,6 +11,7 @@ import { state as appearanceState, rgb } from './appearance.js';
 import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, setFightSpectators } from './gym.js';
 import { state as rendererState, zoomBlit, screenToView, setFramebuffer } from './renderer.js';
 import { mix } from './cast.js';
+import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -87,7 +88,7 @@ const emptyCounts=()=>({thrown:0,landed:0,power:0,body:0,counters:0,evades:0,blo
  * @param {number} i @param {number} j @param {number} fi @param {number} fj @param {any} look @param {(fn:()=>void)=>void} wrap
  * @param {{hpMax:number,staCap:number,pow:number,regen:number,hunger?:number}} rules @param {{stunDealt:number,stunTaken:number}} S @param {number} [leadSide] */
 function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
-  const F={i,j,fi,fj,leadSide,lastHand:0,evadeHookHand:0,moving:false,mf:0,ms:0,rt:createCombatant(rules),pk:null,buf:null,slipSince:-9,slipDir:1,evKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */ ('slip'),evDi:0,evDj:0,evFwd:0,evSide:0,hurtT:0,hurtDir:0,hurtLow:false,hurtPower:1,stagger:0,stun:0,dmg:0,faceDamage:0,
+  const F={i,j,fi,fj,leadSide,lastHand:0,evadeHookHand:0,moving:false,mf:0,ms:0,rt:createCombatant(rules),pk:null,buf:null,slipSince:-9,slipDir:1,evKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */ ('slip'),evDi:0,evDj:0,evFwd:0,evSide:0,hurtT:0,hurtDuration:.3,hurtDir:0,hurtLow:false,hurtPower:1,hurtBlocked:false,hurtSide:0,stagger:0,stun:0,dmg:0,faceDamage:0,
     grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,aiAt:1,combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
     stunDealt:S.stunDealt,stunTaken:S.stunTaken,c:emptyCounts(),wounds:/** @type {any} */ ({cuts:0,ribs:0}),bleed:false,hist:/** @type {any[]} */ ([]),draw:()=>{}};
   F.ft={1:{},'-1':{}}; F.li=i; F.lj=j; for(const s of [1,-1]) Object.assign(F.ft[s],stance(F,s),{sw:0,from:null,to:null});
@@ -460,8 +461,13 @@ function impact(A,D){
       if((pid===1||pid===3)&&o.counter&&D.dmg>0.48&&!D.wounds.nose){ D.wounds.nose=true; D.rt.regen*=0.82; sfxCrack(0.8); popup(sparringState.T_CARD+15,px,py-18,sparringState.C_BLOOD2,1,38); }
     }
   }
-  D.hurtT=blocked?.12:.3; D.hurtDir=pid; D.hurtLow=low;
-  D.hurtPower=(blocked?0.25:1)*(1+0.8*(1-Math.max(0,Math.min(1,D.rt.sta/D.rt.staCapInitial))));
+  // Body blows are a separate, longer anticipation/compression/recovery sequence.
+  // This is visual only: resolvePunch above still owns stamina and HP.
+  D.hurtDuration=low?(blocked?.18:BODY_HIT_SECONDS+pid*.025):.3;
+  D.hurtT=D.hurtDuration; D.hurtDir=pid; D.hurtLow=low; D.hurtBlocked=blocked;
+  D.hurtPower=(blocked?0.25:1)*(1+0.8*(1-Math.max(0,Math.min(1,D.rt.sta/D.rt.staCapInitial))))*(low&&!blocked?1+pid*.08:1);
+  const [sideI,sideJ]=toward(D,A);
+  D.hurtSide=Math.max(-1,Math.min(1,(sideI*-D.fj+sideJ*D.fi)*1.8+(A.pk.hand||1)*0.3));
   if(!stagger&&!blocked&&!low&&D.pk&&D.pk.t<PT[D.pk.pid].hit) D.pk=null;   /* a clean hit interrupts the windup */
   const [ui,uj]=toward(A,D); walk(D,A,ui,uj,blocked?.05:.12);
   if(o.damage>=1) popup(sparringState.T_DMG+Math.min(30,Math.max(1,Math.round(o.damage)))-1,px,py-14,blocked?appearanceState.C_GRAY:appearanceState.C_WHITE,1,32);
@@ -563,7 +569,13 @@ function timeScale(){
 export function isoFightTick(){ if(state.venue==='port') return withThamesCamera(tickFight); return tickFight(); }
 function tickFight(){
   const S=state; if(!S.on) return;
-  if(S.freeze>0){ S.freeze--; return; }
+  if(S.freeze>0){
+    // Hit-stop freezes combat logic, but the struck torso still begins to fold
+    // over the impact: otherwise the visual response starts frames after contact.
+    S.freeze--;
+    for(const F of [S.P,S.O]) if(F?.hurtT>0) F.hurtT=Math.max(0,F.hurtT-1/60);
+    return;
+  }
   const rawDt=1/60, scale=S.kdSlow>0?(S.kdSlow>3?0.85:S.kdSlow>1.8?0.35:0.16):(S.phase==='fight'?timeScale():1), dt=rawDt*scale, P=S.P, O=S.O;
   S.scale=scale; if(S.kdSlow>0) S.kdSlow=Math.max(0,S.kdSlow-rawDt); if(S.slowMo>0) S.slowMo=Math.max(0,S.slowMo-rawDt);
   if(S.banner&&S.kdSlow<=0&&--S.banner.t<=0) S.banner=null;   // the knockdown's words wait for the comic to end
@@ -696,6 +708,7 @@ function blendJoints(A,B,k){
   const m=(/** @type {number[]} */ a,/** @type {number[]} */ b)=>lerp3(a,b,k), side=(/** @type {number} */ s)=>{ const a=A(s), b=B(s); return {hip:m(a.hip,b.hip),knee:m(a.knee,b.knee),foot:m(a.foot,b.foot),sh:m(a.sh,b.sh),el:m(a.el,b.el),hd:m(a.hd,b.hd)}; };
   const J={1:side(1),'-1':side(-1)}, f=(/** @type {number} */ s)=>J[s];
   f.pel=m(A.pel,B.pel); f.chest=m(A.chest,B.chest); f.head=m(A.head,B.head);
+  if(A.abd||B.abd) f.abd=m(A.abd||lerp3(A.pel,A.chest,.48),B.abd||lerp3(B.pel,B.chest,.48));
   return f;
 }
 
@@ -720,9 +733,13 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     else if(F.evKind==='back'){ lean-=1.25*w; bob-=0.75*w; sl+=0.45*F.evSide*w; }
     else { sl+=2.8*F.slipDir*w; lean+=0.6*F.evFwd*w; bob-=1.1*w; } }
   if(clinch){ lean+=1.1; bob-=0.5; }
-  const h=Math.min(1,F.hurtT/0.3)*F.hurtPower;
-  if(F.hurtLow){ lean+=2.5*h; bob-=1.0*h; }
-  else { lean-=(F.hurtDir===2?0.8:1.5)*h; sl+=(F.hurtDir===2?1.3*F.leadSide:0)*h; bob-=0.3*h; }
+  const body=F.hurtLow?bodyHitMotion(F.hurtT,F.hurtDuration,F.hurtPower,F.hurtBlocked):{fold:0,knees:0,cover:0};
+  const fold=body.fold, absorb=body.knees, cover=body.cover, hitSide=F.hurtSide||0;
+  // Unlike a head shot, a gut punch first tucks the abdomen backwards while the
+  // ribs fold over it; the planted knees then take the load. No whole-body hinge.
+  lean+=0.10*fold; bob-=0.54*absorb;
+  const h=F.hurtLow?0:Math.min(1,F.hurtT/0.3)*F.hurtPower;
+  if(!F.hurtLow){ lean-=(F.hurtDir===2?0.8:1.5)*h; sl+=(F.hurtDir===2?1.3*F.leadSide:0)*h; bob-=0.3*h; }
   if(F.stagger>0){ lean-=0.8; bob-=0.6; }
   const J={}, bodySide=hook?-ps*e*0.4:(pk&&pk.low?ps*e:0), walkRot=-stride*0.58-F.lagS*0.25, hipRot=stride*0.42, mill=pk?0:(1-F.gUp)*0.2;
   // the shoulders and the hips turn about the spine (the shoulders against the hips with every step, both with the punch), keeping their width
@@ -733,10 +750,10 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     const lead=s===F.leadSide, fj=footJoint(F,s), ws=-s*0.45*(s===1?sw1:sw2), punching=!!D&&s===ps;
     const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd+(lead?lung*0.8:0),fj.side,0.9+fj.lift+0.5*hop*(fj.u?0:1)+(punching?D.heel*e:0)];
     const [knee,toe]=limb(hip,foot,LEG_U,LEG_L,[(hip[0]+foot[0])/2+1.5+Math.abs(bodySide)*0.7,(hip[1]+foot[1])/2+s*0.35,(hip[2]+foot[2])/2]);
-    const sh=[0.1+lean+lung-s*2.7*sS,s*2.7*cS+sl+bodySide*1.3,12.4+bob+s*walkRot*0.3+(hook?0:s*bodySide*0.6)+(D?(punching?D.rise:-0.3*D.rise)*e+s*ps*tilt*0.5:0)];
+    const sh=[0.1+lean+lung+1.28*fold-s*2.7*sS,s*2.7*cS+sl+bodySide*1.3+hitSide*fold*0.38,12.4+bob-0.58*fold+s*walkRot*0.3+(hook?0:s*bodySide*0.6)+(D?(punching?D.rise:-0.3*D.rise)*e+s*ps*tilt*0.5:0)];
     const armSw=-s*stride*0.45+F.lagF*0.35, ma=t*5.5+F.seed+(s>0?0:Math.PI);
-    let el=[1.0+lean+lung+armSw*0.5+s*walkRot*0.4,s*2.6+sl+F.lagS*0.2+bodySide*1.3,10.9+bob-0.2*Math.abs(armSw)];
-    let hd=[2.3+lean+lung+armSw*0.85+s*walkRot*0.5+Math.cos(ma)*mill,s*1.25+sl+F.lagS*0.25+bodySide*1.3,14.0+bob+0.35*armSw+Math.sin(ma)*mill];
+    let el=[1.0+lean+lung+fold+armSw*0.5+s*walkRot*0.4,s*2.6+sl+F.lagS*0.2+bodySide*1.3,10.9+bob-0.25*fold-0.2*Math.abs(armSw)];
+    let hd=[2.3+lean+lung+fold*0.75+armSw*0.85+s*walkRot*0.5+Math.cos(ma)*mill,s*1.25+sl+F.lagS*0.25+bodySide*1.3,14.0+bob-0.55*fold+0.35*armSw+Math.sin(ma)*mill];
     if(clinch){ el=[2.2+lean,s*2.3+sl,11+bob]; hd=[4.0+lean,s*1.5+sl,12.7+bob]; }
     if(F.gUp>0.02){ el=lerp3(el,[1.5+lean,s*2.0+sl+bodySide*1.3,10.4+bob],F.gUp); hd=lerp3(hd,[3.1+lean,s*0.9+sl+bodySide*1.3,15.1+bob],F.gUp); }
     if(punching){ const dz=pk.low?-4.2:0;
@@ -744,12 +761,22 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
       if(upper){ hd[0]-=0.8*wind; hd[1]+=s*0.6*wind; hd[2]-=3.2*wind; }   // the uppercut drops to the hip first
       hd=lerp3(hd,[D.fist[0]+lean+lung,s*D.fist[1]+sl+bodySide*1.3,D.fist[2]+bob+dz],arm);
       el=lerp3(el,[sh[0]+D.pole[0]*3,sh[1]+s*D.pole[1]*3,sh[2]+D.pole[2]*3],arm); }   // the elbow finds its line as the fist goes out
+    if(cover>0.01&&!punching){ // involuntary elbows-to-ribs reflex, slightly behind the abdominal contraction
+      const k=Math.min(0.82,cover*0.74);
+      el=lerp3(el,[sh[0]+0.5,s*2.0+sl,9.9+bob],k);
+      hd=lerp3(hd,[sh[0]+1.9,s*1.05+sl,10.2+bob],k);
+    }
     const [elbow,fist]=limb(sh,hd,ARM_U,ARM_L,el);
     J[s]={hip,knee,foot:toe,sh,el:elbow,hd:fist};
   }
   const jf=(/** @type {number} */ s)=>J[s];
-  jf.pel=[lung*0.5-F.lagF*0.2,sl*0.5-F.lagS*0.2,6.6+bob]; jf.chest=[0.4+lean+lung*0.9,sl+bodySide*1.3+ps*tilt*0.6,12.2+bob];
-  jf.head=[0.35+lean*1.2+lung+F.hLagF*0.55+(D?D.head[0]*e:0),sl*1.25+F.hLagS*0.65+bodySide*3.8+(D?ps*(D.head[1]*e+(upper?0.6:0)*wind):0),15.6+bob-0.7*F.gUp-Math.abs(bodySide)*0.4-(F.stagger>0?0.6:0)-Math.abs(F.hLagF)*0.18];
+  jf.pel=[lung*0.5-F.lagF*0.2,sl*0.5-F.lagS*0.2,6.6+bob];
+  jf.chest=[0.4+lean+lung*0.9+1.28*fold,sl+bodySide*1.3+ps*tilt*0.6+hitSide*fold*0.38,12.2+bob-0.58*fold];
+  // Real waist/upper-abdomen joint: compression withdraws the belly behind the
+  // pelvis/chest line, leaving an actual bend rather than a rigid leaning tube.
+  jf.abd=lerp3(jf.pel,jf.chest,.48);
+  jf.abd[0]-=0.62*fold; jf.abd[1]-=0.18*hitSide*fold; jf.abd[2]-=0.17*fold;
+  jf.head=[0.35+lean*1.2+lung+F.hLagF*0.55+(D?D.head[0]*e:0)+1.95*fold,sl*1.25+F.hLagS*0.65+bodySide*3.8+(D?ps*(D.head[1]*e+(upper?0.6:0)*wind):0)+hitSide*fold*0.6,15.6+bob-1.22*fold-0.7*F.gUp-Math.abs(bodySide)*0.4-(F.stagger>0?0.6:0)-Math.abs(F.hLagF)*0.18];
   if(!F.hurtLow){
     jf.head[0]-=(F.hurtDir===2?0.25:F.hurtDir===3?0.5:0.8)*h;
     jf.head[1]+=(F.hurtDir===2?0.8*F.leadSide:0)*h;
@@ -781,7 +808,7 @@ export function updateWardSparFighter(F,C,partner){
   if(C.sparDodge&& !F.sparDodging){ F.slipSince=now; F.slipDir=C.name==='Reuben'?1:-1; F.evKind='slip'; F.evFwd=0; }
   F.sparDodging=!!C.sparDodge;
   F.hurtT=Math.max(0,F.hurtT-WARD_SPAR_SPEED/60);
-  if(partner?.step?.k==='spar'&&partner.pk&&partner.pt===7&&!C.sparDodge){ F.hurtT=0.3; F.hurtDir=names.indexOf(partner.pk); F.hurtPower=1; }
+  if(partner?.step?.k==='spar'&&partner.pk&&partner.pt===7&&!C.sparDodge){ F.hurtT=F.hurtDuration=.3; F.hurtDir=names.indexOf(partner.pk); F.hurtLow=false; F.hurtPower=1; }
   tickFeet(F,WARD_SPAR_SPEED,now);
 }
 
@@ -957,7 +984,7 @@ function ragdollJoints(F){
   const at=(/** @type {number[]} */ o,/** @type {number} */ k)=>[o[0]+sx*k,o[1]+sy*k,o[2]+sz*k];
   const side=(/** @type {number} */ s,/** @type {number} */ kn,/** @type {number} */ ft,/** @type {number} */ el,/** @type {number} */ hd)=>({hip:at(pel,s*1.25),knee:loc(N[kn]),foot:loc(N[ft]),sh:at(chest,s*2.7),el:loc(N[el]),hd:loc(N[hd])});
   const J={1:side(1,3,4,7,8),'-1':side(-1,5,6,9,10)}, f=(/** @type {number} */ s)=>J[s];
-  f.pel=pel; f.chest=chest; f.head=head;
+  f.pel=pel; f.chest=chest; f.head=head; f.abd=lerp3(pel,chest,.48);
   return f;
 }
 
