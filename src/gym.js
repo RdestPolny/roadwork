@@ -272,7 +272,8 @@ function litEnd(lit,st,cx,cy){
  * A person in the 2× room, modelled for the larger picture: realistic proportions (a smaller head with a jaw, ears and hair,
  * a neck, square shoulders, a pelvis, hands and shoes), a face (eyes, brows, nose, mouth, stubble or a beard) and the drelich
  * (collar, button placket, waist seam, breast pocket). J(s) gives the limb joints {hip,knee,foot,sh,el,hd} of side s;
- * J.pel, J.chest and J.head are the body joints, all in body coordinates [forward, side, height] like ipAdd.
+ * J.pel, J.chest and J.head are the body joints; J.abd (optional) is the waist/abdominal hinge.
+ * All are in body coordinates [forward, side, height] like ipAdd.
  * @param {any} C @param {any} J
  * In the bath L.bare strips the drelich (top and trousers take the skin), L.waist wraps a towel round the hips
  * and L.censor puts a pixel mosaic over the groin.
@@ -299,8 +300,16 @@ export function figureHD(C,J,L,o={}){
     let sx=-uy*ux, sy=1-uy*uy, sz=-uy*uz, sl=Math.hypot(sx,sy,sz); if(sl<0.2){ sx=1-ux*ux; sy=-ux*uy; sz=-ux*uz; sl=Math.hypot(sx,sy,sz)||1; } sx/=sl; sy/=sl; sz/=sl;
     return [sy*uz-sz*uy,sz*ux-sx*uz,sx*uy-sy*ux,sx,sy,sz,ux,uy,uz]; };   // forward = side × up, side = body side made square to the axis
   const at=(/** @type {number[]} */ o,/** @type {number[]|null} */ fr)=>(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>fr?[o[0]+a*fr[0]+b*fr[3]+c*fr[6],o[1]+a*fr[1]+b*fr[4]+c*fr[7],o[2]+a*fr[2]+b*fr[5]+c*fr[8]]:[o[0]+a,o[1]+b,o[2]+c];
-  const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],o.tilt?frame(Q,J.head):null), tp=at(Q,o.tilt?frame(P,Q):null), pp=at(P,o.tilt?frame(P,Q):null), H=hp(0,0,0);
-  if(L.waist) ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist);              /* bare torso, the towel tucked in at the waist */
+  const hp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],o.tilt?frame(Q,J.head):null), tp=at(Q,o.tilt?frame(J.abd||P,Q):null), pp=at(P,o.tilt?frame(P,J.abd||Q):null), H=hp(0,0,0);
+  if(J.abd){
+    // Two connected tapered volumes instead of one rigid cylinder: a punch can
+    // drive the navel back while ribs and shoulders curl forward. Idle figures
+    // without an abdomen joint retain their original silhouette.
+    const B=J.abd;
+    if(L.waist) ipAdd(P[0],P[1],P[2]+0.5,1.85,B[0],B[1],B[2]+0.2,1.96,T0,L.waist,0.24,0.24,L.waist);
+    else ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),L.tuckedShirt?1.55:1.85,B[0],B[1],B[2]+0.1,1.96,T0);
+    ipAdd(B[0],B[1],B[2]-0.1,1.94,Q[0],Q[1],Q[2]-0.3,2.2,T0);
+  } else if(L.waist) ipAdd(P[0],P[1],P[2]+0.5,1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0,L.waist,0.24,0.24,L.waist);              /* bare torso, the towel tucked in at the waist */
   else ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),L.tuckedShirt?1.55:1.85, Q[0],Q[1],Q[2]-0.3,2.2, T0);
   ipAdd(SL[0],SL[1]*0.82,SL[2]-0.15,1.15, SR[0],SR[1]*0.82,SR[2]-0.15,1.15, T0);                               // shoulders
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
