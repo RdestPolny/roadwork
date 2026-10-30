@@ -37,34 +37,24 @@ export function pubCraftDetails(){
   }
   // Small projecting sash bay, built as timber-supported glazed structure.
   const a=37.45,b=39.08,front=6.95;
-  isoBox(a,5.96,b,front,24,25.2,C.woodLight,OAK,END);
+  isoBox(a,5.96,b,front,29,30.2,C.woodLight,OAK,END);
   isoBox(a-.15,5.85,b+.2,front+.19,42.2,43.8,C.woodLight,OAK,END);
   // Glass face (warm late-evening silhouettes behind sash).
-  quad(a+.12,front+.02,26.2,b-.12,front+.02,26.2,b-.12,front+.02,41.3,a+.12,front+.02,41.3,
+  quad(a+.12,front+.02,31.2,b-.12,front+.02,31.2,b-.12,front+.02,41.3,a+.12,front+.02,41.3,
     (x,y)=>shadeC(C.lit,soft(x,y)*(.7+.15*vn(x*.32,y*.14))));
   for(const i of [a+.06,(a+b)/2,b-.06])
-    stroke(i,front+.06,26.2,i,front+.06,41.6,END);
-  for(const z of [26.1,34.5,41.6])
+    stroke(i,front+.06,31.2,i,front+.06,41.6,END);
+  for(const z of [31.1,36.4,41.6])
     thin(a,front+.07,z,b,front+.07,z,C.woodLight);
   // Timbers at diagonal corners; iron pins in the beam.
-  thin(a,front+.04,26.2,a-.28,5.97,24,C.woodLight);
-  thin(b,front+.04,26.2,b+.26,5.97,24,C.woodLight);
+  thin(a,front+.04,31.2,a-.28,5.97,29,C.woodLight);
+  thin(b,front+.04,31.2,b+.26,5.97,29,C.woodLight);
   for(let i=a+.25;i<b;i+=.36)
     thin(i,front+.16,43.9,i+.02,front+.16,44.1,IRON);
-  // Worn threshold and protective iron boot scraper beside the door.
-  isoBox(34.9,6.5,36.75,7.02,0,.48,C.lintel,C.stone[1],C.stone[2]);
+  // Protective iron boot scraper beside the door (the steps are cut in port-extension).
   stroke(36.82,6.25,.25,37.16,6.25,2,IRON);
   stroke(37.16,6.25,2,37.05,6.7,.25,IRON);
-  // Openwork entry lantern (not electric lighting) and gas supply bracket.
-  thin(34.55,5.95,24.2,34.55,6.8,24.2,IRON);
-  thin(34.55,6.8,24.2,34.55,6.8,22.2,IRON);
-  quad(34.26,6.6,22.1,34.78,6.6,22.1,34.78,6.6,25.1,34.26,6.6,25.1,
-    (x,y)=>shadeC(LIGHT,soft(x,y)));
-  for(const i of [34.25,34.79]) thin(i,6.64,22,i,6.64,25.3,IRON);
-  stroke(34.2,6.64,25.4,34.83,6.64,25.4,IRON);
-  // Decorative iron sign screws and faded beer advertisement.
-  fq(F,32.25,6.5,33.15,13.1,(x,y)=>shadeC(C.paper[0],soft(x,y)*.75));
-  for(const z of [9.5,11.2,12]) fl(F,32.37,z,33.02,z,END);
+  // Rusting iron sign screws (the window lettering lives in port-extension).
   for(const z of [18,21]) thin(38.7,6, z,38.9,6,z,RUST);
   // Small coal-dark stone pads under external beer barrels.
   floor(31.05,6.2,32.7,7.25,.025,(x,y)=>shadeC(C.stone[h2(x|0,y|0)&3],.57+vn(x*.31,y*.29)*.17));

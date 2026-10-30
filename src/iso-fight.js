@@ -312,16 +312,27 @@ function mash(F){
 /** Taps the player needs to rise from this knockdown. @param {any} F */
 function riseTaps(F){ return 4+F.kdN*3; }
 
+/** After a clean hit the player may throw the next punch once this share of the recovery has passed. */
+const CANCEL_FROM=0.4;
+/** A landed punch of the player can be cancelled into the next one early; whiffs and blocks keep the full recovery. @param {any} F */
+function canCancel(F){
+  const pk=F.pk; if(!pk||!pk.landed||F!==state.P) return false;
+  const T=punchT(F,pk.pid); return pk.t>=T.hit+(T.end-T.hit)*CANCEL_FROM;
+}
+
 /** @param {any} F */
 function busy(F){ return F.grab||F.ko||F.down||F.stagger>0||F.pk||F.dash||(state.t-F.slipSince<TUNING.slipActive); }
 
-/** Start a costed punch; a press during a busy moment is kept for a quarter of a second. @param {any} F @param {number} pid @param {boolean} low @param {string} [special] */
+/** Seconds a punch pressed during a busy moment is remembered. */
+const PUNCH_BUFFER=.38;
+
+/** Start a costed punch; a press during a busy moment is kept for PUNCH_BUFFER. @param {any} F @param {number} pid @param {boolean} low @param {string} [special] */
 function press(F,pid,low,special){
   const now=state.t;
   if(F.grab||F.ko||F.down||F.stagger>0||state.phase!=='fight') return false;
   if(F.dash&&now-F.dash.at<DASH.duration*DASH.punchFrom){ if(!special) F.buf={pid,low,until:now+DASH.buffer}; return false; }
   const counterEvade=F===state.P&&state.slowMo>0&&now<F.rt.counterUntil;
-  if(F.pk||(!counterEvade&&now-F.slipSince<TUNING.slipActive)){ if(!special) F.buf={pid,low,until:now+.25}; return false; }
+  if((F.pk&&!canCancel(F))||(!counterEvade&&now-F.slipSince<TUNING.slipActive)){ if(!special) F.buf={pid,low,until:now+PUNCH_BUFFER}; return false; }
   if(F.rt.guarding) setGuard(F.rt,false,now);
   const exhausted=F===state.P&&F.rt.sta<punchCost(F.rt,pid,now);
   if(!beginPunch(F.rt,pid,now,F===state.P)) return false;
@@ -494,6 +505,7 @@ function impact(A,D){
   }
   if(o.kind==='slip'){ onPerfectEvade(D); return; }
   const blocked=o.kind==='block';
+  A.pk.landed=o.kind==='hit'&&o.damage>0;
   if(blocked) D.c.blocks++;
   if(!blocked&&o.damage>0){ A.c.landed++; if(pid>0) A.c.power++; if(low) A.c.body++; else D.faceDamage+=o.damage; if(o.counter) A.c.counters++; D.dmg=Math.min(1,D.dmg+o.damage/D.rt.hpMax*1.6); }
   let stagger=false;
@@ -516,7 +528,7 @@ function impact(A,D){
   D.hurtSide=Math.max(-1,Math.min(1,(sideI*-D.fj+sideJ*D.fi)*1.8+(A.pk.hand||1)*0.3));
   if(!blocked&&o.damage>0&&D.bull?.mode==='WINDUP'){ D.bull.mode='RECOVERY'; D.bull.until=now+0.48; }
   if(!stagger&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit) D.pk=null;   /* a clean hit interrupts the windup */
-  const [ui,uj]=toward(A,D); walk(D,A,ui,uj,(blocked?.05:.12)*(A.bull?BULL.knockback:1));
+  const [ui,uj]=toward(A,D); walk(D,A,ui,uj,(blocked?.05:A===S.P&&A.rt.comboCount>1?.06:.12)*(A.bull?BULL.knockback:1));
   if(o.damage>=1) popup(sparringState.T_DMG+Math.min(30,Math.max(1,Math.round(o.damage)))-1,px,py-14,blocked?appearanceState.C_GRAY:appearanceState.C_WHITE,1,32);
   spray(A,D,pid,low,blocked,o);   // the hit shows as drops, not a comic flash
   if(blocked) sfxBlock(0.6); else sfxPunch(Math.min(1.4,0.55+0.25*pid+(o.counter?0.2:0)),low?1:0.35+pid*0.15,true);
@@ -712,7 +724,7 @@ function tickFight(){
     F.c.minSta=Math.min(F.c.minSta,F.rt.sta/F.rt.staCap);
     if(F.wounds.cuts&&!F.down&&!F.ko) F.rt.hp=Math.max(1,F.rt.hp-(0.25*F.wounds.cuts)*dt);
     if(F.pk){ F.pk.t+=(F.pk.fastCounter?rawDt:dt)*(F.pk.exhausted?0.5:1)*(S.venue==='port'&&F===O?.5:1); if(!F.pk.hit&&F.pk.t>=punchT(F,F.pk.pid).hit){ F.pk.hit=true; impact(F,G); if(S.phase!=='fight') return; } if(F.pk&&F.pk.t>=punchT(F,F.pk.pid).end) F.pk=null; }
-    if(F.buf&&!F.pk&&!F.dash&&F.stagger<=0&&!F.down&&(now-F.slipSince>=TUNING.slipActive||(F===P&&S.slowMo>0&&now<F.rt.counterUntil))){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
+    if(F.buf&&(!F.pk||canCancel(F))&&!F.dash&&F.stagger<=0&&!F.down&&(now-F.slipSince>=TUNING.slipActive||(F===P&&S.slowMo>0&&now<F.rt.counterUntil))){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
     if(F.buf&&now>F.buf.until) F.buf=null;
     if(F.down&&!F.ko){   /* the count: the player gets up with enough taps, the rival on his own */
       const down=now-F.downAt;

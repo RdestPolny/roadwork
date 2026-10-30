@@ -1,9 +1,10 @@
 /* Background vignettes use the port's projection and the shared figure renderer. */
 import { rgb } from './appearance.js';
+import { mix } from './cast.js';
 import { isoBox, quad, shadeC, isoX, isoY } from './gym.js';
-import { C, barrel, crate, cyl, roundLit, thin, stroke, rope, docker, contact } from './thames-port.js';
+import { C, barrel, crate, cyl, roundLit, thin, stroke, rope, docker, contact, smoke, toWorld } from './thames-port.js';
 import { ANCHORS, DECK_Z } from './port-district.js';
-import { portLife, lifeTime, TABLE, BUCKET, TACKLE, CAT_CRATE, BENCH, BIN, RAW_STACK, CUT_STACK, PLANK, STACK_BASE, slotOf, SAW_REST, JUG_SPOT } from './port-life.js';
+import { portLife, lifeTime, TABLE, BUCKET, TACKLE, CAT_CRATE, BENCH, BIN, RAW_STACK, CUT_STACK, PLANK, STACK_BASE, slotOf, SAW_REST, JUG_SPOT, BOTTLE_SPOT } from './port-life.js';
 
 /** Draw the quadruped dock cat using isometric primitives matching the Roadwork aesthetic. */
 function drawCat(c, t){
@@ -251,11 +252,11 @@ function drawCat(c, t){
 }
 
 /** Draw a person using the joint positions from a background routine. */
-function person(a,top){
+function person(a,top,look={style:'workcap'}){
   const p=a.P, pose=a.pose, J=s=>s>0?pose.R:pose.L;
   J.pel=pose.pel; J.chest=pose.chest; J.head=pose.head;
   contact(p.i-.15,p.j-.15,p.i+.15,p.j+.15,p.z0||0,.4);
-  docker(p,J,top,{look:pose.look});
+  docker(p,J,top,{look:pose.look},look);
 }
 /** Draw a vessel from its bottom and axis, including its tipped drinking pose. */
 function vessel(v,kind){
@@ -264,6 +265,59 @@ function vessel(v,kind){
   stroke(...p,...q,kind==='mug'?rgb('#a69b82'):rgb('#405e4d'));
   if(kind==='mug') thin(p[0]+.08,p[1],p[2]+.4,q[0]+.08,q[1],q[2]-.2,rgb('#d1c4a4'));
 }
+/** Tobacco smoke reads pale against the dark quay. */
+const SMOKE_PALE=rgb('#9a978a');
+/** A cigarette: white paper, a glowing ember at the tip (brighter on a drag). */
+function cigarette(v,drag){
+  if(!v) return;
+  const p=v.bottom, u=v.up, h=1.4, q=[p[0]+u[0]*h/7.5,p[1]+u[1]*h/7.5,p[2]+u[2]*h];
+  stroke(...p,...q,rgb('#d9d1bd'));
+  thin(q[0],q[1],q[2]-.15,q[0],q[1],q[2]+.1,mix(rgb('#c4562a'),rgb('#ffcf7a'),drag));
+}
+/** A glass bottle standing on the table: body, shoulder, neck and cork. */
+function standingBottle([i,j,z]){
+  const glass=(zz,s)=>shadeC(rgb('#2d5a3f'),roundLit(s)*(zz-z>.35&&zz-z<1.1?1.5:1)), top=(s,v)=>shadeC(rgb('#1d3b2a'),1.15-v*.15);
+  cyl(i,j,.058,z,z+1.8,glass,top,.04);
+  cyl(i,j,.032,z+1.8,z+2.9,glass,top);
+  cyl(i,j,.036,z+2.9,z+3.15,(zz,s)=>shadeC(rgb('#b79a63'),roundLit(s)),()=>rgb('#c9ad74'));
+  thin(i+.06,j+.04,z+.5,i+.06,j+.04,z+1.2,rgb('#c9bf9e'));
+}
+/** The oak cask is split along one stave: a jagged dark crack with a raw splinter edge, a seeping wet streak and a damp stain on the setts. */
+function crackedBarrel(i,j){
+  const R=.37, P=(a,z)=>[i+R*Math.cos(a),j+R*Math.sin(a),z];
+  const path=[[6.9,.84],[6.0,.76],[5.5,.86],[4.5,.78],[3.7,.88],[2.6,.8],[1.9,.84]];
+  for(let k=0;k<path.length-1;k++){
+    const [z0,a0]=path[k], [z1,a1]=path[k+1];
+    thin(...P(a0,z0),...P(a1,z1),rgb('#130e0b'));
+    thin(...P(a0+.06,z0),...P(a1+.06,z1),rgb('#7d5f3c'));
+  }
+  thin(...P(.8,6.7),...P(.74,6.9),rgb('#130e0b'));
+  for(const [a,z] of [[.8,1.9],[.84,1.2]]) thin(...P(a,z),...P(a,Math.max(0,z-1.8)),shadeC(C.woodDark,.55));
+  contact(i+.15,j+.2,i+.5,j+.52,0,.3);
+}
+/** A glazed plate with a cob loaf, a slice cut from it and a knife left across the rim. */
+function breadPlate(i,j,z){
+  const cream=rgb('#d3caae'), rim=rgb('#4c6d84');
+  cyl(i,j,.22,z,z+.22,(zz,s)=>shadeC(cream,roundLit(s)),(s,v)=>Math.hypot(s,v)>.84?shadeC(rim,1.1):Math.hypot(s,v)>.74?shadeC(cream,.9):shadeC(cream,1.08-v*.06));
+  const crust=rgb('#9b6531'), crumb=rgb('#e2cf9c');
+  cyl(i-.04,j-.02,.115,z+.22,z+.95,(zz,s)=>shadeC(crust,roundLit(s)*(.9+.2*Math.sin((zz-z)*9+s*2))),(s,v)=>s>.05&&v>-.45?shadeC(crumb,.95+v*.1):shadeC(crust,1.15-v*.1),.22);
+  isoBox(i+.1,j+.04,i+.2,j+.14,z+.22,z+.44,crumb,shadeC(crumb,.78),shadeC(crust,.9));
+  stroke(i-.15,j+.13,z+.24,i+.12,j+.16,z+.24,rgb('#9aa0a0'));
+  thin(i-.19,j+.13,z+.24,i-.15,j+.13,z+.24,rgb('#3a2b20'));
+  thin(i+.04,j+.2,z+.22,i+.07,j+.21,z+.22,crumb); thin(i+.12,j-.1,z+.22,i+.13,j-.09,z+.22,crumb);
+}
+/** The concertina: a box at each hand, the hexagonal bellows between them folding as the hands move apart and together. */
+function concertina(m){
+  const [a,b]=m.box, N=7, wood=rgb('#5a4033'), side=rgb('#2c1e18'), lit=rgb('#7a573f');
+  const pt=k=>[lerp(a[0],b[0],k/N),lerp(a[1],b[1],k/N),lerp(a[2],b[2],k/N)];
+  for(let k=0;k<N;k++){
+    const p=pt(k), q=pt(k+1), ridge=k%2?.55:-.1, dark=k%2?rgb('#7a3028'):rgb('#b4543f');
+    thin(p[0],p[1],p[2]+1.0+ridge*.5,q[0],q[1],q[2]+1.0+(k%2?-.1:.55)*.5,dark); thin(p[0],p[1],p[2]-1.0-ridge*.5,q[0],q[1],q[2]-1.0-(k%2?-.1:.55)*.5,rgb('#33141a'));
+    thin(q[0],q[1],q[2]-1.0,q[0],q[1],q[2]+1.0,k%2?dark:rgb('#d98a62'));
+  }
+  for(const h of [a,b]){ isoBox(h[0]-.1,h[1]-.1,h[0]+.1,h[1]+.1,h[2]-1.3,h[2]+1.3,lit,side,wood); thin(h[0]+.03,h[1]+.1,h[2]-.5,h[0]+.03,h[1]+.1,h[2]+.5,rgb('#c2a25a')); }
+}
+const lerp=(a,b,u)=>a+(b-a)*u;
 /** Draw a timber board in world coordinates as a shaded isometric plank. */
 function board(b){
   if(!b) return;
@@ -309,7 +363,10 @@ function board(b){
 /** Put stationary props and animated figures into the port's existing depth queue. */
 export function portLifeProps(t){
   const L=portLife(lifeTime(t)), out=[], add=(i,j,fn)=>out.push([i+j,fn]);
-  for(const [i,j] of [ANCHORS.pub_barrel_table_1,ANCHORS.pub_barrel_table_2]) add(i,j,()=>barrel(i,j,0));
+  for(const [i,j] of [ANCHORS.pub_barrel_table_1,ANCHORS.pub_barrel_table_2,ANCHORS.pub_barrel_table_3]) add(i,j,()=>barrel(i,j,0));
+  add(ANCHORS.pub_barrel_table_2[0]+.01,ANCHORS.pub_barrel_table_2[1]+.01,()=>crackedBarrel(...ANCHORS.pub_barrel_table_2));
+  add(ANCHORS.pub_barrel_table_3[0]+.01,ANCHORS.pub_barrel_table_3[1]+.01,()=>breadPlate(ANCHORS.pub_barrel_table_3[0],ANCHORS.pub_barrel_table_3[1],TABLE.h));
+  add(BOTTLE_SPOT[0],BOTTLE_SPOT[1],()=>standingBottle(BOTTLE_SPOT));
   const bk=L.bucket;
   add(bk.i,bk.j,()=>{
     cyl(bk.i,bk.j,bk.r,DECK_Z,DECK_Z+bk.h,(z,s)=>shadeC(C.woodDark,roundLit(s)),(s,v)=>{
@@ -421,9 +478,13 @@ export function portLifeProps(t){
     }
   });
   const pub=L.pub; add(pub.a.P.i,pub.a.P.j,()=>person(pub.a,['#34302a','#544a3b','#766853'])); add(pub.b.P.i,pub.b.P.j,()=>person(pub.b,['#292e2d','#45504a','#687264']));
-  add(pub.mug.bottom[0],pub.mug.bottom[1],()=>vessel(pub.mug,'mug')); add(pub.bottle.bottom[0],pub.bottle.bottom[1],()=>vessel(pub.bottle,'bottle'));
+  add(pub.mug.bottom[0],pub.mug.bottom[1],()=>vessel(pub.mug,'mug')); add(pub.bottle.bottom[0],pub.bottle.bottom[1],()=>vessel(pub.bottle,'mug'));
   add(JUG_SPOT[0],JUG_SPOT[1],()=>vessel({bottom:JUG_SPOT,up:[0,0,1]},'mug'));
-  add(L.loner.P.i,L.loner.P.j,()=>{person(L.loner,['#262929','#41413a','#625d4c']); vessel(L.loner.bottle,'bottle');});
+  add(L.loner.P.i,L.loner.P.j,()=>{ const ln=L.loner, c=ln.cig, tip=[c.bottom[0]+c.up[0]*1.4/7.5,c.bottom[1]+c.up[1]*1.4/7.5,c.bottom[2]+c.up[2]*1.4];
+    person(ln,['#262929','#41413a','#625d4c']); cigarette(c,ln.drag);
+    smoke(tip[0],tip[1],tip[2],t,5,6,380,SMOKE_PALE,.55+.3*ln.drag);
+    if(ln.exhale){ const m=ln.mouth; smoke(m[0],m[1],m[2],t,9,10,230,SMOKE_PALE,.9); } });
+  const mu=L.musician; add(mu.P.i,mu.P.j,()=>{ person(mu,['#2a272b','#4b3f46','#6f6168']); concertina(mu); });
   add(L.keeper.P.i,L.keeper.P.j,()=>{person(L.keeper,['#322c23','#564637','#75634d']); for(const p of L.keeper.mugs) vessel({bottom:p,up:[0,0,1]},'mug'); vessel(L.keeper.held,'mug');});
 
   // Falling offcut severed from the timber deal on the 12th stroke

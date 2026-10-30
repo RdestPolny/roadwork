@@ -336,6 +336,9 @@ export function figureHD(C,J,L,o={}){
   else if(st==='hood'){ const cr=L.cap??L.hair; ipAdd(...H,1.98, ...H,1.98, cr); ipAdd(...hp(0.45,0,-0.8),1.5, ...hp(0.65,0,-1.45),1.3, cr);   /* a canvas hood over head and face, */
     ipAdd(...hp(-0.15,0,-1.2),1.65, ...tp(-0.1,0,0.2),2.25, cr); }                                                       /* its skirt over the shoulders */
   else if(st==='flatcap'){ const cr=L.cap??L.hair; ipAdd(...hp(-0.25,0,0.75),1.86, ...hp(0.35,0,0.95),1.8, cr); ipAdd(...hp(1.15,-0.95,0.85),0.42, ...hp(1.35,0.95,0.85),0.42, cr); }   /* a cloth cap pulled low, a short peak */
+  else if(st==='workcap'){ const cr=L.cap??L.pt[0];   /* a cloth cap sat high on the crown with its own cloth: hair shows at nape and temples, the brow and eyes stay clear of it */
+    ipAdd(...hp(-0.75,0,-0.05),1.45, ...hp(-0.95,0,-0.55),1.3, L.hair);
+    ipAdd(...hp(-0.3,0,1.15),1.85, ...hp(0.2,0,1.3),1.8, cr); ipAdd(...hp(1.55,-0.8,0.72),0.36, ...hp(1.75,0.8,0.72),0.36, cr); }
   else if(st==='toque') ipAdd(...hp(-0.25,0,0.9),1.55, ...hp(-0.4,0,2.5),1.7, L.hair);                              /* cook's tall white cap */
   else if(st==='bun'){ ipAdd(...hp(0.15,0,0.75),2.12, ...hp(-0.5,0,1.15),2.05, L.hair);   /* full hair parted in the middle, */
     for(let s=-1;s<=1;s+=2) ipAdd(...hp(-0.25,s*1.5,0.35),0.9, ...hp(-0.75,s*1.5,-0.45),0.85, L.hair);   /* swept back over the ears */

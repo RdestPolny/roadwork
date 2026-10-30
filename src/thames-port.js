@@ -845,10 +845,10 @@ function craneLoad(t,K){
 /** A point given in a figure's own frame (forward, side, up, in height units) placed in the world. */
 const toWorld=(P,f,s,z)=>[P.i+(f*P.fi-s*P.fj)/7.5,P.j+(f*P.fj+s*P.fi)/7.5,z+(P.z0||0)];
 /** Draw a docker in his work clothes with the joint function J; o passes figureHD options (head look, hands-only redraw). */
-function docker(P,J,top=['#2b2620','#4a3f31','#6a5a44'],o={}){
+function docker(P,J,top=['#2b2620','#4a3f31','#6a5a44'],o={},look={}){
   const A=appearanceState;
   withCellOutfit(()=>{ setRamp(A.R_HSH,top,false); setRamp(A.R_HSHF,top,true);
-    figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'flatcap',stubble:true},{noShadow:true,...o}); });
+    figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'flatcap',stubble:true,...look},{noShadow:true,...o}); });
 }
 const ease=u=>{ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); };
 const lerp=(a,b,u)=>a+(b-a)*u, lerp3=(a,b,u)=>[lerp(a[0],b[0],u),lerp(a[1],b[1],u),lerp(a[2],b[2],u)];

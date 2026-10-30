@@ -30,7 +30,7 @@ test('background routines remain deterministic on the port and cycle through the
   for(let t=0;t<LOOPS.FISH.T;t+=13){
     const p=portLife(t); assert.deepEqual(p,portLife(t));
     fish.add(p.fisher.state); work.add(p.yard.wood.state);
-    for(const a of [p.fisher,p.pub.a,p.pub.b,p.loner,p.keeper,p.yard.wood,p.yard.hand,p.yard.fore])
+    for(const a of [p.fisher,p.pub.a,p.pub.b,p.loner,p.keeper,p.musician,p.yard.wood,p.yard.hand,p.yard.fore])
       assert.ok(Number.isFinite(a.P.i)&&Number.isFinite(a.P.j)&&portSurface(a.P.i,a.P.j),`actor outside port at ${t}`);
     assert.ok(['ON_TABLE','HELD_BY_NPC'].includes(p.pub.mug.state));
     assert.ok(['ON_TABLE','HELD_BY_NPC'].includes(p.pub.bottle.state));

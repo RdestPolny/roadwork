@@ -3,7 +3,7 @@
 /** Seconds and stamina costs shared by the realtime controller and its rules. */
 export const TUNING=Object.freeze({
   repeatReset:2.4, repeatStep:.45,
-  comboWindow:1.1, comboStep:.15,
+  comboWindow:1.1, comboStep:.05,
   regen:12.5, regenDelayJab:.45, regenDelayPower:.65, whiffDelay:.3, whiffCost:3,
   guardDrain:7, guardAbsorbCost:1.15, blockChip:.15,
   guardPerfect:.14, guardRearm:.3, parryCost:12, parryCounterDuration:.6, parryCounterPower:1.35,

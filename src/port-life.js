@@ -156,21 +156,21 @@ const placeFor=(w,a,f,s)=>{ const d=toWorld(frameAt(0,0,a),[f,s,0]); return fram
 /* ------------------------------------------------------------------ vessels held in a hand */
 /** Tankard and bottle: radius (tiles), height (units), and where the hand holds them (offset from hand to the bottom centre,
  * in the holder's frame, for a hand on side +1; mirrored for side -1). */
-export const VESSEL={mug:{r:.085,h:1.6,grip:[.15,-.55,-.75]},bottle:{r:.05,h:2.6,grip:[.05,0,-1.05]}};
+export const VESSEL={mug:{r:.085,h:1.6,grip:[.15,-.55,-.75]},bottle:{r:.05,h:2.6,grip:[.05,0,-1.05]},cig:{r:.02,h:.75,grip:[.12,-.12,-.18]}};
 /** A vessel in a hand: bottom centre and axis. tilt tips its top back towards the holder's face (rad).
- * @param {Frame} P @param {number[]} hand world @param {number} s side of the hand @param {'mug'|'bottle'} kind @param {number} tilt */
+ * @param {Frame} P @param {number[]} hand world @param {number} s side of the hand @param {'mug'|'bottle'|'cig'} kind @param {number} tilt */
 export function heldVessel(P,hand,s,kind,tilt){
   const g=VESSEL[kind].grip, o=[g[0],g[1]*s,g[2]], c=Math.cos(tilt), n=Math.sin(tilt);
   return {bottom:nudge(P,hand,[o[0]*c-o[2]*n,o[1],o[0]*n+o[2]*c]),up:dirWorld(P,[-n,0,c])};
 }
 /** Where the hand must be (in the frame) so the vessel's lip touches the mouth at `lip` when tipped by tilt.
- * @param {number[]} lip @param {number} s @param {'mug'|'bottle'} kind @param {number} tilt */
+ * @param {number[]} lip @param {number} s @param {'mug'|'bottle'|'cig'} kind @param {number} tilt */
 function handForLip(lip,s,kind,tilt){
   const V=VESSEL[kind], g=V.grip, o=[g[0],g[1]*s,g[2]], c=Math.cos(tilt), n=Math.sin(tilt), r=V.r*UNIT;
   const bottom=[o[0]*c-o[2]*n,o[1],o[0]*n+o[2]*c], up=[-n,0,c], rim=add(add(bottom,mul(up,V.h)),[-r*c,0,-r*n]);
   return sub(lip,rim);
 }
-/** The handle (or neck grip) of a vessel standing at world bottom `at`, seen from P: where a hand closes on it. @param {Frame} P @param {number[]} at @param {number} s @param {'mug'|'bottle'} kind */
+/** The handle (or neck grip) of a vessel standing at world bottom `at`, seen from P: where a hand closes on it. @param {Frame} P @param {number[]} at @param {number} s @param {'mug'|'bottle'|'cig'} kind */
 const gripOnTable=(P,at,s,kind)=>{ const g=VESSEL[kind].grip; return sub(toLocal(P,at),[g[0],g[1]*s,g[2]]); };
 
 /* ------------------------------------------------------------------ the fisherman & dock cat */
@@ -526,14 +526,14 @@ const BUCKET_L=toLocal(FISHER,[BUCKET.i,BUCKET.j,DECK_Z]);
 
 /* ------------------------------------------------------------------ the pub */
 /** Standing barrel tables: top height (units) and radius (tiles). */
-export const TABLE={h:9.6,r:.44};
+export const TABLE={h:7.15,r:.44};
 const T1=ANCHORS.pub_barrel_table_1, T2=ANCHORS.pub_barrel_table_2;
 /** Two labourers at the first barrel, at right angles to each other and turned a little to the street; their heads turn to the other man. */
-export const DRINKER_A=placeFor(T1,-.2,5.0,1.4), DRINKER_B=placeFor(T1,1.78,5.0,-1.2);
-/** A's tankard spot, the spot where B sets his bottle down, and the jug: fixed places on the table top. */
+export const DRINKER_A=placeFor(T1,-.6,5.0,1.4), DRINKER_B=placeFor(T1,2.6,5.0,-1.2);
+/** A's tankard spot, the spot where B sets his tankard down, a standing bottle and the jug: fixed places on the table top. */
 export const MUG_A_SPOT=[...toWorld(DRINKER_A,[3.55,2.15,0]).slice(0,2),TABLE.h];
 export const BOTTLE_B_SPOT=[...toWorld(DRINKER_B,[3.5,-2.3,0]).slice(0,2),TABLE.h];
-export const JUG_SPOT=[T1[0]+.12,T1[1]+.14,TABLE.h];
+export const JUG_SPOT=[T1[0]+.12,T1[1]+.14,TABLE.h], BOTTLE_SPOT=[T1[0]-.1,T1[1]-.06,TABLE.h];
 /** The conversation: alternating turns of talk; the listener drinks now and then, never both men at once. */
 const TALK=(()=>{ const list=[]; let last='B', run=0;
   for(let k=0;k<12;k++){
@@ -586,42 +586,71 @@ export function drinkersAt(t){
   const mugHeld=mug==='HELD_BY_NPC'?heldVessel(A,handWorld(A,aPose,1),1,'mug',tilt):null;
   // B: keeps his bottle in his near hand, takes short pulls, sometimes sets it down to talk with both hands
   let bState=S.s==='B'?'TALK':'IDLE', bU=0, bottle='HELD_BY_NPC', btilt=0;
-  const bRest=[1.6,-2.95,8.6], bGrip=gripOnTable(B,BOTTLE_B_SPOT,-1,'bottle'), bSip=2.1;
+  const bRest=[1.6,-2.95,8.6], bGrip=gripOnTable(B,BOTTLE_B_SPOT,-1,'mug'), bSip=1.0;
   /** @type {any} */ const b={hands:{[-1]:bRest,[1]:[.4,3.2,7.7]},yaw:yawBA*.8,pitch:.06,lean:.08,sway:.13*Math.sin(t/390+4.1)};
   if(S.sipB&&L>=S.sipB.at&&L<S.sipB.at+S.sipB.sip+60){ bState='SIP'; bU=(L-S.sipB.at)/(S.sipB.sip+60); }
   if(S.setDown&&L<50){ bState='PLACE_BOTTLE'; bU=L/50; } else if(S.setDown&&L>S.d-60){ bState='TAKE_BOTTLE'; bU=(L-(S.d-60))/60; }
-  if(bState==='SIP'){ const up=ease(bU/.25)*(1-ease((bU-.78)/.22)); btilt=bSip*up; b.hands[-1]=lerp3(bRest,handForLip(LIP,-1,'bottle',bSip),up); b.pitch=lerp(.06,-.5,up); b.yaw=yawBA*.8*(1-up); b.lean=.08-.1*up; }
+  if(bState==='SIP'){ const up=ease(bU/.25)*(1-ease((bU-.78)/.22)); btilt=bSip*up; b.hands[-1]=lerp3(bRest,handForLip(LIP,-1,'mug',bSip),up); b.pitch=lerp(.06,-.5,up); b.yaw=yawBA*.8*(1-up); b.lean=.08-.1*up; }
   else if(bState==='TALK'){ b.hands[1]=gesture(S.k,L,S.d,1,57,[.4,3.2,7.7]); b.lean=.12; b.yaw=yawBA*(.8+.2*Math.sin(L*.013)); b.pitch=.03+.05*Math.sin(L*.06);
     if(S.setDown){ b.hands[-1]=gesture(S.k+5,L-50,S.d-110,-1,63,bRest); bottle='ON_TABLE'; } }
   else if(bState==='PLACE_BOTTLE'){ b.hands[-1]=bU<.5?lerp3(bRest,bGrip,ease(bU/.5)):lerp3(bGrip,bRest,ease((bU-.5)/.5)); bottle=bU<.5?'HELD_BY_NPC':'ON_TABLE'; b.lean=.08+.12*bump(bU,.5,.5); b.pitch=.3; }
   else if(bState==='TAKE_BOTTLE'){ b.hands[-1]=bU<.42?lerp3(bRest,bGrip,ease(bU/.42)):lerp3(bGrip,bRest,ease((bU-.42)/.58)); bottle=bU<.42?'ON_TABLE':'HELD_BY_NPC'; b.lean=.08+.12*bump(bU,.42,.42); b.pitch=.3; }
   const bPose=body(b);
-  const bottleHeld=bottle==='HELD_BY_NPC'?heldVessel(B,handWorld(B,bPose,-1),-1,'bottle',btilt):null;
+  const bottleHeld=bottle==='HELD_BY_NPC'?heldVessel(B,handWorld(B,bPose,-1),-1,'mug',btilt):null;
   return {a:{P:A,pose:aPose,state:aState,u:aU,touching:'table'},
     b:{P:B,pose:bPose,state:bState,u:bU,touching:bState==='PLACE_BOTTLE'||bState==='TAKE_BOTTLE'?'table':''},
     mug:{state:mug,...(mugHeld||{bottom:MUG_A_SPOT,up:[0,0,1]})},
     bottle:{state:bottle,...(bottleHeld||{bottom:BOTTLE_B_SPOT,up:[0,0,1]})},speaker:S.s,turn:S.k};
 }
 
-/** The loner leans one shoulder on the pub wall, bottle in his street-side hand, and watches the quay. */
+/** The loner leans one shoulder on the pub wall, a cigarette in his street-side hand, and watches the quay; a drag lifts it to his lips. */
 const LA=ANCHORS.pub_wall_lean;
 export const LONER=frameAt(LA.i,LA.j,LA.a);
 const LONE=(()=>{ const list=[]; for(let k=0;k<10;k++){ list.push(['LEAN',700+Math.round(rnd(k,51)*500)],['SIP',190+Math.round(rnd(k,52)*70)]);
   if(rnd(k,53)<.5) list.push(['WIPE',95]); } return loop(list); })();
 /** Glances: up the quay, the pier, the drinkers, the street: a new one every few seconds, eased, held. [yaw, pitch] */
 const GAZE=[[.75,.02],[1.1,.06],[.25,0],[-.5,.04],[.95,.1],[.5,.18]];
+/** Mouth of a figure in its frame, from the head joint and the head's yaw/pitch: where figureHD draws the lips (hp(1.5,-.1,-1) from the neck, the face front a little further).
+ * @param {number[]} head @param {number} yaw @param {number} pitch */
+function mouthOf(head,yaw,pitch){
+  const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch), f=1.75, s=-.1, z=-1.0;
+  return [head[0]+.1+f*cy*cp-s*sy+z*cy*sp, head[1]+f*sy*cp+s*cy+z*sy*sp, head[2]-.6-f*sp+z*cp];
+}
+/** A cigarette between two fingers: its filter end lies this far from the hand (hand frame, side +1), and its axis towards the ember at rest and at the lips. */
+const CIG_GRIP=[.2,-.6,.1], CIG_REST=[.5,.1,.86], CIG_LIPS=[.93,.28,.2];
 /** @param {number} t */
 export function lonerAt(t){
   const S=stepAt(LONE,t), u=S.u, P=LONER, k=Math.floor(t/260), v=ease(frac(t/260)/.35);
   const g0=GAZE[Math.floor(rnd(k,61)*GAZE.length)], g1=GAZE[Math.floor(rnd(k+1,61)*GAZE.length)];
-  const rest=[1.9,2.85,8.7], sipT=2.1;
+  const rest=[1.9,2.85,8.7];
   /** @type {any} */ const o={side:-.16,sway:-.55+.12*Math.sin(t/520),lean:.02,yaw:lerp(g0[0],g1[0],v),pitch:lerp(g0[1],g1[1],v),
     feet:{[-1]:[-.4,-.7,.9],[1]:[1.2,2.5,.9]},hands:{[1]:rest,[-1]:[1.5,-1.4,7.8]}};
-  let tilt=0;
-  if(S.s==='SIP'){ const up=ease(u/.28)*(1-ease((u-.75)/.25)); tilt=sipT*up; o.hands[1]=lerp3(rest,handForLip(LIP,1,'bottle',sipT),up); o.pitch=lerp(o.pitch,-.55,up); o.yaw=lerp(o.yaw,.1,up); }
+  // a drag: the head turns to the quay and tips a little, the hand brings the filter to the lips, holds, and lowers
+  const up=S.s==='SIP'?ease(u/.28)*(1-ease((u-.75)/.25)):0;
+  if(S.s==='SIP'){ o.pitch=lerp(o.pitch,-.1,up); o.yaw=lerp(o.yaw,.1,up); o.sway=lerp(o.sway,0,up); o.lean=lerp(o.lean,.1,up); }
   else if(S.s==='WIPE'){ const w=bump(u,.5,.45), x=lerp(-1.6,1.4,clamp01((u-.25)/.5)); o.hands[-1]=lerp3(o.hands[-1],[2.3,x,13.4],w); o.pitch=lerp(o.pitch,.1,w); o.yaw=lerp(o.yaw,.15,w); }
+  const mouth=mouthOf(body(o).head,o.yaw,o.pitch);
+  o.hands[1]=lerp3(rest,sub(mouth,CIG_GRIP),up);
+  const pose=body(o), axis=lerp3(CIG_REST,CIG_LIPS,up), hand=handWorld(P,pose,1);
+  const drag=ease(clamp01((up-.6)/.4));
+  return {P,pose,state:S.s,u,drag,exhale:S.s==='SIP'&&u>.55&&u<.9,mouth:toWorld(P,mouth),
+    cig:{state:'HELD_BY_NPC',bottom:nudge(P,hand,CIG_GRIP),up:dirWorld(P,mul(axis,1/len(axis)))}};
+}
+
+/** The street musician plays a concertina by the corner, tapping his foot to a tune; between tunes he lowers it, closed, and looks round. */
+const MA=ANCHORS.pub_musician;
+export const MUSICIAN=frameAt(MA.i,MA.j,MA.a);
+const MUS=loop([['PLAY',860],['REST',170],['PLAY',690],['REST',230],['PLAY',1010],['REST',140]]);
+/** @param {number} t */
+export function musicianAt(t){
+  const S=stepAt(MUS,t), P=MUSICIAN, edge=Math.min(S.local,S.d-S.local), play=S.s==='PLAY'?ease(edge/45):0, beat=2*Math.PI*t/42, phrase=2*Math.PI*t/(84+10*Math.sin(S.n+S.k));
+  const air=play*clamp01(.5+.32*Math.sin(phrase)+.18*Math.sin(phrase*2+S.k)), pump=.06+.94*air, stamp=play*Math.pow(Math.max(0,Math.sin(beat)),3);
+  const h=lerp3([1.5,0,7.9],[3.0,0,9.1+.25*play*Math.sin(beat)],play), hand=(/** @type {number} */ s)=>[h[0],s*(1.25+1.5*pump),h[2]];
+  const look=S.s==='REST'?GAZE[(S.k+S.n)%GAZE.length]:[.35+.15*Math.sin(t/300),.12];
+  /** @type {any} */ const o={sway:.22*play*Math.sin(phrase/2),lean:.04+.05*play,yaw:look[0],pitch:look[1]+.07*play*Math.sin(beat),
+    feet:{[-1]:[-.2,-1.5,.9],[1]:[1.2,1.6,.9+1.4*stamp]},hands:{[-1]:hand(-1),[1]:hand(1)},elbow:{[-1]:[-.9,-.9,-.6],[1]:[-.9,.9,-.6]}};
   const pose=body(o);
-  return {P,pose,state:S.s,u,bottle:{state:'HELD_BY_NPC',...heldVessel(P,handWorld(P,pose,1),1,'bottle',tilt)}};
+  return {P,pose,state:S.s,u:S.u,gap:pump,box:[handWorld(P,pose,-1),handWorld(P,pose,1)]};
 }
 
 /** The landlord by his door: takes a tankard from his barrel, rubs it dry, holds it to the light and sets it down on the free spot.
@@ -972,5 +1001,5 @@ export function phaseTime(who,state,u=.5,nth=0){
   return who==='handler'?((t-HANDLER_LAG)%YARD_T+YARD_T)%YARD_T+YARD_T:t;
 }
 /** Everyone at life time t. @param {number} t */
-export function portLife(t){ return {fisher:fisherAt(t),bucket:bucketAt(t),cat:catAt(t),catCrate:{i:CAT_CRATE.i,j:CAT_CRATE.j,w:CAT_CRATE.w,d:CAT_CRATE.d,h:CAT_CRATE.h,z:DECK_Z},pub:drinkersAt(t),loner:lonerAt(t),keeper:keeperAt(t),yard:yardAt(t)}; }
+export function portLife(t){ return {fisher:fisherAt(t),bucket:bucketAt(t),cat:catAt(t),catCrate:{i:CAT_CRATE.i,j:CAT_CRATE.j,w:CAT_CRATE.w,d:CAT_CRATE.d,h:CAT_CRATE.h,z:DECK_Z},pub:drinkersAt(t),loner:lonerAt(t),keeper:keeperAt(t),musician:musicianAt(t),yard:yardAt(t)}; }
 
