@@ -45,6 +45,21 @@ Cień zalicza akcję dopiero po ukończeniu animacji. Tempo 1–2× wynika z ods
 
 `animation.GUARD` definiuje wspólną wyprostowaną gardę wzorowaną na dostarczonym zdjęciu boksu bareknuckle: wysunięta przednia pięść i tylna przy klatce, łokcie nisko. `computeIdle` zachowuje siatkę ośmiu kroków na beat, ale zwykła bezczynność to przenoszenie ciężaru i oddech bez podskoków; zmęczenie oraz urazy nadal wpływają na pozę. Specjalny tryb flow zachowuje swój dotychczasowy krok. Wzorce ruchów i podgląd edytora dziedziczą tę samą gardę; czasy ciosów i ich zdarzenia nie zmieniają się.
 
+## Reakcja na cios w korpus
+
+Figura walki `figureHD` może otrzymać dodatkowy punkt `J.abd` (górny brzuch / odcinek lędźwiowy).
+Gdy jest obecny, renderer rysuje dwie połączone bryły od miednicy przez brzuch do klatki, a detale
+ubrania orientuje względem właściwego odcinka tułowia. Pozostałe NPC bez `J.abd` zachowują
+stary jednoczęściowy model. Ragdoll odtwarza brzuch pomiędzy miednicą i klatką; bez zmian
+pozostają jego punkty fizyczne oraz warunki nokdaunu.
+
+`src/body-reaction.js` dostarcza czyste, testowalne krzywe `bodyHitMotion`:
+najpierw brzuch cofa się pod żebra, potem miękną nogi i łokcie wracają do ochrony boków,
+a całość wygasa bez skoku do gardy. `iso-fight` dobiera amplitudę i długość po faktycznym
+kontakcie (cios zablokowany, mocny, z lewej/prawej strony) oraz aktualizuje samą reakcję
+wizualną nawet podczas hit-stopu. Obrażenia, stamina, zasięgi, timingi ciosów, AI i zapisy
+nie zależą od tej animacji. Krzywe mają testy `tests/body-reaction.test.js`.
+
 ## Kontekst zawodnika
 
 `F.S` przechowuje kontekst szkieletu, animacji i prezentacji zawodnika. `CONTEXT_FIELDS` w `fighter-context.js` jest wspólną mapą właścicieli pól. `saveFighterContext()` i `loadFighterContext()` zapisują/odtwarzają kontekst bez wymiany obiektu. Dodając pole, rozszerz mapę oraz test zapisu i odczytu. `F.cur`, `F.from`, `F.last`, krew na ubraniach i pivot pozostają danymi prezentacji poza trwałym zapisem.
