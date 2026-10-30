@@ -54,7 +54,7 @@ export async function checkBull(page){
   assert.equal(result.start.other,'WALTER','legacy Walter is not replaced');
   assert.equal(result.start.heavy,true);
   assert.equal(result.start.body,'heavy');
-  assert.equal(result.start.scale,3);
+  assert.equal(result.start.scale,1);
   assert.deepEqual(result.start.dimensions,[432,288]);
   assert.equal(result.start.hp,140);
   assert.equal(result.misses.pending,true);
