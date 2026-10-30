@@ -12,7 +12,8 @@ Browser-pane screenshots during art rounds.
 
 | Scene | Where | Read first |
 | --- | --- | --- |
-| Side-on fight backdrop (Ward, yard, bath) — 144×96, fighters drawn on top | `src/newgate-fight.js`, `src/bath-scene.js`, `src/fight-crowd.js`; hooked from `renderSpar`/`buildRing` in `src/sparring.js` | [references/side-scene.md](references/side-scene.md) |
+| Cień / boczna scena treningowa | `src/sparring.js`, `src/cell-fight-scene.js`, `src/ward-wall.js`, `src/shadowboxing.js` | [references/side-scene.md](references/side-scene.md) (wzorzec wizualny; sprawdź aktualne nazwy funkcji) |
+| Bójki izometryczne w Wardzie, na spacerniaku i w łaźni | `src/iso-fight.js`, `src/gym.js`, `src/realtime-rules.js` i moduł pokoju | [references/iso-room.md](references/iso-room.md) |
 | Isometric hub room — 2× frame 288×192 | `src/exercise-yard.js`, `src/ward.js`, `src/bath.js`, `src/rooms.js`, `src/gym.js` | [references/iso-room.md](references/iso-room.md) |
 
 Read only the scene's section of the module (`grep -n "^export function\|^function"` then `sed -n a,bp`), not the file.
@@ -25,8 +26,7 @@ Read only the scene's section of the module (`grep -n "^export function\|^functi
    node scripts/render-room.mjs --room=yard --times=600,1230 --out=r0            # iso room at 10:00 and 20:30
    ```
    `--room` = cell | yard | canteen | laznia; the fight uses that room's venue. Output: `artifacts/tmp/<out>.png`.
-2. **Back up the module** to the scratchpad (`cp src/x.js $SCRATCH/x.orig.js`) — the project has no git; this is
-   the only way to diff or test the baseline.
+2. **Back up the module** to the scratchpad (`cp src/x.js $SCRATCH/x.orig.js`) — or save the baseline in Git / inspect `git diff` on your working branch. Do not overwrite others' changes.
 3. **Edit.** Replace a whole function body at a time with a Python `str.replace` + `assert old in s`, or splice
    by line range after asserting the boundary lines. Then `node --check <file>`.
 4. **Look at one frame large**, not the whole sheet:
@@ -47,9 +47,9 @@ Read only the scene's section of the module (`grep -n "^export function\|^functi
    `motion` prints changed pixels per consecutive frame: any `0` = the background stood still that tick (not 60 fps).
    For random events (breath, blinks) simulate frequency in `node -e` with a copy of `h2` from `src/boxing.js` instead
    of hunting frames.
-7. **Finish** (once, not per round): `npm test`; `npm run test:browser`. The browser suite stops at the first
-   failure — run the remaining scenarios with `npm run test:browser -- "--only=<substring>"`, and check a failure
-   against the backup (swap it in, rerun that one scenario, swap back) before calling it pre-existing.
+7. **Finish** (once, not per round): run the smallest relevant tests from `CODEMAP.md` / `AGENTS.md`.
+   For rendering or input changes, use a matching `npm run test:browser -- --only=<scenario-substring>` and visually
+   inspect the frame. Run the full suite only when shared behavior changed or regression risk warrants it.
 
 ## Quality bar the user holds
 

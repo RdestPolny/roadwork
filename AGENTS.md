@@ -1,6 +1,6 @@
 # Praca nad Roadwork
 
-Przeczytaj `README.md`, `ARCHITECTURE.md` i rzeczywisty przepływ zmienianej mechaniki, zanim edytujesz kod. Projekt używa natywnego ESM, własnego renderera i jawnej kolejności `initialize()` w `src/main.js`. Cykliczne importy pozostają; zachowaj działający start aplikacji.
+Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko właściwe moduły i ich bezpośrednie zależności. `README.md` i `ARCHITECTURE.md` czytaj selektywnie, gdy zadanie dotyczy zasad gry albo przekrojowych kontraktów. Zanim zmienisz kod, sprawdź rzeczywisty przepływ danej mechaniki; nie ładuj całego `src/`, dużych plików `*-kontekst.md` ani zakodowanych obrazów `src/*-plate.js` bez powodu. Projekt używa natywnego ESM, własnego renderera i jawnej kolejności `initialize()` w `src/main.js`. Cykliczne importy pozostają; zachowaj działający start aplikacji.
 
 ## Zakres zmian
 
@@ -25,7 +25,7 @@ Przeczytaj `README.md`, `ARCHITECTURE.md` i rzeczywisty przepływ zmienianej mec
 - Przy małych zmianach uruchamiaj tylko testy zmienionej mechaniki, np. `node --test tests/crank.test.js` lub `npm run test:browser -- --only=crank`. Pełny zestaw uruchamiaj przy zmianach wspólnych mechanizmów albo konkretnym ryzyku regresji, nie automatycznie po każdej poprawce. Zwracaj krótki wynik zamiast pełnych logów.
 
 - Uruchom odpowiednie testy jednostkowe dla zmian logiki; `npm test` uruchamia cały zestaw. Dodaj najmniejszy test, który wykrywa naprawiany błąd.
-- Uruchom `npm run check` po zmianach `src/save-store.js`, `src/time.js`, `src/fighter-context.js` lub konfiguracji typów. Obecnie tylko te trzy moduły są objęte ścisłym `checkJs`.
+- Uruchom `npm run check` po zmianach w modułach objętych kontrolą typów lub w jej konfiguracji. Aktualna lista ścisłego `checkJs` znajduje się w `tsconfig.json` (obejmuje więcej niż trzy moduły); nie utrwalaj jej liczby w tej instrukcji.
 - Uruchom odpowiedni scenariusz `npm run test:browser -- --only=…` po zmianach inicjalizacji, wejścia, czasu, menu, zapisu, przejść między trybami albo renderowania. Dla zmian wizualnych obejrzyj też zrzuty i grę.
 - Nowe helpery opisuj JSDoc. Rozszerzaj `checkJs` moduł po module przy pracy nad nimi; nie deklaruj całego `src/` jako sprawdzonego bez naprawy błędów.
 - Raportuj wykonane sprawdzenia i rzeczywiste ograniczenia. Nie przypisuj wyników testom, których nie uruchomiono.
