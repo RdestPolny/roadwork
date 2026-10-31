@@ -50,11 +50,11 @@ export function strikeArmTargets(punch,side,shoulder,restHand,restPole,extension
     elbow=[2.20,2.04,low?-0.95:0];
   }else if(punch===3){
     // Short, bent rising blow; no straightened overhead reach.
-    reach=[3.20,-0.40,low?0.05:2.15];
+    reach=[low?3.20:3.88,-0.40,low?0.05:2.60];
     elbow=[1.65,1.75,-1.9];
   }else{
     // No remote/world-space knuckle target: prevent unreachable straight arms.
-    reach=punch===0?[5.80,-1.35,low?-1.65:0.95]:[5.92,-1.48,low?-1.65:0.95];
+    reach=punch===0?(low?[5.80,-1.35,-1.65]:[6.30,-1.25,0.95]):(low?[5.92,-1.48,-1.65]:[6.35,-1.30,0.95]);
     elbow=[2.15,1.78,low?-1.45:-1.15];
   }
   const handTarget=[shoulder[0]+reach[0],shoulder[1]+s*reach[1],shoulder[2]+reach[2]];
