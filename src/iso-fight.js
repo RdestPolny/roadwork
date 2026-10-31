@@ -74,8 +74,6 @@ const ARM_U=ARM_UPPER, ARM_L=ARM_FORE, LEG_U=3.2, LEG_L=3.2;
 const lerp3=(/** @type {number[]} */ a,/** @type {number[]} */ b,/** @type {number} */ k)=>[a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k,a[2]+(b[2]-a[2])*k];
 const smooth=(/** @type {number} */ k)=>k*k*(3-2*k);
 
-/** A two-bone limb from root r towards tip t with bones a and b, bent towards the pole point; a tip out of reach is pulled in along the line.
- * @param {number[]} r @param {number[]} t @param {number} a @param {number} b @param {number[]} pole @returns {[number[],number[]]} the middle joint and the tip */
 /** Progress of the striking motion, with acceleration into contact. @param {number} k */
 export const punchSnap=(k)=>k*k;
 
