@@ -19,11 +19,13 @@ const BRICK_PUB=[rgb('#493126'),rgb('#53382c'),rgb('#392b27'),rgb('#604135')];
 const BRICK_YARD=[rgb('#504838'),rgb('#5c513f'),rgb('#393b34'),rgb('#6b5844')];
 const GLAZE=rgb('#db9d54');
 /** Weathered transverse deck boards: seams and grain have fixed world positions. */
-function plankAt(i,j,seed=0){
+function plankAt(i,j,seed=0,weathered=false){
   const row=Math.floor(j*3.1), n=h2(row+seed,Math.floor(i*.65));
   const seam=frac(j*3.1), end=frac(i*.54+(row&1)*.5);
   if(seam<.13||end<.035) return WOOD_DARK;
-  const k=(.78+(n-128)/1100+vn(i*1.7,j*.55+seed)*.3)*(seam>.82?.9:1);
+  const board=weathered ? (h2(row+seed,Math.floor(i*.54+(row&1)*.5))-128)/620 : 0;
+  const grain=weathered ? (h2(Math.floor(i*8),row*13+Math.floor(seam*5))-128)/2600 : 0;
+  const k=(.78+(n-128)/1100+board+grain+vn(i*1.7,j*.55+seed)*.3)*(seam>.82?.9:1);
   return shadeC(WOOD_HI,k);
 }
 function renderDeck(rect,seed){
@@ -38,13 +40,37 @@ function renderDeck(rect,seed){
   }
   floor(i0,j0,i1,j1,DECK_Z,(x,y)=>{
     const [a,b]=ground(x,y,DECK_Z);
-    return plankAt(a,b,seed);
+    return plankAt(a,b,seed,rect===DISTRICT.pier);
   });
   // Explicit plank seams, frame edges, exposed beam ends.
   for(let j=j0+.32;j<j1;j+=.33) thin(i0,j,DECK_Z+.03,i1,j,DECK_Z+.03,shadeC(WOOD_DARK,.85));
   for(const j of [j0,j1]) stroke(i0,j,.4,i1,j,.4,C.woodLight);
   for(let i=i0;i<=i1;i+=2.3) thin(i,j1,-.5,i,j1,DECK_Z+.7,C.iron);
+  if(rect===DISTRICT.pier) pierWeathering(rect);
   pierCraftDetails(rect);
+}
+/** Cracks, worn fibres and small edge losses on the fishing pier only. */
+function pierWeathering([i0,j0,i1,j1]){
+  const z=DECK_Z+.06;
+  // Splits follow the long axis of individual planks, interrupted and tapered.
+  for(let row=1;row<35;row++){
+    const j=j0+row*.33+.12;
+    if(j>=j1-.2) break;
+    const n=h2(row,86), start=i0+.35+(n/255)*6.5;
+    const len=.45+(h2(row,19)/255)*1.35, end=Math.min(i1-.18,start+len);
+    thin(start,j,z,start+len*.42,j+.025,z,WOOD_DARK);
+    thin(start+len*.42,j+.025,z,end,j-.015,z,WOOD_DARK);
+    if(row%3===0) thin(start+.12,j+.07,z,Math.min(end,start+.65),j+.07,z,shadeC(WOOD_HI,1.1));
+    if(row%5===0) thin(start+len*.42,j+.025,z,start+len*.62,j+.10,z,WOOD_DARK);
+  }
+  // Uneven worn plank ends at the perimeter; the structural deck stays intact.
+  for(let k=0;k<12;k++){
+    const j=j0+.8+k*.87;
+    if(j>=j1-.2) break;
+    const i=k%2?i0+.02:i1-.02, d=k%2?.23:-.23;
+    thin(i,j,z,i+d,j+.05,z,WOOD_DARK);
+    thin(i+d,j+.05,z,i,j+.12,z,WOOD_DARK);
+  }
 }
 /** A low timber rail with posts; from..to (shares of its length) redraws one stretch of it over people standing behind it. */
 export function rail(i0,j0,i1,j1,from=0,to=1){
