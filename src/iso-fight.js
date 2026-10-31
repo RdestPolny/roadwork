@@ -1228,7 +1228,7 @@ function ragdollJoints(F){
   let ux=chest[0]-pel[0], uy=chest[1]-pel[1], uz=chest[2]-pel[2]; const ul=Math.hypot(ux,uy,uz)||1; ux/=ul; uy/=ul; uz/=ul;
   let sx=-uy*ux, sy=1-uy*uy, sz=-uy*uz, sl=Math.hypot(sx,sy,sz); if(sl<0.2){ sx=1-ux*ux; sy=-ux*uy; sz=-ux*uz; sl=Math.hypot(sx,sy,sz)||1; } sx/=sl; sy/=sl; sz/=sl;   // the body's side made square to the spine
   const at=(/** @type {number[]} */ o,/** @type {number} */ k)=>[o[0]+sx*k,o[1]+sy*k,o[2]+sz*k];
-  const side=(/** @type {number} */ s,/** @type {number} */ kn,/** @type {number} */ ft,/** @type {number} */ el,/** @type {number} */ hd)=>({hip:at(pel,s*1.25),knee:loc(N[kn]),foot:loc(N[ft]),sh:at(chest,s*2.7),el:loc(N[el]),hd:loc(N[hd])});
+  const side=(/** @type {number} */ s,/** @type {number} */ kn,/** @type {number} */ ft,/** @type {number} */ el,/** @type {number} */ hd)=>({hip:at(pel,s*RIG.hipHalf),knee:loc(N[kn]),foot:loc(N[ft]),sh:at(chest,s*RIG.shoulderHalf),el:loc(N[el]),hd:loc(N[hd])});
   const J={1:side(1,3,4,7,8),'-1':side(-1,5,6,9,10)}, f=(/** @type {number} */ s)=>J[s];
   f.pel=pel; f.chest=chest; f.head=head; f.abd=loc(N[11]); f.belly=f.abd;
   return f;
