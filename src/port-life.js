@@ -177,11 +177,11 @@ const gripOnTable=(P,at,s,kind)=>{ const g=VESSEL[kind].grip; return sub(toLocal
 const FA=ANCHORS.pier_fishing_spot;
 /** He stands at the safe end of the pier facing the Thames, on the deck DECK_Z above the quay. */
 export const FISHER=frameAt(FA.i,FA.j,FA.a,DECK_Z);
-export const BUCKET={i:ANCHORS.fisher_bucket.i,j:ANCHORS.fisher_bucket.j,r:.21,h:2.5}, TACKLE=ANCHORS.fisher_box;
+export const BUCKET={i:ANCHORS.fisher_bucket.i,j:ANCHORS.fisher_bucket.j,r:.35,h:3.5}, TACKLE=ANCHORS.fisher_box;
 export const PEE_SPOT=ANCHORS.pier_peeing_spot;
 export const CAT_SPOT=ANCHORS.cat_spot;
 export const CAT_CRATE=ANCHORS.cat_crate;
-export const CAT_STEAL_SPOT={i:49.30,j:24.15,a:2.60};
+export const CAT_STEAL_SPOT={i:48.79,j:23.77,a:1.01};
 
 const PATH_TO_PEE=[[FA.i,FA.j],[49.40,23.50],[49.40,21.80],[PEE_SPOT.i,PEE_SPOT.j]];
 const PATH_BACK=[[PEE_SPOT.i,PEE_SPOT.j],[49.40,21.80],[49.40,23.50],[FA.i,FA.j]];
@@ -368,7 +368,7 @@ export function bucketAt(t){
 export function catAt(t){
   const S=stepAt(CAT,t), u=S.u;
   let pos=[CAT_SPOT.i,CAT_SPOT.j], z=DECK_Z, a=CAT_SPOT.a;
-  let hasFish=false, chew=0, crouch=0, gait=0, rearUp=0, pawInBucket=false;
+  let hasFish=false, chew=0, crouch=0, gait=0, rearUp=0, pawInBucket=false, reach=0;
   let eating=false, fishScale=0, washFace=0, tail={yaw:0,pitch:0,wag:0};
   let sit=0;
 
@@ -384,7 +384,7 @@ export function catAt(t){
   } else if(S.s==='STEAL'){
     pos=[CAT_STEAL_SPOT.i,CAT_STEAL_SPOT.j]; z=DECK_Z; a=CAT_STEAL_SPOT.a;
     rearUp=u<.65?Math.sin(Math.PI*clamp01(u/.65)):0;
-    pawInBucket=u>=.35&&u<.65; hasFish=u>=.65; crouch=.5*(1-rearUp);
+    pawInBucket=u>=.35&&u<.65; reach=ease(clamp01((u-.16)/.26))*(1-ease(clamp01((u-.61)/.17))); hasFish=u>=.65; crouch=.5*(1-rearUp);
     tail={yaw:.22*Math.sin(t*.28),pitch:.4*rearUp,wag:Math.sin(t*.28)};
   } else if(S.s==='SPRINT'){
     const TAKEOFF=[46.10,21.23];
@@ -427,7 +427,7 @@ export function catAt(t){
   }
   const breath=Math.sin(t*.08)*.12;
   const earTwitch=(t%160<14)?Math.sin((t%160)/14*Math.PI):0;
-  return {P:{i:pos[0],j:pos[1],a,z},s:S.s,state:S.s,u:S.u,hasFish,chew,tail,crouch,gait,rearUp,pawInBucket,eating,fishScale,washFace,sit,breath,earTwitch};
+  return {P:{i:pos[0],j:pos[1],a,z},s:S.s,state:S.s,u:S.u,hasFish,chew,tail,crouch,gait,rearUp,pawInBucket,reach,eating,fishScale,washFace,sit,breath,earTwitch};
 }
 
 /** Fish geometry from its middle and a body direction in his frame. @param {number[]} mid @param {number[]} dir */
