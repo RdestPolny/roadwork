@@ -15,7 +15,7 @@ import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometr
 import { mix } from './cast.js';
 import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
 import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets} from './combat-anatomy.js';
-import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors} from './fighter-rig.js';
+import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors, fixBoneLength} from './fighter-rig.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -809,11 +809,35 @@ function showResult(){
 
 /** Blend two joint sets (functions of the side with .pel, .chest, .head) by k. @param {any} A @param {any} B @param {number} k */
 function blendJoints(A,B,k){
-  const m=(/** @type {number[]} */ a,/** @type {number[]} */ b)=>lerp3(a,b,k), side=(/** @type {number} */ s)=>{ const a=A(s), b=B(s); return {hip:m(a.hip,b.hip),knee:m(a.knee,b.knee),foot:m(a.foot,b.foot),sh:m(a.sh,b.sh),el:m(a.el,b.el),hd:m(a.hd,b.hd)}; };
-  const J={1:side(1),'-1':side(-1)}, f=(/** @type {number} */ s)=>J[s];
-  f.pel=m(A.pel,B.pel); f.chest=m(A.chest,B.chest); f.head=m(A.head,B.head);
-  if(A.belly||B.belly){ const mid=(/** @type {any} */ X)=>X.belly||lerp3(X.pel,X.chest,0.5); f.belly=lerp3(mid(A),mid(B),k); }
-  if(A.abd||B.abd) f.abd=m(A.abd||lerp3(A.pel,A.chest,.48),B.abd||lerp3(B.pel,B.chest,.48));
+  const m=(a,b)=>lerp3(a,b,k);
+  const J={};
+  for(const side of [-1,1]){
+    const a=A(side),b=B(side);
+    J[side]={
+      hip:m(a.hip,b.hip),knee:m(a.knee,b.knee),foot:m(a.foot,b.foot),
+      sh:m(a.sh,b.sh),el:m(a.el,b.el),hd:m(a.hd,b.hd),
+      heelLift:(a.heelLift||0)*(1-k)+(b.heelLift||0)*k
+    };
+  }
+  const f=(s)=>J[s];
+  f.pel=m(A.pel,B.pel);
+  const abdominal=(X)=>X.abd||X.belly||lerp3(X.pel,X.chest,0.48);
+  f.abd=m(abdominal(A),abdominal(B));
+  f.chest=m(A.chest,B.chest);
+  f.head=m(A.head,B.head);
+
+  // Direct vertex lerp shortens bones and can pull arms into the chest halfway
+  // through standing up. Restore every length after blending the orientations.
+  f.abd=fixBoneLength(f.pel,f.abd,RIG.lowerSpine);
+  f.chest=fixBoneLength(f.abd,f.chest,RIG.upperSpine);
+  f.head=fixBoneLength(f.chest,f.head,RIG.neckToHead);
+  for(const side of [-1,1]){
+    const j=J[side];
+    j.hip=fixBoneLength(f.pel,j.hip,Math.hypot(RIG.hipHalf,RIG.hipHeight));
+    j.sh=fixBoneLength(f.chest,j.sh,Math.hypot(RIG.shoulderHalf,RIG.shoulderHeight));
+    [j.knee,j.foot]=solveLimb(j.hip,j.foot,LEG_U,LEG_L,j.knee);
+    [j.el,j.hd]=solveLimb(j.sh,j.hd,ARM_U,ARM_L,j.el);
+  }
   return f;
 }
 
@@ -1123,7 +1147,7 @@ const RD_GRAV=0.07;
 
 /** Put a fighter into the ragdoll from the pose he stands in, with the blow's push (away from attacker A). @param {any} F @param {any} A @param {number} pid @param {boolean} ko */
 function startIsoRagdoll(F,A,pid,ko){
-  const J=fighterJoints(F), a=J(1), b=J(-1), loc=[J.pel,J.chest,J.head,a.knee,a.foot,b.knee,b.foot,a.el,a.hd,b.el,b.hd,J.pel.map((v,k)=>(v+J.chest[k])/2)];
+  const J=fighterJoints(F), a=J(1), b=J(-1), loc=[J.pel,J.chest,J.head,a.knee,a.foot,b.knee,b.foot,a.el,a.hd,b.el,b.hd,J.abd||J.pel.map((v,k)=>(v+J.chest[k])/2)];
   let af=-1, as=0; if(A){ const [ui,uj]=toward(A,F); af=ui*F.fi+uj*F.fj; as=ui*-F.fj+uj*F.fi; }
   if(pid===2){ const side=A?.pk?.hand||1; af*=0.25; as=side; }
   const sp=ko?0.75:0.62, kick=pid===3?0.3:0.1, gut=!!A?.pk?.low;   // a body blow caves the belly in while the chest and head fold forward over the fist
@@ -1170,7 +1194,7 @@ function ragdollJoints(F){
   const at=(/** @type {number[]} */ o,/** @type {number} */ k)=>[o[0]+sx*k,o[1]+sy*k,o[2]+sz*k];
   const side=(/** @type {number} */ s,/** @type {number} */ kn,/** @type {number} */ ft,/** @type {number} */ el,/** @type {number} */ hd)=>({hip:at(pel,s*1.25),knee:loc(N[kn]),foot:loc(N[ft]),sh:at(chest,s*2.7),el:loc(N[el]),hd:loc(N[hd])});
   const J={1:side(1,3,4,7,8),'-1':side(-1,5,6,9,10)}, f=(/** @type {number} */ s)=>J[s];
-  f.pel=pel; f.chest=chest; f.head=head; f.belly=loc(N[11]); f.abd=lerp3(pel,chest,.48);
+  f.pel=pel; f.chest=chest; f.head=head; f.abd=loc(N[11]); f.belly=f.abd;
   return f;
 }
 
