@@ -550,7 +550,7 @@ state.CN = [
   {name:'Jack',rb:226,bed:{t:'bunk2',lv:2},sk:LOOK.skin.find(o=>o.id==='s1').ramp,hair:LOOK.hair.find(o=>o.id==='h2').ramp,hd:{style:'short',irons:true}},
   {name:'Walter',rb:236,bed:{t:'bunk2',lv:3},sk:LOOK.skin.find(o=>o.id==='s2').ramp,hair:LOOK.hair.find(o=>o.id==='h1').ramp,hd:{style:'buzz',stubble:true,irons:true}},
   {name:'Briggs',rb:246,bed:{t:'bunk',lv:1},sk:['#a46f54','#d39473','#e7b08a'],hair:['#17110f','#2c1b16','#493028'],
-    hd:{bodyType:'heavy',bulk:{shoulders:1.26,arms:1.5,forearms:1.6,chest:1.3,belly:1.6,thighs:1.5,calves:1.4,neck:1.6,head:1.17},
+    hd:{bodyType:'heavy',bulk:{shoulders:1.34,arms:1.65,forearms:1.52,chest:1.42,belly:1.15,thighs:1.65,calves:1.48,neck:1.5,head:1.12},
       style:'skinhead',mustache:true,heavyMustache:true,rolledSleeves:true,irons:true}},
 ];
 
