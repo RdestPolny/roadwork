@@ -125,3 +125,15 @@ test('getting up never shrinks a spine or neck segment during interpolation',()=
   near(dist(ab,ch),RIG.upperSpine);
   near(dist(ch,hd),RIG.neckToHead);
 });
+
+test('left- and right-side body blows bend the same spine without asymmetric drift',()=>{
+  const pel=[0,0,5.5];
+  const left=buildSpine(pel,{lean:.3,fold:1,foldSide:-1});
+  const right=buildSpine(pel,{lean:.3,fold:1,foldSide:1});
+  near(left.abdomen[0],right.abdomen[0]);
+  near(left.chest[0],right.chest[0]);
+  near(left.abdomen[1],-right.abdomen[1]);
+  near(left.chest[1],-right.chest[1]);
+  near(dist(pel,left.abdomen),RIG.lowerSpine);
+  near(dist(pel,right.abdomen),RIG.lowerSpine);
+});
