@@ -34,7 +34,7 @@ jobs:
       - name: Native Thames 432x288 captures and collision smoke
         run: npm run test:browser -- --only='Thames district'
       - name: Dock cat poses and larger fish-pail native captures
-        run: npm run test:browser -- --only='Thames life: fixed routine phases'
+        run: npm run test:browser -- --only='Thames life'
       - name: Thames original job and story regression
         run: npm run test:browser -- --only='Thames port developer preview'
       - name: Upload native captures and browser diagnostics
