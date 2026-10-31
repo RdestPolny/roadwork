@@ -920,7 +920,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const pelvis=supportPelvis(pelvisHint,feet,hipYaw);
   const {abdomen,chest}=buildSpine(pelvis,{
     lean:lean+lung*0.18,sideLean:lateral*0.22+bodySide*0.42+ps*tilt*0.14+hitSide*fold*0.12,
-    fold,lunge:lung
+    fold,foldSide:hitSide,lunge:lung
   });
   const legs=legAnchors(pelvis,feet,hipYaw);
   const J={};
