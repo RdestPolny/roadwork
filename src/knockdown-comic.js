@@ -1,6 +1,7 @@
 /* The knockdown comic: a short live close-up, then a page of three panels that replay the blow and the fall (the punch, the fall,
    the boards) and the live close-up again. The fight records the two figures each tick of the fall; every panel draws them with its
-   own camera, centred on the fighters and turned around them, over the venue's floor seen from the same turn. Presentation only. */
+   own camera, centred on the fighters and turned around them, over the venue's floor seen from the same turn. Presentation only.
+   The finisher uses the same panels: a page of the knockout blow and up to three free blows, then the whole tape replayed on one panel. */
 
 import { state as appearanceState, rgb } from './appearance.js';
 import { state as gymState, figureHD, setPropCamera, shadeC, isoX, isoY } from './gym.js';
@@ -12,8 +13,8 @@ import { floorCol as bathFloor } from './bath.js';
 import { quayFloor } from './thames-port.js';
 
 // Runtime values owned by the comic; startKnockdownComic() resets them.
-export const state = {frames:/** @type {any[]} */ ([]),victim:1,pid:0,low:false,venue:'cell',panels:/** @type {any[]} */ ([]),scratch:/** @type {Uint32Array|null} */ (null),
-  framing:/** @type {({dx:number,dy:number}|null)[]} */ ([])};
+export const state = {frames:/** @type {any[]} */ ([]),ref:0,victim:1,pid:0,low:false,venue:'cell',panels:/** @type {any[]} */ ([]),scratch:/** @type {Uint32Array|null} */ (null),
+  framing:/** @type {({dx:number,dy:number}|null)[]} */ ([]),shots:/** @type {{idx:number,pid:number,low:boolean,at:number}[]} */ ([]),replay:/** @type {any} */ (null)};
 
 /** Real seconds: the live close-up before the page, the second and third panels' entrances, the white flash of a new panel and the live close-up after the page. */
 const ENTER=0.3, P2_AT=1.0, P3_AT=2.2, FLASH=0.035, LEAVE=0.25;
@@ -21,6 +22,8 @@ const PAGE=rgb('#100e10'), INK=rgb('#060506'), RIM=rgb('#d2c4a7'), FLASH_C=rgb('
 const PAPER=rgb('#e3d6b6'), LETTER=rgb('#1b1516'), BLOOD=rgb('#8e1f1c');
 const JET=rgb('#a81c28'), JET_DARK=rgb('#6a0f18');
 const PUNCH=['JAB','PROSTY','SIERPOWY','PODBRODKOWY'];
+/** The finisher's sound words by punch, in the picture font's capitals. */
+const SOUND=['TRZASK!','LUP!','BAM!','KRACH!'];
 
 /** The knockdown page is designed at 288×192 and scaled with the active room (2× or 3×). turn: the camera's turn from a side-on
  *  view of the blow (the attacker on the left, the victim on the right in every panel); zoom: picture pixels per figure pixel;
@@ -29,11 +32,28 @@ const LAYOUT=[
   {poly:[[6,6],[172,6],[150,92],[6,92]],turn:0,zoom:2.5,light:2.4,shift:0,at:ENTER},
   {poly:[[178,6],[282,6],[282,92],[156,92]],turn:0.75,zoom:1.9,light:2.8,shift:0,at:P2_AT},
   {poly:[[6,98],[282,98],[282,186],[6,186]],turn:0.35,zoom:1.35,light:3.6,shift:-0.17,at:P3_AT}];
+/** The finisher page: the knockout blow, then one panel for every free blow, each from another turn of the camera. */
+const FIN_LAYOUT=[
+  {poly:[[6,6],[160,6],[142,92],[6,92]],turn:0,zoom:2.5,light:2.4,shift:0,focus:'blow'},
+  {poly:[[166,6],[282,6],[282,92],[148,92]],turn:0.8,zoom:2.3,light:2.6,shift:0,focus:'blow'},
+  {poly:[[6,98],[134,98],[152,186],[6,186]],turn:-0.6,zoom:2.3,light:2.6,shift:0,focus:'blow'},
+  {poly:[[140,98],[282,98],[282,186],[158,186]],turn:0.35,zoom:2.8,light:2.4,shift:0,focus:'blow'}];
+/** The replay: one panel over the whole page, looking at the pair from a quarter turn. */
+const REPLAY={poly:[[4,4],[284,4],[284,188],[4,188]],turn:0.3,zoom:2.4,light:3.6,shift:0,focus:'pair'};
 
 /** Begin a comic for the fall that starts now. @param {number} victim 0 the hero, 1 the rival @param {number} pid @param {boolean} low @param {string} venue */
 export function startKnockdownComic(victim,pid,low,venue){
-  Object.assign(state,{frames:[],victim,pid,low,venue,panels:[],framing:[]});
+  Object.assign(state,{frames:[],ref:0,victim,pid,low,venue,panels:[],framing:[],shots:[],replay:null});
 }
+
+/** Begin the finisher page on the fight's tape; ref is the tick of the knockout blow, the rival is the victim.
+ *  @param {any[]} frames the tape, still growing while the free blows are played @param {number} ref @param {number} pid @param {boolean} low @param {string} venue */
+export function startFinisherComic(frames,ref,pid,low,venue){
+  Object.assign(state,{frames,ref,victim:1,pid,low,venue,panels:[],framing:[],shots:[{idx:ref,pid,low,at:0}],replay:null});
+}
+
+/** A free blow's panel: the tick it shows and when (seconds of the page) it comes in. @param {number} idx @param {number} pid @param {boolean} low @param {number} at */
+export function addFinisherShot(idx,pid,low,at){ state.shots.push({idx:Math.min(idx,state.frames.length-1),pid,low,at}); }
 
 /** Keep one tick of the fall: per fighter its place, facing, look, outfit and joints; frame.blood holds the drops in the air. @param {any[]} frame */
 export function recordKnockdownComicFrame(frame){ state.frames.push(frame); }
@@ -52,15 +72,50 @@ export function drawKnockdownComic(elapsed,caption){
     const L=LAYOUT[k]; if(elapsed<L.at) break;
     const P=S.panels[k]||(S.panels[k]=panel(L,k,n)), flash=elapsed-L.at<FLASH, idx=frameAt(k,elapsed,n);
     if(!flash&&idx!==P.idx){ P.idx=idx; renderPanel(P,S.frames[idx]); S.framing[k]=P.framing; }
-    for(let y=0;y<P.h;y++) for(let x=0;x<P.w;x++){
-      const m=P.mask[y*P.w+x]; if(!m) continue;
-      dest[(P.y+y)*W+P.x+x]=m===1?INK:m===2?RIM:flash?FLASH_C:P.img[y*P.w+x];
-    }
+    blit(P,flash);
   }
   const P1=S.panels[0], P3=S.panels[2];
   const q=gymState.ISO_K/HD_K;
   if(P1) label(P1.x+Math.round(8*q),P1.y+Math.round(8*q),[[PUNCH[S.pid]+(S.low?' NA KORPUS':''),2,LETTER]],null);
   if(P3&&elapsed>=P3_AT+0.3) label(P3.x+P3.w-Math.round(8*q),P3.y+Math.round(8*q),[[caption.title,3,BLOOD],[caption.line,2,LETTER]],caption.pips,true);
+}
+
+/** The finisher page at `elapsed` seconds: a panel for the knockout blow and each free blow so far, each with its punch and its sound word.
+ *  @param {number} elapsed @param {{title:string,line:string,pips:number[]|null}} caption the box in the bottom right corner */
+export function drawFinisherComic(elapsed,caption){
+  const S=state, W=appearanceState.W, H=appearanceState.H, q=gymState.ISO_K/HD_K, n=S.frames.length;
+  rendererState.fb.fill(PAGE); if(!n) return;
+  if(S.scratch?.length!==W*H) S.scratch=new Uint32Array(W*H);
+  S.shots.forEach((shot,k)=>{
+    const L=FIN_LAYOUT[k]; if(!L||elapsed<shot.at) return;
+    const P=S.panels[k]||(S.panels[k]=panel(L,k,n)), flash=elapsed-shot.at<FLASH;
+    if(!flash&&P.idx!==shot.idx){ P.idx=shot.idx; renderPanel(P,S.frames[shot.idx]); S.framing[k]=P.framing; }
+    blit(P,flash);
+    label(P.x+Math.round(8*q),P.y+Math.round(8*q),[[PUNCH[shot.pid]+(shot.low?' NA KORPUS':''),2,LETTER]],null);
+    label(Math.round((L.poly[3][0]+8)*q),P.y+P.h-Math.round(26*q),[[SOUND[shot.pid],3,BLOOD]],null);   // the sound word in the bottom left corner, clear of the figures
+  });
+  if(caption.pips&&S.shots.length<FIN_LAYOUT.length) label(W-Math.round(10*q),H-Math.round(40*q),[[caption.title,3,BLOOD],[caption.line,1,LETTER]],caption.pips,true);
+}
+
+/** One tick of the replay over the whole page. @param {number} idx the tick of the tape @param {boolean} hint show how to skip it */
+export function drawFinisherReplay(idx,hint){
+  const S=state, W=appearanceState.W, H=appearanceState.H, q=gymState.ISO_K/HD_K, n=S.frames.length;
+  rendererState.fb.fill(PAGE); if(!n) return;
+  if(S.scratch?.length!==W*H) S.scratch=new Uint32Array(W*H);
+  const P=S.replay||(S.replay=panel(REPLAY,0,n)), k=Math.max(0,Math.min(n-1,idx));
+  if(P.idx!==k){ P.idx=k; renderPanel(P,S.frames[k]); }
+  blit(P,false);
+  label(P.x+Math.round(8*q),P.y+Math.round(8*q),[['POWTORKA',2,LETTER]],null);
+  if(hint) label(P.x+P.w-Math.round(8*q),P.y+P.h-Math.round(18*q),[['KLAWISZ - POMIN',1,LETTER]],null,true);
+}
+
+/** Copy a panel onto the page: its ink outline, light rim and picture (white for the flash of a new panel). @param {any} P @param {boolean} flash */
+function blit(P,flash){
+  const W=appearanceState.W, dest=rendererState.fb;
+  for(let y=0;y<P.h;y++) for(let x=0;x<P.w;x++){
+    const m=P.mask[y*P.w+x]; if(!m) continue;
+    dest[(P.y+y)*W+P.x+x]=m===1?INK:m===2?RIM:flash?FLASH_C:P.img[y*P.w+x];
+  }
 }
 
 /** Which recorded tick a panel shows now: the moment of contact, the fall, then the landing held. @param {number} k @param {number} elapsed @param {number} n */
@@ -84,13 +139,14 @@ function panel(L,k,n){
     mask[py*w+px]=d<-1?0:d<0?1:d<2?2:3;
   }
   // the camera turns about the pair at the blow so that the line from the attacker to the victim lies across the panel, then by the panel's turn
-  const f0=S.frames[0], V0=f0[S.victim].C, A0=f0[1-S.victim].C, last=S.frames[n-1][S.victim].C;
+  const f0=S.frames[S.ref]||S.frames[0], V0=f0[S.victim].C, A0=f0[1-S.victim].C, last=S.frames[n-1][S.victim].C, focus=L.focus||(k===0?'blow':k===1?'fall':'floor');
   const pivot={i:(V0.i+A0.i)/2,j:(V0.j+A0.j)/2}, a=-Math.PI/4+L.turn-Math.atan2(V0.j-A0.j,V0.i-A0.i);
   const P={x,y,w,h,mask,img:new Uint32Array(w*h),floor:/** @type {Uint32Array|null} */ (null),zoom:L.zoom,cx:w*(0.5+L.shift),light:L.light,co:Math.cos(a),si:Math.sin(a),pivot,idx:-1,
     focus:{i:0,j:0,z:0},framing:/** @type {{dx:number,dy:number}|null} */ (null)};
   const at=(/** @type {number} */ i,/** @type {number} */ j,/** @type {number} */ z)=>{ const [ri,rj]=turn(P,i,j); P.focus={i:ri,j:rj,z}; };
-  if(k===0) at(A0.i+(V0.i-A0.i)*0.55,A0.j+(V0.j-A0.j)*0.55,13);   // the fist on the jaw
-  else if(k===1) at(V0.i*0.55+last.i*0.45,V0.j*0.55+last.j*0.45,8);   // the fall, the whole man
+  if(focus==='blow') at(A0.i+(V0.i-A0.i)*0.55,A0.j+(V0.j-A0.j)*0.55,13);   // the fist on the jaw
+  else if(focus==='pair') at((A0.i+V0.i)/2,(A0.j+V0.j)/2,8);   // both men, whole
+  else if(focus==='fall') at(V0.i*0.55+last.i*0.45,V0.j*0.55+last.j*0.45,8);   // the fall, the whole man
   else at(last.i*0.7+pivot.i*0.3,last.j*0.7+pivot.j*0.3,6);   // the boards and the one still standing
   return P;
 }

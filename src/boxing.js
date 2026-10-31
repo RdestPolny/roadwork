@@ -631,8 +631,6 @@ export function drawParticles(smearPass){
   }
 }
 
-export function pushTempo(at,ms){ if(state.tqLen>=state.TQ_N)return; const k=(state.tqHead+state.tqLen)%state.TQ_N; state.tqAt[k]=at; state.tqMs[k]=ms; state.tqLen++; }
-
 /** Switch the running game mode (hub, spar, an exercise…). @param {string} g */
 export function setGstate(g){ state.gstate=g; }
 
@@ -640,7 +638,8 @@ export function setGstate(g){ state.gstate=g; }
  * A weaker shake never cuts a stronger one short. @param {number} amp @param {number} dur @param {number} axis */
 export function shake(amp,dur,axis){ if(state.shakeT>0&&state.shakeAmp>amp) return; state.shakeAmp=amp; state.shakeAxis=axis; state.shakeT=state.shakeDur=dur; }
 
-export function resetClock(ms,now){ state.beatMs=ms; state.lastBeatMs=now; state.nextBeatMs=now+ms; state.tqLen=0; state.tqHead=0; }
+/** Start the idle breathing cycle afresh at `now` (entering a mode); a pause never calls this. @param {number} now */
+export function resetIdleCycle(now){ state.idleEpoch=now; }
 
 export function setFlow(on){
   if(on===state.flow)return;
@@ -895,24 +894,14 @@ state.BURST_LEN = [1,0.72,0.9,0.62];
 
 
 /* =====================================================================
-   GAME STATE, BEAT CLOCK, STATS
+   GAME STATE, IDLE CYCLE, STATS
    ===================================================================== */
 state.STATS = {power:1,speed:1};
 
-// Shared beat clock with scheduled tempo changes.
-state.beatMs = 600;
-state.gridDiv = 1;
+// Simulation time and the idle breathing cycle: one step of the weight shift lasts IDLE_STEP_MS from idleEpoch.
 state.simNow = 0;
-state.lastBeatMs = 0;
-state.nextBeatMs = 600;
-state.beatIdx = 0;
-state.beatFlash = 0;
-
-state.TQ_N = 16;
-state.tqAt = new Float64Array(state.TQ_N);
-state.tqMs = new Float64Array(state.TQ_N);
- state.tqHead = 0;
-state.tqLen = 0;
+state.IDLE_STEP_MS = 600;
+state.idleEpoch = 0;
 
 
 state.tick = 0;

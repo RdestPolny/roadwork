@@ -22,11 +22,6 @@ export function update(){
   boxingState.tick++;
   sessionTick();
   if(gymState.fadeInT>0) gymState.fadeInT--;
-  while(boxingState.simNow>=boxingState.nextBeatMs){
-    boxingState.lastBeatMs=boxingState.nextBeatMs; boxingState.beatIdx++;
-    while(boxingState.tqLen>0&&boxingState.tqAt[boxingState.tqHead]<=boxingState.lastBeatMs+1){ boxingState.beatMs=boxingState.tqMs[boxingState.tqHead]; boxingState.tqHead=(boxingState.tqHead+1)%boxingState.TQ_N; boxingState.tqLen--; }
-    boxingState.nextBeatMs=boxingState.lastBeatMs+boxingState.beatMs;
-  }
   updatePopups();
   if(boxingState.shakeT>0){boxingState.shakeT--;const a=Math.ceil(boxingState.shakeAmp*boxingState.shakeT/boxingState.shakeDur),s=(boxingState.shakeT&2)?1:-1;boxingState.shX=boxingState.shakeAxis===0?s*a:0;boxingState.shY=boxingState.shakeAxis===1?s*a:0;} else {boxingState.shX=0;boxingState.shY=0;}
   if(boxingState.riseT>0){boxingState.riseT--;boxingState.shY+=1;}

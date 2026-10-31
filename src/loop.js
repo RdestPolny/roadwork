@@ -1,4 +1,4 @@
-import { state as boxingState, resetClock, solve } from './boxing.js';
+import { state as boxingState, resetIdleCycle, solve } from './boxing.js';
 import { state as appearanceState } from './appearance.js';
 import { update } from './runtime.js';
 import { buildRing } from './sparring.js';
@@ -14,7 +14,7 @@ import { advanceFixed } from './time.js';
 
 // Runtime values owned by loop; initialized explicitly by main.js.
 export const state = {};
-/** Resume the wall clock without changing the simulation timeline or tempo. */
+/** Resume the wall clock without changing the simulation timeline. */
 export function resumeClock(){ state.last=performance.now(); state.acc=0; }
 
 function simulationStep(){ boxingState.simNow+=appearanceState.STEP_MS; update(); } function frame(now){
@@ -39,7 +39,7 @@ buildRing();
 
 state.last=performance.now();
  boxingState.simNow=0;
- resetClock(600,boxingState.simNow);
+ resetIdleCycle(boxingState.simNow);
 
 
 simulationState.simReady=true;

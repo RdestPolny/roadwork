@@ -164,3 +164,27 @@ test('screen direction maps onto the fighter-to-opponent axis as in, back, left 
   assert.equal(classifyEvade(-Math.SQRT1_2,-Math.SQRT1_2,ui,uj).kind,'left');
   assert.equal(classifyEvade(Math.SQRT1_2,Math.SQRT1_2,ui,uj).kind,'right');
 });
+
+test('stamina zones change at their borders with a margin, and a worn ceiling keeps a fighter tired',async()=>{
+  const {updateStaminaZone,secondWind,ZONES}=await import('../src/realtime-rules.js');
+  const f=createCombatant({staCap:100});
+  f.sta=50;assert.equal(updateStaminaZone(f),0);
+  f.sta=44;assert.equal(updateStaminaZone(f),1);
+  f.sta=50;assert.equal(updateStaminaZone(f),1,'no flicker back above the border');
+  f.sta=56;assert.equal(updateStaminaZone(f),0);
+  f.sta=19;assert.equal(updateStaminaZone(f),2);f.sta=25;assert.equal(updateStaminaZone(f),2);f.sta=31;assert.equal(updateStaminaZone(f),1);
+  assert.ok(ZONES[2].walk<ZONES[1].walk&&ZONES[1].walk<ZONES[0].walk&&ZONES[2].punch<1&&ZONES[2].guard<ZONES[1].guard);
+  const worn=createCombatant({staCap:100});worn.staCap=40;worn.sta=40;assert.equal(updateStaminaZone(worn),1,'body work keeps him tired at full breath');
+  const g=createCombatant({staCap:100});g.sta=5;updateStaminaZone(g);assert.equal(secondWind(g),0);assert.equal(g.sta,60);
+  worn.sta=10;updateStaminaZone(worn);secondWind(worn);assert.equal(worn.sta,40,'a second wind never passes the ceiling');
+});
+
+test('a clean body hook wears the ceiling down noticeably; a late tired guard does not block; a clinch speeds recovery',()=>{
+  const a=createCombatant(),b=createCombatant({staCap:300});
+  hit(a,b,1,2,true);assert.ok(300-b.staCap>=14,'body hook cuts the ceiling: '+b.staCap);
+  const c=createCombatant(),d=createCombatant();setGuard(d,true,0);
+  assert.equal(resolvePunch(c,d,{pid:1,now:1,guardLate:true}).kind,'hit');
+  assert.equal(resolvePunch(c,d,{pid:1,now:2}).kind,'block');
+  const e=createCombatant({staCap:100}),h=createCombatant({staCap:100});e.sta=h.sta=10;
+  tickCombatant(e,1,1);tickCombatant(h,1,1,TUNING.clinchRegen);assert.equal(h.sta-10,2*(e.sta-10));
+});

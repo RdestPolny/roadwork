@@ -15,7 +15,7 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 
 - Nie zmieniaj kluczy `heavybag.save`, `heavybag.slot.1`–`heavybag.slot.3` ani schematu zapisu bez migracji i testu starego zapisu. Zachowaj ochronę uszkodzonego zapisu, przyszłych wersji i pustego `gym:[]`.
 - Zachowaj stałą referencję `saveStore.state`. Resetuj zapis przez `merge({})`, a zapis do Storage obsługuj przez store.
-- Zegar wejścia i symulacji ma wspólną podstawę. Pauza nie resetuje BPM, kolejki tempa ani nut.
+- Zegar wejścia i symulacji ma wspólną podstawę. Pauza nie resetuje osi czasu symulacji ani cyklu bezczynności. Gra nie używa BPM ani metronomu; nie wprowadzaj ich.
 - Dodając pole kontekstu zawodnika `F.S`, aktualizuj wspólną mapę `CONTEXT_FIELDS` w `fighter-context.js` i sprawdź zapis oraz odczyt.
 - Cheaty i `window.__boxer` są dostępne wyłącznie po świadomym włączeniu `?debug=1`.
 

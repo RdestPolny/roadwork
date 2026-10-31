@@ -1,7 +1,7 @@
 import { wardWallBg, drawWardWallLive } from './ward-wall.js';
 import { saveFighterContext, loadFighterContext } from './fighter-context.js';
 import { state as appearanceState, setRamp, applyGear, applyLook, rgb } from './appearance.js';
-import { state as boxingState, setVenueLight, clearVenueLight, setupFighterLight, torsoEdge, solve, setFlow, resetClock, commitWalk, startMove, handleEvents, updateShorts, spawn, clearParticles, popup, updateParticles, h2, drawText, drawBoxer, drawParticles, drawPopups } from './boxing.js';
+import { state as boxingState, setVenueLight, clearVenueLight, setupFighterLight, torsoEdge, solve, setFlow, resetIdleCycle, commitWalk, startMove, handleEvents, updateShorts, spawn, clearParticles, popup, updateParticles, h2, drawText, drawBoxer, drawParticles, drawPopups } from './boxing.js';
 import { state as animationState, isFwd, samplePose, poseSampleTime, computeIdle, isDash } from './animation.js';
 import { state as pushupsState, puReset } from './pushups.js';
 import { state as npcsState } from './npcs.js';
@@ -393,7 +393,7 @@ export function startSpar(idx,venue,station,shadow=false){
   if(station) state.cellFightSt=station;
   state.sparOpp=idx; const O=oppDef(idx);
   boxingState.mode=boxingState.M_SPAR; boxingState.gstate='spar'; setFlow(false); boxingState.combo=0; animationState.walkHeld=-1; boxingState.hitstop=0; boxingState.shakeT=0;
-  resetClock(60000/100,boxingState.simNow);
+  resetIdleCycle(boxingState.simNow);
   if(!state.sparLkSave) state.sparLkSave=appearanceState.lk;
   snapFighterLook(state.FA,save.eq,save.look);
   snapFighterLook(state.FB,Object.assign({},save.eq,O.eq),O.look);

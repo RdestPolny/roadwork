@@ -41,7 +41,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | Spacerniak, tłum, NPC, rozmowy | `src/exercise-yard.js`, `src/npcs.js` | `src/gym.js`, `src/prison.js` |
 | Łaźnia | `src/bath.js`, `src/rooms.js` | `src/gym.js`, `src/prison.js` |
 | Dzień więzienny, posiłki, dyżury, waluty | `src/prison.js`, `src/simulation.js` | `src/ward-meal.js`, `src/prison-data.js`; `PRISON.md` |
-| Bójka izometryczna, sterowanie, AI, wynik | `src/iso-fight.js`, `src/realtime-rules.js` | `src/sparring.js`, `src/prison.js`, `src/npcs.js`; `CIOSY.md` |
+| Bójka izometryczna, sterowanie, AI, wynik, strefy kondycji, finisher KO | `src/iso-fight.js`, `src/realtime-rules.js` | `src/knockdown-comic.js` (komiks nokdaunu, strona finishera, powtórka), `src/sparring.js`, `src/prison.js`, `src/npcs.js`; `CIOSY.md` |
 | Szkielet walki, proporcje, ragdoll, mocap | `src/fighter-rig.js`, `src/combat-anatomy.js`, `src/figure-anatomy.js` | `src/ragdoll.js` (Verlet, też w porcie), `src/mocap-retarget.js`, `scripts/mocap-compare.mjs`; F7 = nakładka stawów |
 | Pozy walki, szkielet, wygląd, efekty ciosów | `src/animation.js`, `src/boxing.js` | `src/appearance.js`, `src/fighter-context.js`, `src/cast.js` |
 | Cień / trening kombinacji | `src/shadowboxing.js`, `src/shadow-sequence.js` | `src/sparring.js`, `src/cell-fight-scene.js`, `src/ward-wall.js` |

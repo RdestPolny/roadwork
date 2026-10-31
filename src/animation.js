@@ -99,15 +99,15 @@ function sparPoseExtras(m,t,out){
   }
 }
 
-/** Sample the planted guard on the shared beat clock, retaining fatigue and injury cues. @param {Float32Array} out */
+/** Sample the planted guard on the idle breathing cycle, retaining fatigue and injury cues. @param {Float32Array} out */
 export function computeIdle(out){
-  let ph=(boxingState.simNow-boxingState.lastBeatMs)/boxingState.beatMs; if(ph<0)ph=0; else if(ph>0.999)ph=0.999;
-  let bi=boxingState.beatIdx;
+  const cyc=Math.max(0,(boxingState.simNow-boxingState.idleEpoch)/boxingState.IDLE_STEP_MS);
+  let bi=Math.floor(cyc), ph=Math.min(0.999,cyc-bi);
   if(sparringState.idleOff){ ph+=sparringState.idleOff; if(ph>=1){ ph-=1; bi++; } }   // sparring: the two fighters shift their weight off-phase
   const step=sparringState.shadow?ph:Math.floor(ph*8)/8, TAU=6.283185307;
   out.set(state.GUARD);
   if(boxingState.flow){
-    // PENDULUM STEP: land on every beat, hop in on even beats, out on odd beats
+    // PENDULUM STEP: land on every step, hop in on even steps, out on odd steps
     const air=step<0.125||step>0.875?0:Math.sin(Math.PI*(step-0.125)/0.75);
     out[state.GY]=-3*air;
     out[state.BY]=state.GUARD[state.BY]+(step<0.125?2.2:(step>0.875?0.8:0.2));   // knees absorb the landing
@@ -609,8 +609,8 @@ state.FLOW_AMP = 1.3;
 state.AMP_IDX = new Uint8Array([state.LEAN,state.ROT,state.BY,state.HEEL,state.HX,state.HY,state.HROT]);
 state.AMP_N = 7;
 
-/* Idle retains the eight-step sprite cadence on the existing shared beat clock. */
-/* IDLE: planted Victorian guard, a four-beat weight shift and a slower breath.
+/* Idle retains the eight-step sprite cadence on the idle cycle. */
+/* IDLE: planted Victorian guard, a four-step weight shift and a slower breath.
    Fatigue drops the fists and deepens breathing; injuries retain their irregular wobble.
    The explicitly activated flow footwork above keeps its existing movement. */
 state.idleTired = 0;

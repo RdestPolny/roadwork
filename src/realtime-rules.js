@@ -12,8 +12,16 @@ export const TUNING=Object.freeze({
   slowMoDuration:2, slowMoScale:.35,
   counterDuration:.9, counterPower:1.55, failedSlipPower:1.35,
   lowStaThreshold:25, lowStaCostMult:1.3, staCapWear:.04, staCapFloor:.4,
-  bodyHpMult:.5, bodyStaDrain:1.8, bodyCapDrain:.25
+  bodyHpMult:.5, bodyStaDrain:1.8, bodyCapDrain:1.4,
+  tiredEnter:.45, tiredLeave:.55, gassedEnter:.2, gassedLeave:.3,
+  clinchRegen:2, secondWind:.6, secondWindRest:1
 });
+
+/** Stamina zones by share of the starting reserve (fresh, tired, gassed): what each does to legs, punch speed and how fast the guard comes up. */
+export const ZONES=Object.freeze([
+  Object.freeze({walk:1,punch:1,guard:1}),
+  Object.freeze({walk:.8,punch:.88,guard:.6}),
+  Object.freeze({walk:.62,punch:.76,guard:.38})]);
 
 /** Stamina required by jab, cross, hook and uppercut before repeat and combo penalties. */
 export const PUNCH_COST=Object.freeze([6,10,14,18]);
@@ -29,24 +37,45 @@ export function createCombatant({hpMax=125,staCap=100,pow=1,regen=1,hunger=0}={}
   return {hp:hpMax,hpMax,sta:staCap,staCap,staCapInitial:staCap,pow:Math.max(0,pow),regen:Math.max(0,regen),hunger:Math.max(0,hunger),
     guarding:false,guardSince:-Infinity,guardReadyAt:-Infinity,
     slipSince:-Infinity,slipReadyAt:-Infinity,evadeFatigue:0,evadeKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */('slip'),counterUntil:-Infinity,counterMult:/** @type {number} */(TUNING.counterPower),punchCounter:false,
-    regenReadyAt:-Infinity,lastActionAt:-Infinity,comboCount:0,
+    regenReadyAt:-Infinity,lastActionAt:-Infinity,comboCount:0,zone:0,
     punchLast:[-Infinity,-Infinity,-Infinity,-Infinity],punchRepeats:[0,0,0,0]};
 }
 /** @typedef {ReturnType<typeof createCombatant>} Combatant */
 
 /**
- * Advance resource recovery, evade fatigue decay or held guard drain, pausing recovery right after throwing a punch.
- * @param {Combatant} f @param {number} dt @param {number} now
+ * Settle the stamina zone (0 fresh, 1 tired, 2 gassed) from the share of the starting reserve, with a margin so it does not flicker at a border.
+ * A ceiling worn down by body shots keeps the fighter tired even at full breath.
+ * @param {Combatant} f
  */
-export function tickCombatant(f,dt,now){
+export function updateStaminaZone(f){
+  const r=f.sta/(f.staCapInitial||1), z=f.zone;
+  f.zone=r<TUNING.gassedEnter||(z===2&&r<TUNING.gassedLeave)?2:r<TUNING.tiredEnter||(z>=1&&r<TUNING.tiredLeave)?1:0;
+  return f.zone;
+}
+
+/**
+ * Once per fight a gassed fighter who rests a moment gets a second wind: breath back to a share of the reserve, never over the ceiling.
+ * @param {Combatant} f
+ */
+export function secondWind(f){
+  f.sta=Math.max(f.sta,Math.min(f.staCap,f.staCapInitial*TUNING.secondWind));
+  return updateStaminaZone(f);
+}
+
+/**
+ * Advance resource recovery, evade fatigue decay or held guard drain, pausing recovery right after throwing a punch.
+ * @param {Combatant} f @param {number} dt @param {number} now @param {number} [regenMult=1] faster recovery, e.g. in a clinch
+ */
+export function tickCombatant(f,dt,now,regenMult=1){
   if(!Number.isFinite(dt)||dt<=0||!Number.isFinite(now))return;
+  updateStaminaZone(f);
   if(f.evadeFatigue>0&&now>=f.slipSince+TUNING.evadeReset)f.evadeFatigue=0;
   if(f.guarding){
     f.sta=Math.max(0,f.sta-dt*TUNING.guardDrain);
     return;
   }
   if(now<f.regenReadyAt)return;
-  f.sta=Math.max(0,Math.min(f.staCap,f.sta+dt*TUNING.regen*f.regen));
+  f.sta=Math.max(0,Math.min(f.staCap,f.sta+dt*TUNING.regen*f.regen*regenMult));
 }
 
 /**
@@ -160,11 +189,12 @@ export function resolveNearMiss(attacker,defender,{gap,range,now}){
 /**
  * Resolve contact once. Body shots sap stamina and ceiling; held blocks take minor chip damage; parries open a short counter window.
  * A perfect slip, or a dash in that gets under the punch (gap and range given), also resets the defender's evade fatigue.
+ * guardLate: the guard is held but the tired arms are not up yet, so the punch lands as on an open guard.
  * @param {Combatant} attacker @param {Combatant} defender
- * @param {{pid:number,low?:boolean,now:number,gap?:number,range?:number}} blow
+ * @param {{pid:number,low?:boolean,now:number,gap?:number,range?:number,guardLate?:boolean}} blow
  * @returns {{kind:'hit'|'block'|'parry'|'slip',damage:number,counter:boolean,failedSlip:boolean}}
  */
-export function resolvePunch(attacker,defender,{pid,low=false,now,gap,range}){
+export function resolvePunch(attacker,defender,{pid,low=false,now,gap,range,guardLate=false}){
   const counter=attacker.punchCounter;
   const cMult=counter?(attacker.counterMult||TUNING.counterPower):1;
   attacker.punchCounter=false;
@@ -185,7 +215,7 @@ export function resolvePunch(attacker,defender,{pid,low=false,now,gap,range}){
 
   /** @type {'hit'|'block'|'parry'|'slip'} */
   let kind='hit';
-  if(defender.guarding&&defender.sta>0){
+  if(defender.guarding&&defender.sta>0&&!guardLate){
     const guardAge=now-defender.guardSince;
     if(guardAge>=0&&guardAge<=TUNING.guardPerfect){
       attacker.sta=Math.max(0,attacker.sta-TUNING.parryCost);
