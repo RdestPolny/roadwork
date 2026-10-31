@@ -380,28 +380,37 @@ function autumnTree(t){
   contact(i-.28,j-.28,i+.28,j+.28,0,.58);
   const trunk=['#29241e','#4b4032','#77664c'];
   withRamps(trunk,trunk,r=>{
-    for(const [di,dj] of [[-.32,.05],[.25,.16],[.08,-.3]]) rod([i+di,j+dj,.1],[i,j,3],2.4,3.4,r);
-    rod([i,j,0],[i+.02,j,12],6,4.8,r);
-    rod([i+.02,j,12],[i+.06,j,23],4.8,2.7,r);
-    const branches=[[-1.25,-.2,31],[1.32,.2,32],[-.5,1,34],[.35,-.9,35],[-1.45,.6,28],[1.2,-.8,29],[-.3,.15,36]];
-    branches.forEach(([di,dj,z],k)=>{
-      const base=[i+.04,j,15+(k%3)*1.4], mid=[i+di*.52+wind*.35,j+dj*.52,22+(k%3)], end=[i+di+wind,j+dj,z];
-      rod(base,mid,2.7,1.55,r); rod(mid,end,1.6,.45,r);
-      rod(mid,[i+di*.8+wind*.8,j+dj+.28,z-1.4],1,.25,r);
+    // A continuous tapering trunk with an irregular leader and spreading roots.
+    for(const [di,dj] of [[-.38,.05],[.32,.16],[.08,-.35]]) rod([i+di,j+dj,.1],[i,j,2.8],1.5,3.1,r);
+    rod([i,j,0],[i+.03,j,11],5.2,4.3,r);
+    rod([i+.03,j,11],[i-.04,j+.03,21],4.3,2.8,r);
+    rod([i-.04,j+.03,21],[i+.05+wind*.3,j+.02,31],2.8,.7,r);
+    // Staggered forks grow from the trunk rather than radiating from one point.
+    const branches=[
+      [-1.30,-.22,27,14], [1.20,.18,29,16], [-.65,.82,31,18],
+      [.65,-.75,33,20], [-1.15,.55,32,21], [1.10,-.50,34,23], [-.35,.05,36,25]
+    ];
+    branches.forEach(([di,dj,z,baseZ],k)=>{
+      const base=[i-.04,j+.02,baseZ], mid=[i+di*.50+wind*.25,j+dj*.5,baseZ+(z-baseZ)*.55], end=[i+di+wind,j+dj,z];
+      rod(base,mid,2.1-(k*.1),1.15,r); rod(mid,end,1.15,.3,r);
+      rod(mid,[i+di*.82+wind*.8,j+dj+(k%2?.18:-.18),z-1],.8,.2,r);
     });
   });
   for(let k=0;k<14;k++){
-    const z=1+(k*1.71)%20, side=(k%3-1)*.085;
-    thin(i+side,j+.12,z,i+side+.025,j+.12,z+1.3+(k%3)*.4,rgb(k%2?'#30291f':'#897357'));
+    const z=1+(k*1.71)%20, side=(k%3-1)*.075;
+    thin(i+side,j+.12,z,i+side+.02,j+.12,z+1.3+(k%3)*.4,rgb(k%2?'#30291f':'#897357'));
   }
-  const clusters=[[-1.1,-.2,30,11,7],[1.05,.2,31,12,8],[-.45,.75,33,11,8],[.35,-.65,34,12,8],[-1.15,.5,27,9,6],[1.05,-.5,28,10,7],[-.1,.1,36,9,6]];
+  // Overlapping, uneven masses leave small gaps for the branches and sky.
+  const clusters=[[-1.18,-.20,27,8,5],[1.08,.18,29,9,6],[-.65,.72,31,9,6],
+    [.60,-.68,32,9,6],[-1.02,.48,32,8,6],[1.02,-.42,34,8,6],[-.35,.03,35,9,6],
+    [.05,.15,30,9,6],[-.42,-.15,28,8,5],[.38,.25,36,7,5]];
   for(let c=0;c<clusters.length;c++){
-    const [di,dj,z,rx,ry]=clusters[c], sway=wind*(.7+c*.05)+Math.sin(t*.024+c*1.7)*.025, cx=isoX(i+di+sway,j+dj),cy=isoY(i+di+sway,j+dj,z);
-    for(let k=0;k<105;k++){
+    const [di,dj,z,rx,ry]=clusters[c], sway=wind*(.7+c*.025)+Math.sin(t*.024+c*1.7)*.015, cx=isoX(i+di+sway,j+dj),cy=isoY(i+di+sway,j+dj,z);
+    for(let k=0;k<85;k++){
       const seed=k+c*131, angle=h2(seed,43)/255*Math.PI*2, radius=Math.sqrt(h2(seed,47)/255);
       const x=Math.round(cx+Math.cos(angle)*radius*rx),y=Math.round(cy+Math.sin(angle)*radius*ry);
-      const col=shadeC(leaves[h2(seed,53)%leaves.length],.68+.26*(1-radius)+.08*Math.max(0,-Math.sin(angle)));
-      line(x,y,x+1+(k%3===0?1:0),y,col,col);
+      const col=shadeC(leaves[h2(seed,53)%leaves.length],.66+.22*(1-radius)+.13*Math.max(0,-Math.sin(angle)));
+      line(x,y,x+1+(k%4===0?1:0),y,col,col);
     }
   }
   for(let k=0;k<3;k++){
