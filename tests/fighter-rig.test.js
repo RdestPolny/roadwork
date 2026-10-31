@@ -8,6 +8,8 @@ const near=(a,b,eps=1e-5)=>assert.ok(Math.abs(a-b)<eps,`expected ${a} ≈ ${b}`)
 const feet=()=>({1:[1.5,1.7,.9],'-1':[-1.3,-1.7,.9]});
 
 test('anatomical sockets keep a mirrored, constant-width pelvis and shoulder girdle at every yaw',()=>{
+  const ratio=RIG.shoulderHalf/RIG.hipHalf;
+  assert.ok(ratio>1.6&&ratio<1.95,`implausible shoulder/hip joint span ratio: ${ratio}`);
   const pelvis=[0,0,5.6],chest=[.4,0,11.15];
   for(const yaw of [-1.35,-1,-.6,0,.6,1,1.35]){
     const hipL=hipSocket(pelvis,-1,yaw),hipR=hipSocket(pelvis,1,yaw);
