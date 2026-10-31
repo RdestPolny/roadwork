@@ -288,10 +288,11 @@ export function figureHD(C,J,L,o={}){
   const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   for(let s=-1;s<=1;s+=2){
     const k=s===nearS?0:1, A=J(s), SK=L.sk[k], PT=L.pt[k], TP=L.top[k], wr=mix(A.el,A.hd,0.8), toe=[A.foot[0]+0.85,A.foot[1],A.foot[2]-0.25];
+    const heelLift=Math.max(0,Math.min(0.34,A.heelLift||0)); // heel pivots up while the planted toe and ankle stay grounded
     if(o.only==='hands'){ if(!o.side||o.side===s){ ipAdd(...A.el,0.88, ...wr,0.76, L.rolledSleeves?SK:TP); ipAdd(...wr,0.62, ...A.hd,0.7, SK); } continue; }   // forearm and hand only (of one side), over a prop
     if(L.waist) ipAdd(...A.hip,1.3, ...A.knee,1.08, PT,L.waist,0.5,0.5,L.waist); else ipAdd(...A.hip,1.3*(bulk?.thighs||1), ...A.knee,1.08*(bulk?.thighs||1), PT);   /* thigh (the towel over its top half) */
     ipAdd(...A.knee,1.02*(bulk?.calves||1), ...A.foot,0.84*(bulk?.calves||1), PT);                                                                   // shin
-    ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15,0.92, ...toe,0.74, L.shoe);                                   // prison shoe
+    ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15+heelLift,0.92, ...toe,0.74, L.shoe);                                   // prison shoe
     ipAdd(...A.sh,1.1*(bulk?.arms||1), ...A.el,0.9*(bulk?.arms||1), TP); ipAdd(...A.el,0.88*(bulk?.forearms||1), ...wr,0.76*(bulk?.forearms||1), L.rolledSleeves?SK:TP);
     ipAdd(...wr,0.62, ...A.hd,0.7, SK);                                                                          // hand
     ipAdd(A.hip[0],A.hip[1],A.hip[2]+0.3,1.35*(bulk?.thighs||1), A.hip[0],A.hip[1]*0.4,A.hip[2]+0.4,1.4*(bulk?.thighs||1), L.waist||PT);            // seat of the trousers
