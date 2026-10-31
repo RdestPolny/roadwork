@@ -5,6 +5,7 @@ import { gateOptions, listTag, prisonFightStart, prisonFightExtras } from './pri
 import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, roomFrame, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
 import { drawHDCharacterDetails } from './hd-fight-scene.js';
 import {HEAD_SCALE, FIGURE_PART_CAPACITY, figureProportions} from './figure-anatomy.js';
+import {RIG} from './fighter-rig.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
 import { lightCell, drawCellLights, cellLights } from './cell-light.js';
@@ -461,8 +462,8 @@ export function heroFigureLook(){
   for(let s=-1;s<=1;s+=2){
     const near=s===nearS, sw=mv?Math.sin(ph+(s<0?0:Math.PI)):0, lift=mv?Math.max(0,Math.cos(ph+(s<0?0:Math.PI)))*1.3:0, fF=2.3*sw;
     const SK=near?appearanceState.R_SKIN:appearanceState.R_SKINF, TR=near?appearanceState.R_TRUNK:appearanceState.R_TRUNKF, TT=near?appearanceState.R_TT:appearanceState.R_TTF, PT=near?appearanceState.R_HPT:appearanceState.R_HPTF, SH=near?appearanceState.R_HSH:appearanceState.R_HSHF;
-    if(HD) jt[s]=state.ipPose===2&&state.hubRoom==='cell'?{hip:[0.3,s*1.2,7.2],knee:[2.6,s*1.3,7.4],foot:[2.8,s*1.45,2.2]}:state.ipPose===2&&state.hubRoom==='laznia'?   /* on the edge of the guard-bed: knees forward, feet down */
-      {hip:[0.3,s*1.2,5.9],knee:[2.6,s*1.3,6.6],foot:[4.4,s*1.35,5.9]}:{hip:[0,s*1.2,7.2+bob],knee:[fF*0.5+0.7,s*1.3,3.8+lift*0.6],foot:[fF,s*1.4,0.9+lift]};   /* in a tub: legs out in the water */
+    if(HD) jt[s]=state.ipPose===2&&state.hubRoom==='cell'?{hip:[0.3,s*RIG.hipHalf,7.2],knee:[2.6,s*1.3,7.4],foot:[2.8,s*1.45,2.2]}:state.ipPose===2&&state.hubRoom==='laznia'?   /* on the edge of the guard-bed: knees forward, feet down */
+      {hip:[0.3,s*RIG.hipHalf,5.9],knee:[2.6,s*1.3,6.6],foot:[4.4,s*1.35,5.9]}:{hip:[0,s*RIG.hipHalf,7.2+bob],knee:[fF*0.5+0.7,s*1.3,3.8+lift*0.6],foot:[fF,s*1.4,0.9+lift]};   /* in a tub: legs out in the water */
     if(state.ipPose!==2&&!HD){                              // sitting: the legs are hidden by the sofa
       if(dressed){
         ipAdd(0,s*1.2,7.2+bob,1.45, fF*0.5+0.7,s*1.3,3.8+lift*0.6,1.2, PT);
@@ -481,7 +482,7 @@ export function heroFigureLook(){
     if(state.ipPose===3&&s===1&&(boxingState.tick%80)<36){ ex=1.3; ez=10.6; es=3.0; hx=2.3; hz=14.2; hs=1.5; }   // eating: hand to the mouth
     if(state.ipPose===2){ ex=0.9; ez=9.8; hx=2.2; hz=8.6; }                                           // sitting: hands on the thighs
     const longS=dressed&&PRISON_LOOK.includes(state.hubRoom);
-    if(HD){ Object.assign(jt[s],{sh:[0.1,s*2.7,12.4+bob],el:[ex,s*es,ez],hd:[hx,s*hs,hz]}); if(carryingTray()) Object.assign(jt[s],{el:[1.2,s*2.9,9.6+bob],hd:[2.4,s*2.5,10.3+bob]}); continue; }   /* both hands on the tray */
+    if(HD){ Object.assign(jt[s],{sh:[0.1,s*RIG.shoulderHalf,12.4+bob],el:[ex,s*es,ez],hd:[hx,s*hs,hz]}); if(carryingTray()) Object.assign(jt[s],{el:[1.2,s*2.9,9.6+bob],hd:[2.4,s*2.5,10.3+bob]}); continue; }   /* both hands on the tray */
     if(dressed) ipAdd(0.1,s*2.7,12.4+bob,1.25, ex,s*es,ez,1.05, longS?SH:SK,SH,0.62);    // short sleeve (long in the cell)
     else ipAdd(0.1,s*2.7,12.4+bob,1.15, ex,s*es,ez,1.0, SK);
     ipAdd(ex,s*es,ez,1.0, hx,s*hs,hz,0.9, longS?SH:SK);
