@@ -14,6 +14,7 @@ import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTrans
 import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometricFrame } from './renderer.js';
 import { mix } from './cast.js';
 import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
+import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets} from './combat-anatomy.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -60,28 +61,18 @@ const ARCH=/** @type {Record<string,{idealGap:number,minGap:number,weights:numbe
 
 /** How each punch drives the body at contact, in body units and radians: the shoulders' and the hips' turn that brings the punching side
  *  forward, the forward lean, the drop of the hips (negative: the legs drive up), the chest's lean towards the punching side, the head's
- *  move off the line [forward, towards the punching side], the punching shoulder's rise over the chin, the punching side's heel coming up,
- *  the fist's target [forward, side (towards the punching side), height] and where the elbow points [forward, out, up]. */
+ *  move off the line [forward, towards the punching side], the punching shoulder's rise over the chin and the heel's visual pivot.
+ *  Reachable fist targets and elbow poles are derived from the live shoulder in combat-anatomy.js. */
 const DRIVE=[
-  {yaw:0.42,hip:0.12,lean:0.3, drop:0.25,tilt:0,   head:[0.2,0.45], rise:0.55,heel:0,   fist:[7.6,0.35,14.0],pole:[0,0.5,-1]},      // jab: a snap from the shoulder, the chin behind it
-  {yaw:0.95,hip:0.55,lean:0.7, drop:0.45,tilt:0,   head:[0.7,-0.7], rise:0.55,heel:0.55,fist:[8.6,-0.05,14.0],pole:[0,0.5,-1]},     // cross: the rear hip and shoulder turn through, the weight over the front knee
-  {yaw:1.05,hip:0.5, lean:0.2, drop:0.55,tilt:-0.4,head:[0.2,-0.3], rise:0.1, heel:0.35,fist:[6.0,-0.5,14.2],pole:[0.2,0.85,0.3]},   // hook: the elbow up level with the fist, the whole trunk swings it
-  {yaw:0.65,hip:0.45,lean:0.1, drop:-0.3,tilt:0.5, head:[0.1,-0.2], rise:-0.2,heel:0.45,fist:[4.4,0.5,15.4],pole:[0.4,0.25,-1]}];   // uppercut: sit into the legs, then drive up under the chin
+  {yaw:0.42,hip:0.12,lean:0.3, drop:0.25,tilt:0,   head:[0.2,0.45], rise:0.55,heel:0},      // jab: a snap from the shoulder, the chin behind it
+  {yaw:0.95,hip:0.55,lean:0.7, drop:0.45,tilt:0,   head:[0.7,-0.7], rise:0.55,heel:0.55},     // cross: the rear hip and shoulder turn through, the weight over the front knee
+  {yaw:1.05,hip:0.5, lean:0.2, drop:0.25,tilt:-0.4,head:[0.2,-0.3], rise:0.90, heel:0.35},   // hook: the elbow up level with the fist, the whole trunk swings it
+  {yaw:0.65,hip:0.45,lean:0.1, drop:-0.3,tilt:0.5, head:[0.1,-0.2], rise:-0.2,heel:0.45}];   // uppercut: sit into the legs, then drive up under the chin
 /** Upper arm and forearm (to the middle of the fist), thigh and shin: the bones keep their length in every pose. */
-const ARM_U=3.0, ARM_L=3.75, LEG_U=3.2, LEG_L=3.2;
+const ARM_U=ARM_UPPER, ARM_L=ARM_FORE, LEG_U=3.2, LEG_L=3.2;
 
 const lerp3=(/** @type {number[]} */ a,/** @type {number[]} */ b,/** @type {number} */ k)=>[a[0]+(b[0]-a[0])*k,a[1]+(b[1]-a[1])*k,a[2]+(b[2]-a[2])*k];
 const smooth=(/** @type {number} */ k)=>k*k*(3-2*k);
-
-/** A two-bone limb from root r towards tip t with bones a and b, bent towards the pole point; a tip out of reach is pulled in along the line.
- * @param {number[]} r @param {number[]} t @param {number} a @param {number} b @param {number[]} pole @returns {[number[],number[]]} the middle joint and the tip */
-function limb(r,t,a,b,pole){
-  const dx=t[0]-r[0], dy=t[1]-r[1], dz=t[2]-r[2], d=Math.hypot(dx,dy,dz)||1e-6, ux=dx/d, uy=dy/d, uz=dz/d;
-  const L=Math.max(Math.abs(a-b)+0.05,Math.min(d,(a+b)*0.995)), x=(a*a-b*b+L*L)/(2*L), h=Math.sqrt(Math.max(0,a*a-x*x));
-  let px=pole[0]-r[0], py=pole[1]-r[1], pz=pole[2]-r[2]; const pd=px*ux+py*uy+pz*uz; px-=pd*ux; py-=pd*uy; pz-=pd*uz;
-  let pl=Math.hypot(px,py,pz); if(pl<1e-4){ px=uz*ux; py=uz*uy; pz=uz*uz-1; pl=Math.hypot(px,py,pz)||1; }   // no pole off the line: bend downwards
-  return [[r[0]+ux*x+px/pl*h,r[1]+uy*x+py/pl*h,r[2]+uz*x+pz/pl*h],[r[0]+ux*L,r[1]+uy*L,r[2]+uz*L]];
-}
 
 /** Progress of the striking motion, with acceleration into contact. @param {number} k */
 export const punchSnap=(k)=>k*k;
@@ -840,7 +831,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     arm=striking?e:e*e;   // the fist snaps back ahead of the body
     if(!striking&&k>0.6) follow=Math.sin(Math.PI*(1-k)/0.4);   // the trunk carries on turning a moment past the contact
     if((hook||upper)&&striking) wind=Math.sin(Math.PI*k);   // the load before the power punches
-    lean+=(D?.lean??0)*e; bob-=(D?.drop??0)*e+(upper?0.9:hook?0.2:0)*wind; lung=LUNGE[pk.pid]*e; if(pk.low) bob-=2.2*e; }
+    lean+=(D?.lean??0)*e; bob-=(D?.drop??0)*e+(upper?0.9:hook?0.2:0)*wind; lung=LUNGE[pk.pid]*e; if(pk.low) bob-=0.80*e; // bend at knees, not collapse into the shoes }
   const ps=pk?(pk.hand??(F.leadSide===-1?[-1,1,1,1][pk.pid]:HAND[pk.pid])):0;
   const su=(t-F.slipSince)/TUNING.slipActive;
   if(su>=0&&su<=1){ const w=Math.sin(Math.PI*su);   // the body of the evade: a dash in or back leans and drops, a step aside sways
@@ -849,7 +840,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     else { sl+=2.8*F.slipDir*w; lean+=0.6*F.evFwd*w; bob-=1.1*w; } }
   if(clinch){ lean+=1.1; bob-=0.5; }
   const body=F.hurtLow?bodyHitMotion(F.hurtT,F.hurtDuration,F.hurtPower,F.hurtBlocked):{fold:0,knees:0,cover:0};
-  const fold=body.fold, absorb=body.knees, cover=body.cover, hitSide=F.hurtSide||0;
+  const fold=Math.min(1.15,body.fold), absorb=body.knees, cover=body.cover, hitSide=F.hurtSide||0;
   // Unlike a head shot, a gut punch first tucks the abdomen backwards while the
   // ribs fold over it; the planted knees then take the load. No whole-body hinge.
   lean+=0.10*fold; bob-=0.54*absorb;
@@ -866,8 +857,8 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const cS=Math.cos(shY), sS=Math.sin(shY), cH=Math.cos(hpY), sH=Math.sin(hpY), tilt=D?D.tilt*e+(upper?-0.6*wind:0):0;
   for(let s=-1;s<=1;s+=2){
     const lead=s===F.leadSide, fj=footJoint(F,s), ws=-s*0.45*(s===1?sw1:sw2), punching=!!D&&s===ps;
-    const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd,fj.side,0.9+fj.lift+(punching?D.heel*e:0)]; // Keep planted shoes fixed even during a lunge.
-    const [knee,toe]=limb(hip,foot,LEG_U,LEG_L,[(hip[0]+foot[0])/2+1.5+Math.abs(bodySide)*0.7,(hip[1]+foot[1])/2+s*0.35,(hip[2]+foot[2])/2]);
+    const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd,fj.side,0.9+fj.lift]; // Keep the planted ankle on the floor; heel pivot is only a shoe detail.
+    const [knee,toe]=solveLimb(hip,foot,LEG_U,LEG_L,[(hip[0]+foot[0])/2+1.5+Math.abs(bodySide)*0.7,(hip[1]+foot[1])/2+s*0.35,(hip[2]+foot[2])/2]);
     const sh=[0.1+lean+lung+1.28*fold-s*2.7*sS,s*2.7*cS+sl+bodySide*1.3+hitSide*fold*0.38,12.4+bob-0.58*fold+s*walkRot*0.3+(hook?0:s*bodySide*0.6)+(D?(punching?D.rise:-0.3*D.rise)*e+s*ps*tilt*0.5:0)];
     const armSw=-s*stride*0.45+F.lagF*0.35, ma=t*5.5+F.seed+(s>0?0:Math.PI);
     let el=[1.0+lean+lung+fold+armSw*0.5+s*walkRot*0.4,s*2.6+sl+F.lagS*0.2+bodySide*1.3,10.9+bob-0.25*fold-0.2*Math.abs(armSw)];
@@ -876,18 +867,18 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     if(F.gUp>0.02){ el=lerp3(el,[1.5+lean,s*2.0+sl+bodySide*1.3,10.4+bob],F.gUp); hd=lerp3(hd,[3.1+lean,s*0.9+sl+bodySide*1.3,15.1+bob],F.gUp); }
     if(breathing){ el=[1.75+lean,s*3.3+sl,7.0+bob]; hd=[2.7+lean,s*2.9+sl,5.8+bob]; }
     if(loading){ el=[-0.2+lean,s*3.7+sl,9.4+bob]; hd=[-0.4+lean,s*3.7+sl,11.2+bob]; }
-    if(punching){ const dz=pk.low?-4.2:0;
-      if(hook){ hd[0]-=0.4*wind; hd[1]+=s*0.9*wind; hd[2]-=0.3*wind; }   // the hook opens a little while the elbow comes up
-      if(upper){ hd[0]-=0.8*wind; hd[1]+=s*0.6*wind; hd[2]-=3.2*wind; }   // the uppercut drops to the hip first
-      hd=lerp3(hd,[D.fist[0]+lean+lung,s*D.fist[1]+sl+bodySide*1.3,D.fist[2]+bob+dz],arm);
-      el=lerp3(el,[sh[0]+D.pole[0]*3,sh[1]+s*D.pole[1]*3,sh[2]+D.pole[2]*3],arm); }   // the elbow finds its line as the fist goes out
+    if(punching){
+      // Anatomically reachable fist arc and stable elbow throughout the strike.
+      const target=strikeArmTargets(pk.pid,s,sh,hd,el,arm,wind,pk.low);
+      hd=target.hand; el=target.pole;
+    }
     if(cover>0.01&&!punching){ // involuntary elbows-to-ribs reflex, slightly behind the abdominal contraction
       const k=Math.min(0.82,cover*0.74);
       el=lerp3(el,[sh[0]+0.5,s*2.0+sl,9.9+bob],k);
       hd=lerp3(hd,[sh[0]+1.9,s*1.05+sl,10.2+bob],k);
     }
-    const [elbow,fist]=limb(sh,hd,ARM_U,ARM_L,el);
-    J[s]={hip,knee,foot:toe,sh,el:elbow,hd:fist};
+    const [elbow,fist]=solveLimb(sh,hd,ARM_U,ARM_L,el);
+    J[s]={hip,knee,foot:toe,sh,el:elbow,hd:fist,heelLift:punching?Math.min(0.34,D.heel*e*0.45):0};
   }
   const jf=(/** @type {number} */ s)=>J[s];
   jf.pel=[lung*0.5-F.lagF*0.2,sl*0.5-F.lagS*0.2,6.6+bob];
