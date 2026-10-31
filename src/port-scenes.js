@@ -371,28 +371,65 @@ export function portLifeProps(t){
   add(BOTTLE_SPOT[0],BOTTLE_SPOT[1],()=>standingBottle(BOTTLE_SPOT));
   const bk=L.bucket;
   add(bk.i,bk.j,()=>{
-    cyl(bk.i,bk.j,bk.r,DECK_Z,DECK_Z+bk.h,(z,s)=>shadeC(C.woodDark,roundLit(s)),(s,v)=>{
-      const r2=s*s+v*v;
-      if(r2>.72) return shadeC(C.woodDark,1.15);
+    const wood=rgb('#78523a'), grain=rgb('#4c3126'), iron=rgb('#343b3b');
+    const water=rgb('#294a4c'), waterHi=rgb('#6eaaa5');
+    const rimZ=DECK_Z+bk.h;
+    contact(bk.i-bk.r,bk.j-bk.r,bk.i+bk.r,bk.j+bk.r,DECK_Z,.68);
+    // A broad, open, iron-bound wooden pail, not a solid dark miniature
+    // cylinder. The interior water is inset behind a legible wooden lip.
+    cyl(bk.i,bk.j,bk.r,DECK_Z,rimZ,(z,side)=>{
+      const h=(z-DECK_Z)/bk.h;
+      if(Math.abs(h-.16)<.064||Math.abs(h-.82)<.057)
+        return shadeC(iron,roundLit(side)*.98);
+      const grainLine=Math.abs(((side+1)*5.3)%1-.5)<.055;
+      return shadeC(grainLine?grain:wood,roundLit(side)*(.91+.08*h));
+    },(side,v)=>{
+      const r=Math.hypot(side,v);
+      if(r>.91) return shadeC(iron,1.15);
+      if(r>.78) return shadeC(wood,1.13-.2*v);
+      if(r>.70) return shadeC(grain,.84);
       if(bk.splash>=0){
-        const rad1=(bk.splash/25)*.7;
-        if(Math.abs(Math.sqrt(r2)-rad1)<.09) return shadeC(C.waterHi,1.5);
+        const rad=(bk.splash/25)*.70;
+        if(Math.abs(r-rad)<.11) return waterHi;
       }
-      if(bk.flop>0){
-        if(Math.abs(Math.sqrt(r2)-bk.flop*.6)<.08) return shadeC(C.waterHi,1.2);
-      }
-      if(bk.count>=1&&s>-.28&&s<.28&&Math.abs(v)<.18) return rgb('#788c83');
-      if(bk.count>=2&&s>-.55&&s<-.1&&v>.08&&v<.38) return rgb('#6b7f76');
-      if(bk.count>=3&&s>.1&&s<.55&&v>-.35&&v<-.05) return rgb('#889d94');
-      if((Math.abs(s+.12)<.06&&Math.abs(v+.2)<.06)||(Math.abs(s-.22)<.06&&Math.abs(v-.18)<.06)) return rgb('#d8ece7');
-      return shadeC(rgb('#1c2b28'),.85+.25*v);
+      if(bk.flop>0&&Math.abs(r-bk.flop*.52)<.08) return shadeC(waterHi,1.06);
+      return shadeC(water,1.05-.14*v);
     });
+    // Two visible silver fish (a third appears after the fisherman catches
+    // one). Body, belly and tail all remain entirely inside the pail.
+    const fish=[
+      {x:-.115,y:-.065,dx:.19,dy:.015},
+      {x:-.09,y:.105,dx:.20,dy:-.035},
+      {x:-.035,y:-.005,dx:.19,dy:.092}
+    ];
+    const silver=rgb('#b5c5b8'), back=rgb('#57726b'), glint=rgb('#e2e8d7');
+    for(let n=0;n<bk.count;n++){
+      const q=fish[n], z=rimZ+.035;
+      const a=[bk.i+q.x,bk.j+q.y,z], b=[a[0]+q.dx,a[1]+q.dy,z];
+      stroke(...a,...b,silver);
+      thin(a[0],a[1],z+.06,b[0],b[1],z+.06,back);
+      thin(b[0],b[1],z,b[0]+.035,b[1]-.035,z,glint);
+      thin(a[0],a[1],z,a[0]-.045,a[1]+.035,z,back);
+    }
+    // Curved iron bail fixed to opposite sides; it rises above the rim.
+    const pL=[bk.i-bk.r*.83,bk.j,rimZ-.14],pR=[bk.i+bk.r*.83,bk.j,rimZ-.14];
+    const hL=[bk.i-bk.r*.72,bk.j,rimZ+.60],hM=[bk.i,bk.j,rimZ+.9],hR=[bk.i+bk.r*.72,bk.j,rimZ+.60];
+    thin(...pL,...hL,iron);
+    thin(...hL,...hM,rgb('#798381'));
+    thin(...hM,...hR,rgb('#798381'));
+    thin(...hR,...pR,iron);
+    // Paw tip on the water: keep its light sock visible above the water
+    // even though the bucket is depth-sorted in front of the cat.
+    if(L.cat.state==='STEAL'&&L.cat.reach>.4){
+      const paw=[bk.i-.055,bk.j-.035,rimZ+.055];
+      thin(...paw,paw[0]-.055,paw[1]-.035,paw[2],rgb('#eee8d8'));
+    }
     if(bk.splash>=0&&bk.splash<=24){
       const tau=bk.splash;
       for(let k=0;k<5;k++){
         const ang=k*1.25+.3, spd=.012+(k%3)*.005;
         const dx=Math.cos(ang)*spd*tau, dy=Math.sin(ang)*spd*tau, dz=.35*tau-.018*tau*tau;
-        if(dz>0) thin(bk.i+dx,bk.j+dy,DECK_Z+bk.h+dz,bk.i+dx*1.1,bk.j+dy*1.1,DECK_Z+bk.h+dz+.2,C.waterHi);
+        if(dz>0) thin(bk.i+dx,bk.j+dy,rimZ+dz,bk.i+dx*1.1,bk.j+dy*1.1,rimZ+dz+.2,C.waterHi);
       }
     }
   });
