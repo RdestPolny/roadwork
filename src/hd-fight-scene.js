@@ -6,6 +6,7 @@ import { state as appearanceState, rgb } from './appearance.js';
 import { state as rendererState, line, pset } from './renderer.js';
 import { state as gymState, bodyPt, isoX, isoY } from './gym.js';
 import { state as boxingState } from './boxing.js';
+import {headDetailPoint} from './figure-anatomy.js';
 
 const sand=[rgb('#a78a5e'),rgb('#b59a6c'),rgb('#c2a777'),rgb('#ccb484'),rgb('#d6be8d')];
 const dark=rgb('#826c50'), rim=rgb('#927852'), sky=rgb('#5b5850'), skyLight=rgb('#817765');
@@ -73,18 +74,18 @@ export function drawHDCharacterDetails(F,J,L){
     }
     // Readable nose ridge, cheekbone, eyebrow, temple and jaw from the same head joint.
     if(L.style!=='hood'){
-    dot([head[0]+1.95,head[1]-0.25,head[2]-0.8],skinH);
-    dot([head[0]+1.75,head[1]+0.65,head[2]-0.95],skinH);
-    seam([head[0]+1.55,head[1]+0.28,head[2]-1.6],[head[0]+1.25,head[1]+0.6,head[2]-2.1],skinD);
-    seam([head[0]+1.45,head[1]+0.35,head[2]-0.1],[head[0]+1.65,head[1]+0.95,head[2]-0.05],hairD);
+    dot(headDetailPoint(head,+1.95,-0.25,-0.8),skinH);
+    dot(headDetailPoint(head,+1.75,+0.65,-0.95),skinH);
+    seam(headDetailPoint(head,+1.55,+0.28,-1.6),headDetailPoint(head,+1.25,+0.6,-2.1),skinD);
+    seam(headDetailPoint(head,+1.45,+0.35,-0.1),headDetailPoint(head,+1.65,+0.95,-0.05),hairD);
     if(L.style==='fringe'){
-      for(let s=-1;s<=1;s++) seam([head[0]+0.25,head[1]+s*0.65,head[2]+1.1],[head[0]+1.35,head[1]+s*0.75,head[2]+0.55],s===0?hairD:hairH);
+      for(let s=-1;s<=1;s++) seam(headDetailPoint(head,+0.25,+s*0.65,+1.1),headDetailPoint(head,+1.35,+s*0.75,+0.55),s===0?hairD:hairH);
     } else if(L.style==='bald'){
-      dot([head[0]-1.05,head[1]+0.65,head[2]+0.7],hairH);
-      dot([head[0]+0.7,head[1]+1.35,head[2]-0.45],skinD);
-      if(L.chops) seam([head[0]+0.85,head[1]+1.36,head[2]-0.5],[head[0]+0.95,head[1]+1.21,head[2]-1.65],hairD);
+      dot(headDetailPoint(head,-1.05,+0.65,+0.7),hairH);
+      dot(headDetailPoint(head,+0.7,+1.35,-0.45),skinD);
+      if(L.chops) seam(headDetailPoint(head,+0.85,+1.36,-0.5),headDetailPoint(head,+0.95,+1.21,-1.65),hairD);
     }
-    if(L.stubble) for(let i=0;i<3;i++) dot([head[0]+1.25-i*0.17,head[1]+0.72,head[2]-1.38-i*0.22],hairD);
+    if(L.stubble) for(let i=0;i<3;i++) dot(headDetailPoint(head,+1.25-i*0.17,+0.72,-1.38-i*0.22),hairD);
     }
     if(!L.bare&&L.scarf!==undefined){
       seam([chest[0]+1.85,chest[1]-0.45,chest[2]+0.35],[chest[0]+2.1,chest[1]+0.4,chest[2]+0.2],L.scarf);
