@@ -183,13 +183,13 @@ export async function checkIsoFight(page){
       I.startIsoFight(0,'port'); b.step(60); S.O.aiAt=Infinity; near(1.0); S.O.rt.hp=1; key('Digit2'); b.step(170);
       out.portFraming=(await import('/src/knockdown-comic.js')).state.framing.map(f=>!!f&&Math.abs(f.dx)<0.25&&Math.abs(f.dy)<0.25);
       // a knockout closes the fight into the ordinary result card and the record
-      // the player's knockout stops the time on the finisher page: three free blows, each a panel, then the fall is replayed
+      // the blow that takes the last health stuns the rival on his feet; four free blows drop him and the comic replays it all
       fresh(); near(1.0); S.O.kdN=2; S.O.rt.hp=1; const before=P.state.save.record.bare.w; key('Digit1'); b.step(30);
-      const Comic=(await import('/src/knockdown-comic.js')).state;
-      out.finisher=[S.phase,S.fin?.stage,S.O.ko,Comic.shots.length];
-      for(const c of ['Digit3','Digit4','Digit2','Digit1']){ key(c); b.step(30); }
-      out.finisherShots=[S.fin.shots,Comic.shots.length,S.P.c.finisher,S.O.ko];
-      b.step(60); out.finisherReplay=[S.fin.stage,S.O.ko,S.tape.length>S.fin.ref+3*12];
+      out.finisher=[S.phase,S.fin?.stage,S.O.finStun,S.O.ko];
+      for(const c of ['Digit3','Digit4','Digit2','Digit1']){ near(1.0); key(c); b.step(34); }
+      out.finisherShots=[S.fin.hits.length,S.P.c.finisher,S.O.ko,S.fin.stage];
+      b.step(90); const Comic=(await import('/src/knockdown-comic.js')).state;
+      out.finisherComic=[S.phase,S.fin.stage,Comic.clips.length,Comic.clips.at(-1).fall];
       key('Space'); b.step(1); out.ko=[S.phase,S.how,S.winner===S.P]; b.step(260);
       out.result=[S.phase,document.getElementById('over').hidden,P.state.save.record.bare.w-before];
       key('Escape'); out.back=[b.gstate,b.room];
@@ -248,10 +248,10 @@ export async function checkIsoFight(page){
    assert.equal(r.wardComic3x,true,'the Ward knockdown comic uses proportionally scaled 432x288 panels');
   assert.deepEqual(r.comicMash,[true,true,12],'every tap during the comic counts towards rising');
   assert.deepEqual(r.portFraming,[true,true,true],'every port panel frames the fighters near its middle');
-  assert.deepEqual(r.finisher,['finisher','page',false,1],'a knockout blow stops the time on the first comic panel, the rival still standing');
-  assert.deepEqual(r.finisherShots,[3,4,3,true],'up to three free blows, each a panel; a fourth is ignored and the page ends after the last');
-  assert.deepEqual(r.finisherReplay,['replay',true,true],'the rival falls and the whole tape is replayed');
-  assert.deepEqual(r.ko,['ko','TKO',true],'skipping the replay ends the fight as the third knockdown');
+  assert.deepEqual(r.finisher,['fight','stun',true,false],'the knockout blow leaves the rival stunned on his feet, the fight live');
+  assert.deepEqual(r.finisherShots,[5,4,true,'fall'],'four free blows land on the stunned rival and the last one drops him');
+  assert.deepEqual(r.finisherComic,['finisher','comic',6,true],'the comic replays the knockout blow, the four free blows and the fall');
+  assert.deepEqual(r.ko,['ko','TKO',true],'skipping the comic ends the fight as the third knockdown');
   assert.deepEqual(r.result,['end',false,1],'the result card is up and the win is in the record');
   assert.deepEqual(r.back,['hub','cell'],'Esc returns to the Ward');
 }

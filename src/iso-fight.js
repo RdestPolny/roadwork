@@ -32,7 +32,7 @@ import { doneToday, takeFightTrial } from './training-session.js';
 import { prisonFightEnd, countFight, showFightPlate, hideFightPlate } from './prison.js';
 import { hungerLevel, tiredness } from './simulation.js';
 import { lastingSpec } from './card-data.js';
-import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, drawKnockdownComic, knockdownComicOnScreen, startFinisherComic, addFinisherShot, drawFinisherComic, drawFinisherReplay } from './knockdown-comic.js';
+import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, drawKnockdownComic, knockdownComicOnScreen, startFinisherMontage, finisherMontageLength, drawFinisherMontage } from './knockdown-comic.js';
 
 // Runtime values owned by iso-fight; the fight is reset by startIsoFight().
 export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
@@ -274,7 +274,7 @@ const CLINCH_MAX=3;
 /** Take hold at close range (a tired rival may hang on the player too); a held Space remains the normal guard. @param {boolean} [byRival] */
 function startClinch(byRival=false){
   const S=state, P=S.P, O=S.O;
-  if(!S.on||S.phase!=='fight'||busy(P)||busy(O)||toward(P,O)[2]>1.25) return false;
+  if(!S.on||S.phase!=='fight'||busy(P)||busy(O)||O.finStun||toward(P,O)[2]>1.25) return false;
   if(P.rt.guarding) setGuard(P.rt,false,S.t);
   if(O.rt.guarding) setGuard(O.rt,false,S.t);
   P.buf=O.buf=null; O.combo=[]; S.clinch=true; S.clinchAt=S.t; S.guardHeld=false;
@@ -489,6 +489,7 @@ function impact(A,D){
     else if(A===S.P) say('Poza zasięgiem');
     return;
   }
+  if(D.finStun){ finisherHit(A,D,pid,low); return; }
   const k=gap/R;
   let rangeMod=1;
   if(pid<=1){ if(k>=0.76&&k<=0.97) rangeMod=1.15; else if(k<0.64) rangeMod=0.75; }
@@ -566,99 +567,67 @@ function hitFeel(blocked,damage,counter){
   if(counter||damage>=10) S.kick=Math.max(S.kick,counter?0.1:0.06);
 }
 
-/* FINISHER. The player's knockout blow does not drop the rival: time stops on a comic page of that blow, the player lands up to
-   three free blows (each a new panel), the rival falls, and the whole tape (the run-up, the blow, the free blows, the fall) is replayed. */
-/** Free blows, the least time between them, how long the page waits for the next one, how long it holds after the last. */
-const FIN_SHOTS=3, FIN_GAP=0.3, FIN_WAIT=4, FIN_HOLD=0.9;
-/** Ticks of the fall recorded after the last blow, and the hold on the last tick of the replay (seconds). */
-const FIN_FALL=96, FIN_END=0.7, FIN_RUNUP=70;
+/* FINISHER. The blow that takes the rival's last health does not drop him: he stands stunned and sways, the player lands up to
+   FIN_HITS free blows in the live fight (he falls on the last one, or when FIN_WINDOW runs out), and then the comic replays the
+   knockout blow, every free blow and the fall in slow motion, one panel after another. */
+/** Free blows, the seconds the stunned rival stays up, ticks of the fall recorded before the comic. */
+const FIN_HITS=4, FIN_WINDOW=4, FIN_FALL=80;
+/** Seconds the finished comic page holds before the result. */
+const FIN_HOLD=1.2;
 
-/** The player's punch would knock the rival out: stop the time on the page of that blow. @param {any} A @param {any} D @param {string} how */
+/** The player's blow took the rival's last health: he is stunned on his feet. @param {any} A @param {any} D @param {string} how */
 function startFinisher(A,D,how){
-  const S=state;
-  D.pk=null; D.dash=null; D.buf=null; D.combo=[]; D.rt.hp=0; A.buf=null;
+  const S=state, pk=A.pk;
+  D.pk=null; D.dash=null; D.buf=null; D.combo=[]; D.rt.hp=0; D.finStun=true; D.stun=0; D.stagger=0;
   if(D.rt.guarding) setGuard(D.rt,false,S.t);
-  S.clinch=false; S.push=null; S.slowMo=0; S.kdSlow=0; S.banner=null;
+  S.clinch=false; S.push=null;
   S.tape.push(snapshot());
-  const ref=S.tape.length-1, pk=A.pk;
-  S.fin={stage:'page',how,t:0,ref,shots:0,lastShot:0,queue:/** @type {{pid:number,low:boolean}[]} */ ([]),stop:false,skip:false,hits:/** @type {number[]} */ ([ref]),cur:0,from:0,end:0,fall:0,lastPid:pk?.pid??1,lastLow:!!pk?.low};
-  startFinisherComic(S.tape,ref,pk?.pid??1,!!pk?.low,S.venue);
-  S.phase='finisher'; setInfo();
+  S.fin={stage:'stun',how,at:S.t,hits:[{idx:S.tape.length-1,pid:pk?.pid??1,low:!!pk?.low}],fall:0,t:0,skip:false};
+  banner('DOBIJ GO!',appearanceState.C_RED,70); say('Rywal się chwieje - dobij go!');
 }
 
-/** Keys during the finisher: 1-4 (with LMB on the body) a free blow, Space or Enter enough; during the replay any key skips it. @param {string} c */
-function finisherKey(c){
-  const F=state.fin; if(!F) return;
-  if(F.stage==='replay'){ F.skip=true; return; }
-  const pid={Digit1:0,Digit2:1,Digit3:2,Digit4:3,Numpad1:0,Numpad2:1,Numpad3:2,Numpad4:3,KeyJ:0,KeyK:1,KeyL:2,KeyI:3}[c];
-  if(pid!==undefined){ if(F.shots+F.queue.length<FIN_SHOTS) F.queue.push({pid,low:state.low}); }
-  else if(c==='Space'||c==='Enter') F.stop=true;
-}
-
-/** One tick of the stopped time: take the queued blows, then the fall and the replay. */
-function tickFinisher(){
-  const S=state, F=S.fin, rawDt=1/60;
-  if(F.stage==='page'){
-    F.t+=rawDt;
-    if(F.queue.length&&F.t-F.lastShot>=FIN_GAP){ const q=F.queue.shift(); finisherBlow(q.pid,q.low); }
-    const idle=F.t-F.lastShot;
-    if(!F.queue.length&&(F.stop||(F.shots>=FIN_SHOTS&&idle>=FIN_HOLD)||idle>=FIN_WAIT)) finisherFall();
-    return;
-  }
-  if(F.stage==='replay'){
-    const slow=F.hits.some((/** @type {number} */ h)=>F.cur>=h-8&&F.cur<=h+6)||(F.cur>=F.fall&&F.cur<F.fall+24);   // slow motion around every blow and the start of the fall
-    F.cur=Math.min(F.end,F.cur+(slow?0.35:1));
-    if(F.cur>=F.end) F.t+=rawDt;
-    if(F.skip||F.t>=FIN_END) finisherDone();
-  }
-}
-
-/** A free blow, played out on the tape at once: the hero steps into range, the punch lands at its apex and the rival's head snaps back.
- * @param {number} pid @param {boolean} low */
-function finisherBlow(pid,low){
-  const S=state, F=S.fin, A=S.P, D=S.O, T=punchT(A,pid), [ui,uj,gap]=toward(A,D), reach=RANGE[pid]*0.85;
-  if(gap>reach) walk(A,D,ui,uj,gap-reach);
-  const hand=pid>=2&&A.lastHand?-A.lastHand:(A.leadSide===-1?[-1,1,1,1][pid]:HAND[pid]);
-  A.lastHand=hand; A.pk={pid,low,t:0,hit:false,hand,fastCounter:false,exhausted:false};
-  let shot=S.tape.length;
-  for(let n=0;n<60&&A.pk;n++){
-    const dt=1/60; A.pk.t+=dt;
-    if(!A.pk.hit&&A.pk.t>=T.hit){ A.pk.hit=true; finisherContact(A,D,pid,low); shot=S.tape.length; }
-    if(A.pk.t>=T.end) A.pk=null;
-    D.hurtT=Math.max(0,D.hurtT-dt);
-    tickFeet(A); tickFeet(D); tickParts(); S.tape.push(snapshot());
-  }
-  A.pk=null; F.shots++; F.lastShot=F.t; F.lastPid=pid; F.lastLow=low; F.hits.push(shot); A.c.finisher++;
-  addFinisherShot(shot+1,pid,low,F.t);
-}
-
-/** The free blow's contact: no damage left to deal, only the reaction, the knock back and the spray. @param {any} A @param {any} D @param {number} pid @param {boolean} low */
-function finisherContact(A,D,pid,low){
-  const [ui,uj]=toward(A,D), [si,sj]=toward(D,A);
+/** A free blow on the stunned rival: no guard, no damage left to deal, only the reaction, the spray and the count; the last one drops him.
+ * @param {any} A @param {any} D @param {number} pid @param {boolean} low */
+function finisherHit(A,D,pid,low){
+  const S=state, F=S.fin, [ui,uj]=toward(A,D), [si,sj]=toward(D,A);
   D.hurtDuration=low?BODY_HIT_SECONDS+pid*.025:.3; D.hurtT=D.hurtDuration; D.hurtDir=pid; D.hurtLow=low; D.hurtBlocked=false; D.hurtPower=1.6;
   D.hurtSide=Math.max(-1,Math.min(1,(si*-D.fj+sj*D.fi)*1.8+(A.pk.hand||1)*0.3));
   if(!low) D.faceDamage+=PUNCH_DAMAGE[pid]; D.dmg=Math.min(1,D.dmg+0.1);
-  walk(D,A,ui,uj,.05);
+  walk(D,A,ui,uj,.04);
+  A.pk.landed=true; A.c.landed++; A.c.finisher++; if(low) A.c.body++; landRun(A,D,S.t);
   spray(A,D,pid,low,false,{damage:PUNCH_DAMAGE[pid]*1.5,counter:true});
   sfxPunch(Math.min(1.4,0.75+0.25*pid),low?1:0.35+pid*0.15,true);
+  hitFeel(false,12,true);
+  S.tape.push(snapshot()); F.hits.push({idx:S.tape.length-1,pid,low});
+  if(F.hits.length>FIN_HITS) finisherFall(A,D,pid,low);
 }
 
-/** The last blow drops him: the fall is recorded onto the tape, then the replay runs from the run-up to the boards. */
-function finisherFall(){
-  const S=state, F=S.fin, A=S.P, D=S.O;
-  D.ko=true; D.pk=null;
-  A.pk={pid:F.lastPid,low:F.lastLow,t:0,hit:true,hand:A.lastHand||1};
-  startIsoRagdoll(D,A,F.lastPid,true); spray(A,D,F.lastPid,F.lastLow,false,{damage:PUNCH_DAMAGE[F.lastPid],counter:true},true); A.pk=null;
-  F.fall=S.tape.length;
-  for(let n=0;n<FIN_FALL;n++){ stepIsoRagdoll(D); tickSpurt(D,1); tickFeet(A); tickParts(); S.tape.push(snapshot()); }
-  boxingState.shakeT=0;
-  F.stage='replay'; F.t=0; F.from=Math.max(0,F.ref-FIN_RUNUP); F.cur=F.from; F.end=S.tape.length-1;
+/** The stunned rival goes down: the fall plays live and is recorded for the comic. @param {any} A @param {any} D @param {number} pid @param {boolean} low */
+function finisherFall(A,D,pid=1,low=false){
+  const S=state, F=S.fin;
+  D.finStun=false; D.ko=true; D.pk=null;
+  startIsoRagdoll(D,A,pid,true); spray(A,D,pid,low,false,{damage:PUNCH_DAMAGE[pid],counter:true},true);
+  F.stage='fall'; F.fall=S.tape.length;
 }
 
-/** The replay is over (or skipped): back to the room, the rival on the boards, and the bout ends as a knockout. */
-function finisherDone(){
-  const S=state, F=S.fin; F.stage='done';
-  S.phase='fight'; endBout(S.P,F.how);
+/** The fall is on the tape: the comic replays the fight's end, panel after panel. */
+function startFinisherComic(){
+  const S=state, F=S.fin, last=S.tape.length-1;
+  const clips=F.hits.map((/** @type {any} */ h,/** @type {number} */ k)=>({ref:h.idx,from:Math.max(0,h.idx-(k?10:18)),to:Math.min(last,h.idx+9),pid:h.pid,low:h.low,fall:false}));
+  clips.push({ref:F.fall,from:Math.max(0,F.fall-2),to:last,pid:0,low:false,fall:true});
+  startFinisherMontage(S.tape,clips,F.how,S.venue);
+  F.stage='comic'; F.t=0; S.phase='finisher'; S.banner=null; setInfo();
+}
+
+/** Any key ends the comic early. @param {string} c */
+function finisherKey(c){ if(state.fin&&c) state.fin.skip=true; }
+
+/** One tick of the comic: when it has played out (or was skipped), back to the room and the bout ends as a knockout. */
+function tickFinisher(){
+  const S=state, F=S.fin;
+  F.t+=1/60;
+  if(!F.skip&&F.t<finisherMontageLength()+FIN_HOLD) return;
+  F.stage='done'; S.phase='fight'; endBout(S.P,F.how);
 }
 
 /** Screen position (native px) of a fighter's head. @param {any} F */
@@ -710,6 +679,7 @@ function ai(F,P){
   const S=state, now=S.t, O=S.opp, [ui,uj,gap]=toward(F,P), si=-uj, sj=ui;
   const archKey=O.name==='DAN'?'tank':(ARCH[O.style]?O.style:'bal'), arch=ARCH[archKey], perks=O.perks||[], zone=F.rt.zone, legs=ZONES[zone].walk;
   F.moving=false;
+  if(F.finStun) return;   // stunned on his feet: nothing but the sway
   if(F.bull){ bullAi(F,P,ui,uj,gap); return; }
   if(F.grab||F.ko||F.down||P.ko||P.down){ if(F.rt.guarding) setGuard(F.rt,false,now); return; }
   if(F.rt.guarding&&now>=F.guardUntil) setGuard(F.rt,false,now);
@@ -834,7 +804,7 @@ function tickFight(){
   S.uiT+=rawDt; S.t+=dt; S.elapsed++; const now=S.t;
   if(O.bull) O.bullClock=now;
   if(S.eTap&&S.uiT-S.eTap.at>TAP_WINDOW){ const {di,dj}=S.eTap; S.eTap=null; if(di||dj) evade(P,O,di,dj); }
-  if(sparringState.timeLimit&&S.elapsed>=sparringState.timeLimit){ timeUp(); return; }
+  if(sparringState.timeLimit&&S.elapsed>=sparringState.timeLimit&&!S.fin){ timeUp(); return; }
   for(const F of [P,O]){
     const G=F===P?O:P;
     tickCombatant(F.rt,dt,now,S.clinch?TUNING.clinchRegen:1);
@@ -901,7 +871,9 @@ function tickFight(){
     S.windUsed=true; secondWind(P.rt); banner('DRUGI ODDECH!',appearanceState.C_SPARK,70); say('Drugi oddech - raz na walkę');
   }
   recordTape();
-  if(sparringState.rigged&&!S.rigKO&&(P.rt.hp/P.rt.hpMax-O.rt.hp/O.rt.hpMax>.15||now>35)){
+  if(S.fin?.stage==='stun'&&now-S.fin.at>=FIN_WINDOW) finisherFall(P,O);
+  else if(S.fin?.stage==='fall'&&S.tape.length-S.fin.fall>=FIN_FALL){ startFinisherComic(); return; }
+  if(sparringState.rigged&&!S.fin&&!S.rigKO&&(P.rt.hp/P.rt.hpMax-O.rt.hp/O.rt.hpMax>.15||now>35)){
     S.rigKO=true; P.rt.hp=0; P.ko=true; P.pk=null; if(!P.rd) startIsoRagdoll(P,O,2,true); S.phase='ko'; S.pt=0; S.winner=O; S.how='KASTET';
     banner('KASTET!',appearanceState.C_RED,150); sfxKO(); setInfo();
   }
@@ -1072,7 +1044,8 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   }
   if(F.stagger>0){lean-=0.8;bob-=0.6;}
   // Tiredness shows before the bar does: a heavy, quick breath in the knees, the trunk bent forward and a sway on the feet.
-  const tire=F.tire||0;
+  const tire=F.finStun?1.25:F.tire||0;
+  if(F.finStun){ const k=t*3.1+F.seed; lean-=0.7+0.6*Math.sin(k); lateral+=1.0*Math.sin(k*0.7); bob-=0.5+0.3*Math.sin(k*1.9); }   // out on his feet: he sways and lolls
   if(tire>0.01){bob-=(0.45+0.2*Math.sin(t*(5.5+2*tire)+F.seed))*tire;lean+=0.45*tire;lateral+=0.35*tire*Math.sin(t*1.7+F.seed);}
   const breathing=F.bull?.mode==='EXHAUSTED',loading=F.bull?.mode==='WINDUP';
   if(breathing){lean+=2.1;bob-=1.25+0.28*Math.sin(t*9);lateral+=0.14*Math.sin(t*4);}
@@ -1369,7 +1342,7 @@ function startIsoRagdoll(F,A,pid,ko){
     return {i:w.i,j:w.j,z,pi:w.i-vi,pj:w.j-vj,pz:z-vz};
   });
   const len=ragdollLengths(loc);
-  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A&&state.phase!=='finisher'){ state.kdSlow=3.8; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
+  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A&&!state.fin){ state.kdSlow=3.8; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
 }
 
 /** One 60 Hz step of the ragdoll. @param {any} F */
@@ -1573,7 +1546,7 @@ const TAPE_KEEP=100;
 /** Keep the last TAPE_KEEP ticks of the fight for the finisher's replay (not in the HD test arena, which has no comic). */
 function recordTape(){
   const S=state; if(S.venue==='sandy') return;
-  S.tape.push(snapshot()); if(S.tape.length>TAPE_KEEP) S.tape.shift();
+  S.tape.push(snapshot()); if(S.tape.length>TAPE_KEEP&&!S.fin) S.tape.shift();   // the finisher keeps every tick: its panels point into the tape
 }
 
 /** The comic's closing words: the knockdown or the stoppage, the count, and the taps the player still needs to rise. */
@@ -1584,17 +1557,11 @@ function comicCaption(){
   return {title:'NOKDAUN!',line:'RYWAL NA DESKACH '+V.kdN+'/3',pips:null};
 }
 
-/** The finisher page's caption: how many free blows are left, or that he is done. */
-function finisherCaption(){
-  const F=state.fin, left=F.shots<FIN_SHOTS&&!F.stop;
-  return {title:left?'DOBIJ GO!':'KONIEC!',line:left?'1-4 CIOS - SPACJA DOSC':'',pips:[F.shots,FIN_SHOTS]};
-}
-
 /** Frame: the room with both fighters, bars, sparks and the notice. Called inside the 2× frame. */
 export function renderIsoFight(){ if(state.venue==='port') return withThamesCamera(renderFight); return renderFight(); }
 function renderFight(){
   const S=state; if(!S.on) return;
-  if(S.phase==='finisher'){ const F=S.fin; if(F.stage==='page') drawFinisherComic(F.t,finisherCaption()); else drawFinisherReplay(Math.floor(F.cur),Math.floor(F.cur/20)%3>0); return; }
+  if(S.phase==='finisher'){ drawFinisherMontage(S.fin.t); return; }
   if(S.venue!=='sandy'&&S.kdSlow>0&&knockdownComicOnScreen(3.8-S.kdSlow,S.kdSlow)){ drawKnockdownComic(3.8-S.kdSlow,comicCaption()); return; }
   if(gymState.fightSpectators) for(const C of gymState.fightSpectators) C.t=S.t*60;
   if(S.venue==='port') renderThamesPort([S.P,S.O]);
