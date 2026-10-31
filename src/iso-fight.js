@@ -15,6 +15,7 @@ import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometr
 import { mix } from './cast.js';
 import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
 import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets} from './combat-anatomy.js';
+import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors} from './fighter-rig.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -820,79 +821,148 @@ function blendJoints(A,B,k){
  * (the chest and head lag a sudden move, the shoulders turn against the hips with every step, the arms swing). @param {any} F */
 function fighterJoints(F, t=state.t, clinch=state.clinch){
   const mv=F.moving;
-  const sw1=F.ft[1].sw?Math.sin(Math.PI*Math.min(1,F.ft[1].sw)):0, sw2=F.ft[-1].sw?Math.sin(Math.PI*Math.min(1,F.ft[-1].sw)):0;
-  const air=Math.max(sw1,sw2), stride=sw1-sw2; // One planted foot at any time; idle never causes an artificial bounce.
-  const dashU=F.dash?Math.min(1,Math.max(0,(t-F.dash.at)/DASH.duration)):0;
+  const sw1=F.ft[1].sw?Math.sin(Math.PI*Math.min(1,F.ft[1].sw)):0;
+  const sw2=F.ft[-1].sw?Math.sin(Math.PI*Math.min(1,F.ft[-1].sw)):0;
+  const air=Math.max(sw1,sw2), stride=sw1-sw2;
+  const dashU=F.dash?Math.max(0,Math.min(1,(t-F.dash.at)/DASH.duration)):0;
   const dash=F.dash?dashPose(dashU):{load:0,push:0,land:0};
-  let bob=-1.05+0.10*Math.sin(t*2.1+F.seed)+0.18*air-0.85*dash.load-0.48*dash.land-(F.rt.sta<25?0.5:0), lean=0.35+F.lagF*0.55+(mv?F.mf*0.3:0)+(F.dash?F.dash.fwd*1.05*dash.push:0), sl=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35+(F.dash?F.dash.side*.75*dash.push:0), lung=0, e=0, arm=0, follow=0, wind=0, pk=F.pk;
-  const D=pk?DRIVE[pk.pid]:null, hook=pk?.pid===2, upper=pk?.pid===3;
-  if(pk){ const T=punchT(F,pk.pid), striking=pk.t<T.hit, k=striking?pk.t/T.hit:Math.max(0,1-(pk.t-T.hit)/(T.end-T.hit));
+
+  // Gameplay velocities control presentation only. The rig never controls hit
+  // ranges or player position; shoes remain driven by the existing footwork.
+  let bob=-1.05+0.10*Math.sin(t*2.1+F.seed)+0.18*air-0.85*dash.load
+    -0.48*dash.land-(F.rt.sta<25?0.5:0);
+  let lean=0.35+F.lagF*0.55+(mv?F.mf*0.3:0)
+    +(F.dash?F.dash.fwd*1.05*dash.push:0);
+  let lateral=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35
+    +(F.dash?F.dash.side*0.75*dash.push:0);
+  let lung=0, e=0, arm=0, follow=0, wind=0;
+  const pk=F.pk, D=pk?DRIVE[pk.pid]:null, hook=pk?.pid===2, upper=pk?.pid===3;
+  if(pk){
+    const T=punchT(F,pk.pid), striking=pk.t<T.hit;
+    const k=striking?pk.t/T.hit:Math.max(0,1-(pk.t-T.hit)/(T.end-T.hit));
     e=striking&&(F===state.P||F===state.O)?punchSnap(k):smooth(Math.min(1,k));
-    arm=striking?e:e*e;   // the fist snaps back ahead of the body
-    if(!striking&&k>0.6) follow=Math.sin(Math.PI*(1-k)/0.4);   // the trunk carries on turning a moment past the contact
-    if((hook||upper)&&striking) wind=Math.sin(Math.PI*k);   // the load before the power punches
-    lean+=(D?.lean??0)*e; bob-=(D?.drop??0)*e+(upper?0.9:hook?0.2:0)*wind; lung=LUNGE[pk.pid]*e; if(pk.low) bob-=0.80*e; // bend at knees, not collapse into the shoes }
+    arm=striking?e:e*e; // fist retracts slightly ahead of the torso
+    if(!striking&&k>0.6)follow=Math.sin(Math.PI*(1-k)/0.4);
+    if((hook||upper)&&striking)wind=Math.sin(Math.PI*k);
+    lean+=D.lean*e;
+    bob-=D.drop*e+(upper?0.9:hook?0.2:0)*wind;
+    lung=LUNGE[pk.pid]*e;
+    if(pk.low)bob-=0.80*e; // crouch in the knees, not a collapsed spine
+  }
   const ps=pk?(pk.hand??(F.leadSide===-1?[-1,1,1,1][pk.pid]:HAND[pk.pid])):0;
   const su=(t-F.slipSince)/TUNING.slipActive;
-  if(su>=0&&su<=1){ const w=Math.sin(Math.PI*su);   // the body of the evade: a dash in or back leans and drops, a step aside sways
-    if(F.evKind==='in'){ lean+=1.15*w; bob-=0.9*w; sl+=0.45*F.evSide*w; }
-    else if(F.evKind==='back'){ lean-=1.25*w; bob-=0.75*w; sl+=0.45*F.evSide*w; }
-    else { sl+=2.8*F.slipDir*w; lean+=0.6*F.evFwd*w; bob-=1.1*w; } }
-  if(clinch){ lean+=1.1; bob-=0.5; }
+  if(su>=0&&su<=1){
+    const w=Math.sin(Math.PI*su);
+    if(F.evKind==='in'){lean+=1.15*w;bob-=0.9*w;lateral+=0.45*F.evSide*w;}
+    else if(F.evKind==='back'){lean-=1.25*w;bob-=0.75*w;lateral+=0.45*F.evSide*w;}
+    else {lateral+=2.8*F.slipDir*w;lean+=0.6*F.evFwd*w;bob-=1.1*w;}
+  }
+  if(clinch){lean+=1.1;bob-=0.5;}
+
   const body=F.hurtLow?bodyHitMotion(F.hurtT,F.hurtDuration,F.hurtPower,F.hurtBlocked):{fold:0,knees:0,cover:0};
-  const fold=Math.min(1.15,body.fold), absorb=body.knees, cover=body.cover, hitSide=F.hurtSide||0;
-  // Unlike a head shot, a gut punch first tucks the abdomen backwards while the
-  // ribs fold over it; the planted knees then take the load. No whole-body hinge.
-  lean+=0.10*fold; bob-=0.54*absorb;
+  const fold=Math.min(1.15,body.fold), absorb=body.knees, cover=body.cover;
+  const hitSide=F.hurtSide||0;
+  lean+=0.1*fold;
+  bob-=0.54*absorb;
   const h=F.hurtLow?0:Math.min(1,F.hurtT/0.3)*F.hurtPower;
-  if(!F.hurtLow){ lean-=(F.hurtDir===2?0.8:1.5)*h; sl+=(F.hurtDir===2?1.3*F.leadSide:0)*h; bob-=0.3*h; }
-  if(F.stagger>0){ lean-=0.8; bob-=0.6; }
-  const breathing=F.bull?.mode==='EXHAUSTED', loading=F.bull?.mode==='WINDUP';
-  if(breathing){ lean+=2.1; bob-=1.25+0.28*Math.sin(t*9); sl+=0.14*Math.sin(t*4); }
-  if(loading){ lean-=0.5; sl+=0.6*F.leadSide; bob-=0.55; }
-  const J={}, bodySide=hook?-ps*e*0.4:(pk&&pk.low?ps*e:0), walkRot=-stride*0.58-F.lagS*0.25, hipRot=stride*0.42, mill=pk?0:(1-F.gUp)*0.2;
-  // the shoulders and the hips turn about the spine (the shoulders against the hips with every step, both with the punch), keeping their width
-  const asin=(/** @type {number} */ v)=>Math.asin(Math.max(-1,Math.min(1,v)));
-  const shY=-asin(walkRot/2.7)-(D?ps*(D.yaw*e*(1+0.18*follow)-(hook?0.4:upper?0.3:0)*wind):0), hpY=-asin(hipRot*0.45/1.25)-(D?ps*(D.hip*e-(hook||upper?0.15:0)*wind):0);
-  const cS=Math.cos(shY), sS=Math.sin(shY), cH=Math.cos(hpY), sH=Math.sin(hpY), tilt=D?D.tilt*e+(upper?-0.6*wind:0):0;
-  for(let s=-1;s<=1;s+=2){
-    const lead=s===F.leadSide, fj=footJoint(F,s), ws=-s*0.45*(s===1?sw1:sw2), punching=!!D&&s===ps;
-    const hip=[lung*0.5+0.3-s*1.25*sH,s*1.25*cH+sl*0.5+ws,6.9+bob], foot=[fj.fwd,fj.side,0.9+fj.lift]; // Keep the planted ankle on the floor; heel pivot is only a shoe detail.
-    const [knee,toe]=solveLimb(hip,foot,LEG_U,LEG_L,[(hip[0]+foot[0])/2+1.5+Math.abs(bodySide)*0.7,(hip[1]+foot[1])/2+s*0.35,(hip[2]+foot[2])/2]);
-    const sh=[0.1+lean+lung+1.28*fold-s*2.7*sS,s*2.7*cS+sl+bodySide*1.3+hitSide*fold*0.38,12.4+bob-0.58*fold+s*walkRot*0.3+(hook?0:s*bodySide*0.6)+(D?(punching?D.rise:-0.3*D.rise)*e+s*ps*tilt*0.5:0)];
-    const armSw=-s*stride*0.45+F.lagF*0.35, ma=t*5.5+F.seed+(s>0?0:Math.PI);
-    let el=[1.0+lean+lung+fold+armSw*0.5+s*walkRot*0.4,s*2.6+sl+F.lagS*0.2+bodySide*1.3,10.9+bob-0.25*fold-0.2*Math.abs(armSw)];
-    let hd=[2.3+lean+lung+fold*0.75+armSw*0.85+s*walkRot*0.5+Math.cos(ma)*mill,s*1.25+sl+F.lagS*0.25+bodySide*1.3,14.0+bob-0.55*fold+0.35*armSw+Math.sin(ma)*mill];
-    if(clinch){ el=[2.2+lean,s*2.3+sl,11+bob]; hd=[4.0+lean,s*1.5+sl,12.7+bob]; }
-    if(F.gUp>0.02){ el=lerp3(el,[1.5+lean,s*2.0+sl+bodySide*1.3,10.4+bob],F.gUp); hd=lerp3(hd,[3.1+lean,s*0.9+sl+bodySide*1.3,15.1+bob],F.gUp); }
-    if(breathing){ el=[1.75+lean,s*3.3+sl,7.0+bob]; hd=[2.7+lean,s*2.9+sl,5.8+bob]; }
-    if(loading){ el=[-0.2+lean,s*3.7+sl,9.4+bob]; hd=[-0.4+lean,s*3.7+sl,11.2+bob]; }
-    if(punching){
-      // Anatomically reachable fist arc and stable elbow throughout the strike.
-      const target=strikeArmTargets(pk.pid,s,sh,hd,el,arm,wind,pk.low);
-      hd=target.hand; el=target.pole;
-    }
-    if(cover>0.01&&!punching){ // involuntary elbows-to-ribs reflex, slightly behind the abdominal contraction
-      const k=Math.min(0.82,cover*0.74);
-      el=lerp3(el,[sh[0]+0.5,s*2.0+sl,9.9+bob],k);
-      hd=lerp3(hd,[sh[0]+1.9,s*1.05+sl,10.2+bob],k);
-    }
-    const [elbow,fist]=solveLimb(sh,hd,ARM_U,ARM_L,el);
-    J[s]={hip,knee,foot:toe,sh,el:elbow,hd:fist,heelLift:punching?Math.min(0.34,D.heel*e*0.45):0};
-  }
-  const jf=(/** @type {number} */ s)=>J[s];
-  jf.pel=[lung*0.5-F.lagF*0.2,sl*0.5-F.lagS*0.2,6.6+bob];
-  jf.chest=[0.4+lean+lung*0.9+1.28*fold,sl+bodySide*1.3+ps*tilt*0.6+hitSide*fold*0.38,12.2+bob-0.58*fold];
-  // Real waist/upper-abdomen joint: compression withdraws the belly behind the
-  // pelvis/chest line, leaving an actual bend rather than a rigid leaning tube.
-  jf.abd=lerp3(jf.pel,jf.chest,.48);
-  jf.abd[0]-=0.62*fold; jf.abd[1]-=0.18*hitSide*fold; jf.abd[2]-=0.17*fold;
-  jf.head=[0.35+lean*1.2+lung+F.hLagF*0.55+(D?D.head[0]*e:0)+1.95*fold,sl*1.25+F.hLagS*0.65+bodySide*3.8+(D?ps*(D.head[1]*e+(upper?0.6:0)*wind):0)+hitSide*fold*0.6,15.6+bob-1.22*fold-0.7*F.gUp-Math.abs(bodySide)*0.4-(F.stagger>0?0.6:0)-(breathing?0.65:0)-Math.abs(F.hLagF)*0.18];
   if(!F.hurtLow){
-    jf.head[0]-=(F.hurtDir===2?0.25:F.hurtDir===3?0.5:0.8)*h;
-    jf.head[1]+=(F.hurtDir===2?0.8*F.leadSide:0)*h;
-    jf.head[2]+=(F.hurtDir===3?0.35:0)*h;
+    lean-=(F.hurtDir===2?0.8:1.5)*h;
+    lateral+=(F.hurtDir===2?1.3*F.leadSide:0)*h;
+    bob-=0.3*h;
   }
+  if(F.stagger>0){lean-=0.8;bob-=0.6;}
+  const breathing=F.bull?.mode==='EXHAUSTED',loading=F.bull?.mode==='WINDUP';
+  if(breathing){lean+=2.1;bob-=1.25+0.28*Math.sin(t*9);lateral+=0.14*Math.sin(t*4);}
+  if(loading){lean-=0.5;lateral+=0.6*F.leadSide;bob-=0.55;}
+
+  // Anatomical pelvis, abdomen, ribcage and neck form one continuous chain.
+  // The rotating pelvis and shoulders are sockets of that chain, not separate
+  // animated points that can pull away from the body in a power punch.
+  const bodySide=hook?-ps*e*0.4:(pk&&pk.low?ps*e:0);
+  const walkRot=-stride*0.58-F.lagS*0.25, hipRot=stride*0.42;
+  const asin=(v)=>Math.asin(Math.max(-1,Math.min(1,v)));
+  const shoulderYaw=-asin(walkRot/2.7)
+    -(D?ps*(D.yaw*e*(1+0.18*follow)-(hook?0.4:upper?0.3:0)*wind):0);
+  const hipYaw=-asin(hipRot*0.45/1.25)
+    -(D?ps*(D.hip*e-(hook||upper?0.15:0)*wind):0);
+  const tilt=D?D.tilt*e+(upper?-0.6*wind:0):0;
+  const feet={};
+  for(const side of [-1,1]){
+    const f=footJoint(F,side);
+    feet[side]=[f.fwd,f.side,RIG.footHeight+f.lift];
+  }
+  const pelvisHint=[lung*0.24-F.lagF*0.14,
+    lateral*0.48-F.lagS*0.15,RIG.pelvisHeight+bob];
+  const pelvis=supportPelvis(pelvisHint,feet,hipYaw);
+  const {abdomen,chest}=buildSpine(pelvis,{
+    lean:lean+lung*0.18,sideLean:lateral*0.22+bodySide*0.42+ps*tilt*0.14+hitSide*fold*0.12,
+    fold,lunge:lung
+  });
+  const legs=legAnchors(pelvis,feet,hipYaw);
+  const J={};
+  for(const side of [-1,1]){
+    const s=side, punching=!!D&&s===ps, leg=legs[s];
+    const [knee,ankle]=solveLimb(leg.hip,leg.foot,LEG_U,LEG_L,leg.pole);
+    const shrug=D?(punching?D.rise:-0.2*D.rise)*e+s*ps*tilt*0.38:0;
+    const sh=shoulderSocket(chest,s,shoulderYaw,shrug);
+
+    // Shoulder-relative guard. Upper arms, forearms, hands and elbows follow
+    // the ribcage through slips, lunges and body hits without changing length.
+    const armSwing=-s*stride*0.45+F.lagF*0.35;
+    const mill=pk?0:(1-F.gUp)*0.2, phase=t*5.5+F.seed+(s>0?0:Math.PI);
+    let pole=[sh[0]+0.65+armSwing*0.30,sh[1]+s*0.20,sh[2]-1.75];
+    let hand=[sh[0]+2.2+armSwing*0.7+Math.cos(phase)*mill,
+      sh[1]-s*1.45,sh[2]+1.55+Math.sin(phase)*mill];
+    if(clinch){
+      pole=[sh[0]+1.1,sh[1]+s*0.35,sh[2]-1.55];
+      hand=[sh[0]+3.1,sh[1]-s*1.0,sh[2]-0.1];
+    }
+    if(F.gUp>0.02){
+      pole=lerp3(pole,[sh[0]+0.7,sh[1]+s*0.12,sh[2]-1.48],F.gUp);
+      hand=lerp3(hand,[sh[0]+2.7,sh[1]-s*1.58,sh[2]+1.85],F.gUp);
+    }
+    if(breathing){
+      pole=[sh[0]+0.5,sh[1]+s*0.55,sh[2]-3.0];
+      hand=[sh[0]+1.45,sh[1]+s*0.18,sh[2]-5.45];
+    }
+    if(loading){
+      pole=[sh[0]-0.35,sh[1]+s*0.65,sh[2]-1.95];
+      hand=[sh[0]-0.15,sh[1]+s*0.5,sh[2]-0.95];
+    }
+    if(punching){
+      const target=strikeArmTargets(pk.pid,s,sh,hand,pole,arm,wind,pk.low);
+      hand=target.hand;pole=target.pole;
+    }
+    if(cover>0.01&&!punching){
+      const k=Math.min(0.82,cover*0.74);
+      pole=lerp3(pole,[sh[0]+0.6,sh[1]-s*0.25,sh[2]-2.3],k);
+      hand=lerp3(hand,[sh[0]+1.55,sh[1]-s*1.1,sh[2]-2.0],k);
+    }
+    const [elbow,fist]=solveLimb(sh,hand,ARM_U,ARM_L,pole);
+    J[s]={hip:leg.hip,knee,foot:ankle,sh,el:elbow,hd:fist,
+      heelLift:punching?Math.min(0.34,D.heel*e*0.45):0};
+  }
+  const jf=(s)=>J[s];
+  jf.pel=pelvis;
+  jf.abd=abdomen;
+  jf.chest=chest;
+
+  // The head reacts with a short neck rather than teleporting independently.
+  // This also preserves the slip and the lead-shoulder chin-cover silhouette.
+  const headHint=[
+    chest[0]+0.1+F.hLagF*0.48+(D?D.head[0]*e:0)+0.58*fold,
+    chest[1]+F.hLagS*0.40+bodySide*0.45
+      +(D?ps*(D.head[1]*e+(upper?0.6:0)*wind):0)+hitSide*fold*0.32,
+    chest[2]+RIG.neckToHead-0.68*fold-0.48*F.gUp
+      -(F.stagger>0?0.52:0)-(breathing?0.42:0)
+      -Math.abs(F.hLagF)*0.12
+  ];
+  if(!F.hurtLow){
+    headHint[0]-=(F.hurtDir===2?0.25:F.hurtDir===3?0.5:0.8)*h;
+    headHint[1]+=(F.hurtDir===2?0.8*F.leadSide:0)*h;
+    headHint[2]+=(F.hurtDir===3?0.35:0)*h;
+  }
+  jf.head=headSocket(chest,headHint);
   return jf;
 }
 
