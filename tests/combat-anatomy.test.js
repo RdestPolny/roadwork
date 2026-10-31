@@ -41,7 +41,7 @@ test('uppercut chambers below its guard, then ascends without fully straightenin
     assert.ok(mid.hand[2]<restHand[2]);
     assert.ok(end.hand[2]>mid.hand[2]);
     const [el,tip]=solveLimb(sh,end.hand,ARM_UPPER,ARM_FORE,end.pole);
-    assert.ok(elbowAngle(sh,el,tip)<125);
+    assert.ok(elbowAngle(sh,el,tip)>75 && elbowAngle(sh,el,tip)<110);
   }
 });
 
@@ -54,5 +54,16 @@ test('punch endpoints follow shoulder translation/rotation without changing bone
     const [el,end]=solveLimb(s2,b.hand,ARM_UPPER,ARM_FORE,b.pole);
     assert.ok(Math.abs(length(s2,el)-ARM_UPPER)<1e-4);
     assert.ok(Math.abs(length(el,end)-ARM_FORE)<1e-4);
+  }
+});
+
+
+test('straight punches extend close to full reach without hyperextension',()=>{
+  for(const punch of [0,1])for(const side of [-1,1]){
+    const sh=[.45,side*2.7,11.35],restHand=[2.65,side*1.25,12.95],restPole=[1,side*2.6,9.85];
+    const {hand,pole}=strikeArmTargets(punch,side,sh,restHand,restPole,1,0,false);
+    const [el,tip]=solveLimb(sh,hand,ARM_UPPER,ARM_FORE,pole);
+    const a=elbowAngle(sh,el,tip);
+    assert.ok(a>=145 && a<=165,`straight ${punch}, side ${side}: elbow ${a.toFixed(1)} degrees`);
   }
 });
