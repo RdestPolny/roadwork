@@ -44,7 +44,7 @@ export function supportPelvis(target,feet,hipYaw){
   const maxLength=RIG.legUpper+RIG.legLower-0.055;
   for(const side of [-1,1]){
     const hip=hipSocket(target,side,hipYaw), foot=feet[side];
-    if(!foot)continue;
+    if(!foot || foot[2]>RIG.footHeight+0.12)continue; // airborne leg cannot support body weight
     const xy2=(hip[0]-foot[0])**2+(hip[1]-foot[1])**2;
     if(xy2>maxLength*maxLength)continue; // dash: visual foot catches up instead
     const maxZ=foot[2]-RIG.hipHeight+Math.sqrt(maxLength*maxLength-xy2);
