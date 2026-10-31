@@ -108,3 +108,11 @@ export function legAnchors(pelvis,feet,hipYaw){
   }
   return out;
 }
+
+/** Project a skeletal link onto its true bone length. Used when a ragdoll
+ * interpolates back into its stance: ordinary lerp would visibly shrink it.
+ * Fallback follows the source pose's up-axis in the degenerate case. */
+export function fixBoneLength(from,to,boneLength,axis=[0,0,1]){
+  const dir=[to[0]-from[0],to[1]-from[1],to[2]-from[2]];
+  return move(from,length(dir)<1e-6?axis:dir,boneLength);
+}
