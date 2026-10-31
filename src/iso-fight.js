@@ -10,8 +10,8 @@ import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming } from
 import { state as boxingState, popup, drawText } from './boxing.js';
 import { renderSandyArena, drawSandyFootDust } from './hd-fight-scene.js';
 import { state as appearanceState, rgb } from './appearance.js';
-import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, setFightSpectators } from './gym.js';
-import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometricFrame } from './renderer.js';
+import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTransReset, heroFigureLook, isoX, isoY, renderHub, setFightSpectators, bodyPt } from './gym.js';
+import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometricFrame, line, pset } from './renderer.js';
 import { mix } from './cast.js';
 import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
 import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets, elbowAngle} from './combat-anatomy.js';
@@ -34,7 +34,7 @@ import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, dr
 
 // Runtime values owned by iso-fight; the fight is reset by startIsoFight().
 export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
-  notice:'',noticeUntil:0,pointer:null,clinch:false,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null};
+  notice:'',noticeUntil:0,pointer:null,showRig:false,clinch:false,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null};
 
 /** Seconds from the start of a punch to contact and to the end of the recovery. */
 const PT=[{hit:.10,end:.30},{hit:.15,end:.40},{hit:.19,end:.48},{hit:.19,end:.48}];
@@ -178,6 +178,7 @@ export function isoFightKey(e,down){
   const c=e.code, S=state;
   if(c==='Escape'){ if(down){ e.preventDefault(); exitToHub(); } return true; }
   if(S.venue==='sandy'&&down&&c==='KeyR'){ e.preventDefault(); startIsoFight(0,'sandy'); return true; }
+  if(S.venue==='sandy'&&down&&c==='F7'){ e.preventDefault(); S.showRig=!S.showRig; return true; }
   if(S.venue==='sandy'&&down&&c==='F9'){ e.preventDefault(); const a=document.createElement('a'); a.download='roadwork-sandy-432x288.png'; a.href=rendererState.hd3.off.toDataURL('image/png'); a.click(); return true; }
   if(S.phase==='end'){ if(down&&(c==='Enter'||c==='Space')){ e.preventDefault(); inputState.againFn(); } return true; }
   const move=/** @type {'u'|'d'|'l'|'r'|undefined} */ ({ArrowUp:'u',KeyW:'u',ArrowDown:'d',KeyS:'d',ArrowLeft:'l',KeyA:'l',ArrowRight:'r',KeyD:'r'}[c]);
@@ -1358,6 +1359,31 @@ function knockdownZoom(){
   const t=state.kdSlow; return t>0?smooth(Math.min(1,(3.8-t)/0.2))*smooth(Math.min(1,t/0.3)):0;
 }
 
+/** F7: unzoomed skeletal overlay rendered over the 432x288 sandy scene.
+ * The joint chains and their colors are diagnostic, not part of the game art. */
+function renderRigOverlay(F){
+  let J=F.rd&&(F.ko||F.down)?ragdollJoints(F):fighterJoints(F);
+  if(F.rise)J=blendJoints(F.rise.joints,J,smooth(Math.min(1,F.rise.t)));
+  const oldC=gymState.ipC,oldPose=gymState.ipPose,oldBase=gymState.ipBase;
+  gymState.ipC=F;gymState.ipPose=0;gymState.ipBase=0;
+  const p=(v)=>{bodyPt(v[0],v[1],v[2]);return [Math.round(gymState.bpX),Math.round(gymState.bpY)];};
+  const spine=rgb('#e7c770'),arms=rgb('#8fd7c5'),legs=rgb('#d89890'),nodes=rgb('#f7f5d5');
+  const segment=(a,b,color)=>{const A=p(a),B=p(b);line(A[0],A[1],B[0],B[1],color,color);};
+  const joint=(a)=>{const [x,y]=p(a);pset(x,y,nodes);pset(x+1,y,nodes);};
+  try{
+    segment(J.pel,J.abd||J.pel,spine);
+    segment(J.abd||J.pel,J.chest,spine);
+    segment(J.chest,J.head,spine);
+    for(const s of [-1,1]){
+      const a=J(s);
+      segment(J.pel,a.hip,legs);segment(a.hip,a.knee,legs);segment(a.knee,a.foot,legs);
+      segment(J.chest,a.sh,arms);segment(a.sh,a.el,arms);segment(a.el,a.hd,arms);
+      for(const v of [a.hip,a.knee,a.foot,a.sh,a.el,a.hd])joint(v);
+    }
+    for(const v of [J.pel,J.abd||J.pel,J.chest,J.head])joint(v);
+  }finally{gymState.ipC=oldC;gymState.ipPose=oldPose;gymState.ipBase=oldBase;}
+}
+
 /** Zoom on the fighters: close in on the pair, wider only when they part; the centre follows with a lag. */
 function camera(){
   const S=state, C=S.cam, K=gymState.ISO_K, W=appearanceState.W, H=appearanceState.H, P=S.P, O=S.O;
@@ -1414,6 +1440,7 @@ function renderFight(){
   } else renderHub();   /* standard fights remain in their room's depth sorter */
   const K=gymState.ISO_K, W=appearanceState.W/K;
   drawParts();
+  if(S.venue==='sandy'&&S.showRig){renderRigOverlay(S.P);renderRigOverlay(S.O);}
   if(S.phase==='intro'||S.phase==='fight') marker(S.P);
   camera();
   applySlowMoTint();
@@ -1434,6 +1461,6 @@ function marker(F){
 /** Text for the info line below the picture. */
 export function isoFightInfo(){
   const S=state, V=S.venue, where=V==='sandy'?'TEST HD 432×288 · BOHATER VS HARRY':V==='port'?'BÓJKA W PORCIE':V==='yard'?'BÓJKA NA SPACERNIAKU':V==='canteen'?'BÓJKA PRZY POSIŁKU':V==='laznia'?'BÓJKA W ŁAŹNI':'BÓJKA W WARDZIE';
-  return where+' · '+(S.opp?S.opp.title:'')+' · '+(S.phase==='end'||S.phase==='ko'?'KONIEC':'DO KO')+(V==='sandy'?' · R restart · F9 PNG':'');
+  return where+' · '+(S.opp?S.opp.title:'')+' · '+(S.phase==='end'||S.phase==='ko'?'KONIEC':'DO KO')+(V==='sandy'?' · F7 szkielet · R restart · F9 PNG':'');
 }
 export const CONTROLS='mysz/WASD ruch · F dash ku kursorowi · E unik · 2× E odskok · 1 jab · 2 cross · 3 hook · 4 uppercut · LPM + cios: korpus · Spacja blok / klincz · Q slip · F10 pauza · Esc wyjście';
