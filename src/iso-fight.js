@@ -14,7 +14,7 @@ import { state as gymState, figureHD, hubBlocked, hubBounds, hubRebake, hubTrans
 import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometricFrame } from './renderer.js';
 import { mix } from './cast.js';
 import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
-import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets} from './combat-anatomy.js';
+import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets, elbowAngle} from './combat-anatomy.js';
 import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors, fixBoneLength} from './fighter-rig.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
@@ -996,6 +996,42 @@ function drawFighter(F){
   let jf=fighterJoints(F);
   if(F.rise){ jf=blendJoints(F.rise.joints,jf,smooth(Math.min(1,F.rise.t))); }
   figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0});
+}
+
+/** A DEBUG-only consumer receives real joint coordinates and metrics for the
+ * frozen frame. No mutation, and no dependence on the rendering camera.
+ * @param {'player'|'opponent'} [which] */
+export function combatRigSnapshot(which='player'){
+  const F=which==='opponent'?state.O:state.P;
+  if(!F)return null;
+  let J=(F.rd&&(F.ko||F.down))?ragdollJoints(F):fighterJoints(F);
+  if(F.rise)J=blendJoints(F.rise.joints,J,smooth(Math.min(1,F.rise.t)));
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+  const angle=(a,b,c)=>elbowAngle(a,b,c);
+  const side=(s)=>{
+    const b=J(s);
+    return {
+      joints:{hip:b.hip,knee:b.knee,ankle:b.foot,shoulder:b.sh,elbow:b.el,hand:b.hd},
+      upperArm:+dist(b.sh,b.el).toFixed(3),
+      forearm:+dist(b.el,b.hd).toFixed(3),
+      upperLeg:+dist(b.hip,b.knee).toFixed(3),
+      lowerLeg:+dist(b.knee,b.foot).toFixed(3),
+      elbowAngle:+angle(b.sh,b.el,b.hd).toFixed(1),
+      kneeAngle:+angle(b.hip,b.knee,b.foot).toFixed(1),
+      footHeight:+b.foot[2].toFixed(3)
+    };
+  };
+  return {
+    fighter:which,venue:state.venue,down:!!F.rd,
+    strike:F.pk?{id:F.pk.pid,low:!!F.pk.low,t:+F.pk.t.toFixed(4),hand:F.pk.hand}:null,
+    pelvis:J.pel,abdomen:J.abd,chest:J.chest,head:J.head,
+    lowerSpine:+dist(J.pel,J.abd||J.pel).toFixed(3),
+    upperSpine:+dist(J.abd||J.pel,J.chest).toFixed(3),
+    neck:+dist(J.chest,J.head).toFixed(3),
+    hipSpan:+dist(J(-1).hip,J(1).hip).toFixed(3),
+    shoulderSpan:+dist(J(-1).sh,J(1).sh).toFixed(3),
+    left:side(-1),right:side(1)
+  };
 }
 
 export const WARD_SPAR_SPEED=0.6;
