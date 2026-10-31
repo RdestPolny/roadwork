@@ -55,7 +55,7 @@ Nie implementowano pełnego anatomicznego modelu łopatki, stawu skokowego, staw
 ## Diagnostyka do akceptacji
 
 1. `?debug=1` → Opcje → **HD Fight Test — Bohater vs Harry**.
-2. Zatrzymaj **F8**, poruszaj pojedynczą klatką **kropką**, zapisuj F9 (PNG). W konsoli: `window.__boxer.rig('player')` i `window.__boxer.rig('opponent')`. Metryki zawierają pełne punkty stawów, długości obu kości rąk/nóg, długości obu części tułowia i szyi, rozstaw barków/bioder, kąty łokci/kolan, wysokości stóp.
+2. Włącz **F7** (kolorowa nakładka kości i stawów), zatrzymaj **F8**, poruszaj pojedynczą klatką **kropką**, zapisuj F9 (PNG). W konsoli: `window.__boxer.rig('player')` i `window.__boxer.rig('opponent')`. Metryki zawierają pełne punkty stawów, długości obu kości rąk/nóg, długości obu części tułowia i szyi, rozstaw barków/bioder, kąty łokci/kolan, wysokości stóp.
 3. Przejdź cztery fazy każdego ciosu: 0%, 40%, 100% i połowę powrotu. Obie ręce, wysokie i niskie cele, patrzenie z ośmiu kierunków, ruch w przód, bok, w tył, dash → cios.
 4. W Wardzie: ciężki Edmund Briggs, jego zmęczenie, szeroki hook, postać siedząca; następnie walka i nokdaun + wstawanie. Sprawdź zwykłe NPC oraz animowanego bohatera w eksploracji.
 5. Sprawdzaj nie tylko wygląd, ale i **kontakty z otoczeniem**: pięta–podłoga, pięść–twarz, stopa–ściana, ramiona–ubranie oraz czy krew rzeczywiście wydobywa się z trafionego miejsca.
