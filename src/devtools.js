@@ -7,7 +7,7 @@ import { simFormText, simUI, simSetPhase, PHASES } from './simulation.js';
 import { enterHub, exitToHub, state as navigationState, stMenuPick, stMenuRender, stMenuClose } from './navigation.js';
 import { state as boxingState } from './boxing.js';
 import { state as sparringState, startSpar } from './sparring.js';
-import { isoFightFinish, startIsoFight } from './iso-fight.js';
+import { isoFightFinish, startIsoFight, combatRigSnapshot } from './iso-fight.js';
 import { state as appearanceState } from './appearance.js';
 import { state as animationState } from './animation.js';
 import { state as rendererState, render } from './renderer.js';
@@ -141,7 +141,7 @@ export function initialize(){
     hubSet(i,j){gymState.hubP.i=i;gymState.hubP.j=j;}, hubKeys:gymState.hubKeys,
     stMenuPick, stSel(k){navigationState.stSel=k;stMenuRender();},
     get snap(){return {pal:Array.from(appearanceState.PAL).join(','),lk:JSON.stringify(appearanceState.lk),tr:appearanceState.trStyle,gl:appearanceState.glStyle,posX:animationState.posX,state:boxingState.state,fbMain:rendererState.fb===rendererState.FB_MAIN,mirror:sparringState.mirrorCtx,aimLow:sparringState.aimLow,idleOff:sparringState.idleOff,spd:boxingState.STATS.speed};},
-    startSpar, isoFightFinish, get stats(){return JSON.parse(JSON.stringify(progressionState.save.stats));}, addXP,
+    startSpar, isoFightFinish, rig:combatRigSnapshot, get stats(){return JSON.parse(JSON.stringify(progressionState.save.stats));}, addXP,
     get power(){return boxingState.STATS.power;}, get speed(){return boxingState.STATS.speed;},
     get dash(){return [animationState.M_DASHF,animationState.M_DASHB];},
     sparStep:step, fighter(i){return sparringState.FIG[i];},
