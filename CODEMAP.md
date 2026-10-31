@@ -42,6 +42,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | Łaźnia | `src/bath.js`, `src/rooms.js` | `src/gym.js`, `src/prison.js` |
 | Dzień więzienny, posiłki, dyżury, waluty | `src/prison.js`, `src/simulation.js` | `src/ward-meal.js`, `src/prison-data.js`; `PRISON.md` |
 | Bójka izometryczna, sterowanie, AI, wynik | `src/iso-fight.js`, `src/realtime-rules.js` | `src/sparring.js`, `src/prison.js`, `src/npcs.js`; `CIOSY.md` |
+| Szkielet walki, proporcje, ragdoll, mocap | `src/fighter-rig.js`, `src/combat-anatomy.js`, `src/figure-anatomy.js` | `src/ragdoll.js` (Verlet, też w porcie), `src/mocap-retarget.js`, `scripts/mocap-compare.mjs`; F7 = nakładka stawów |
 | Pozy walki, szkielet, wygląd, efekty ciosów | `src/animation.js`, `src/boxing.js` | `src/appearance.js`, `src/fighter-context.js`, `src/cast.js` |
 | Cień / trening kombinacji | `src/shadowboxing.js`, `src/shadow-sequence.js` | `src/sparring.js`, `src/cell-fight-scene.js`, `src/ward-wall.js` |
 | Pompki i podciąganie | `src/pushups.js`, `src/pullups.js` | `src/pullup-scene.js`, `src/training-session.js` |
@@ -49,6 +50,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | Korba | `src/crank.js`, `src/crank-rules.js` | `src/crank-scene.js`, `src/prison.js`; `CRANK.md` |
 | Siłowanie, praca w rzeźni | `src/armwrestle.js` lub `src/work.js` | `src/prison.js`, `src/cast.js` |
 | Port / prolog / dorożka | `src/thames-port.js`, `src/port-story.js` | `src/carriage.js`, `src/iso-fight.js` |
+| Życie nabrzeża, rutyny postaci, rekwizyty portu | `src/port-life.js`, `src/port-scenes.js` | `src/port-district.js` (kotwice, pokład), `src/port-extension.js`, `src/port-details.js`, `src/ragdoll.js` |
 | XP, statystyki, Profesor, drzewka, Cechy | `src/progression.js`, `src/stats.js`, `src/profesor.js` | `src/skill-tree.js`, `src/card-data.js`, `src/perk-rules.js`, `src/char-sheet.js`; `PROGRESSION.md`, `PERKI.md` |
 | Zapis, sloty, migracje, odporność na błędy | `src/save-store.js`, `src/progression.js` | `src/legacy-save-data.js`, `tests/save-store.test.js`; `ARCHITECTURE.md` § Zapis |
 | HUD, dialogi, opcje, style | `src/menu.js`, `src/dialog.js`, `src/styles.css` | `src/options.js`, `src/pocket-watch.js`, `src/need-icons.js` |
@@ -60,7 +62,13 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 - Integracyjne/obrazowe: `npm run test:browser -- --only=crank`, `--only=isometric`, `--only=prison`, `--only=Thames`. Filtrowanie dopasowuje **fragment nazwy scenariusza** z `tests/browser.mjs`, nie nazwy plików.
 - Typy: `npm run check`. **Źródło prawdy o plikach objętych `checkJs`: `tsconfig.json`** (lista zmienia się w czasie).
 - Zmiany wyłącznie w Markdown: bez testów runtime; sprawdź ścieżki, odnośniki i zgodność z kodem.
-- Render scen: `scripts/render-room.mjs`, `scripts/render-port.mjs`, `scripts/iso-fight-shot.mjs`. Nie sprawdzaj całej gry przy każdej małej korekcie graficznej.
+- Lista scenariuszy bez uruchamiania: `npm run test:browser -- --list [--only=…]`; każdy PASS podaje czas.
+- Render scen: **`node scripts/shot.mjs --scene=… [--at= --time= --eval= --frames= --gap= --crop= --gif= --diff=]`** (dowolna scena, natywna klatka, arkusz/GIF/diff przed-po; opis opcji w nagłówku pliku). Specjalistyczne: `scripts/render-room.mjs` (godziny, puste pokoje), `scripts/render-port.mjs`, `scripts/iso-fight-shot.mjs`, `scripts/profile-port.mjs` (czas klatki). Wszystkie stoją na `scripts/lib/harness.mjs` (`openGame()`, `window.__shot.grab()/sheet()/prison()`) — nowy skrypt podglądu buduj na nim, nie kopiuj startu serwera i Chrome. Wolą headless niż panel przeglądarki (ukryty panel przerywa `javascript_tool`). Nie sprawdzaj całej gry przy każdej małej korekcie graficznej.
+
+## Narzędzia pracy
+
+- `node scripts/branches.mjs [--fetch] [--files]` — których commitów z innych gałęzi i worktree brakuje w wersji uruchamianej tutaj (gdy „zniknęła” zmiana).
+- `node scripts/pack-context.mjs <temat> [--task='…'] [--add=…]` — paczka aktualnego kodu dla innego AI; tematy i listy plików w `scripts/context-packs.json` (`--list`). Odświeżaj nią `*-kontekst.md` zamiast składać je ręcznie.
 
 ## Dokumentacja głęboka — otwieraj na żądanie
 

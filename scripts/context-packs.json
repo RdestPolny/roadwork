@@ -1,0 +1,26 @@
+{
+  "walka-izo": {
+    "out": "walka-izo-kontekst.md",
+    "title": "Roadwork — kontekst walki izometrycznej",
+    "intro": "Walka, którą gra gracz, to **`src/iso-fight.js`** (izometryczna bójka w Ward/spacerniak/łaźnia/port); reguły ciosów, kondycji, bloku, parowania i uniku (slip) to **`src/realtime-rules.js`** (`TUNING`, `beginSlip`, `resolvePunch`). Szkielet i proporcje: `fighter-rig.js`, `combat-anatomy.js`, `figure-anatomy.js`, upadki `ragdoll.js`. Postacie rysuje `figureHD` w `gym.js`. `boxing.js`, `animation.js`, `sparring.js` to boczny szkielet używany przez trening Cień, pompki itd. — **nie jest to walka**.",
+    "files": ["ARCHITECTURE.md", "AGENTS.md", "src/iso-fight.js", "src/realtime-rules.js", "src/fighter-rig.js", "src/combat-anatomy.js", "src/figure-anatomy.js", "src/ragdoll.js", "src/gym.js", "src/renderer.js", "src/appearance.js", "src/boxing.js", "src/animation.js", "src/fighter-context.js", "src/cell-light.js", "src/weather.js", "src/npcs.js", "src/ward.js", "src/exercise-yard.js", "src/bath.js", "src/stats.js", "src/sparring.js", "src/input.js", "src/audio.js", "tests/isofight.mjs", "tests/realtime-rules.test.js", "tests/fighter-rig.test.js", "tests/combat-anatomy.test.js"]
+  },
+  "minigry": {
+    "out": "minigry-kontekst.md",
+    "title": "Roadwork — kontekst minigier (pompki, podciąganie, karaluchy, korba)",
+    "intro": "Minigry: `pushups.js` (pompki, boczny widok na szkielecie z `boxing.js`, joints liczy `solvePushup`; tło celi z `rooms.js`), `pullups.js` + `pullup-scene.js` (podciąganie zza pleców, ciało jako mapa wysokości, tło rysowane kodem), `roaches.js` + `roach-scene.js` + `roach-rules.js` + `ward-wall.js` (karaluchy na ścianie z oczu bohatera, ściana jako mapa wysokości oświetlana kagankiem), `crank.js` + `crank-rules.js` + `crank-scene.js` (korba w szopie 288×192, tło budowane kodem). Tła tych scen są w dużej mierze proceduralne; jeśli tło wymaga poprawy, rozrysuj je sam w kodzie odpowiedniego `*-scene.js`.",
+    "files": ["ARCHITECTURE.md", "AGENTS.md", "src/pushups.js", "src/pullups.js", "src/pullup-scene.js", "src/roaches.js", "src/roach-scene.js", "src/roach-rules.js", "src/crank.js", "src/crank-rules.js", "src/crank-scene.js", "src/cast.js", "src/boxing.js", "src/animation.js", "src/appearance.js", "src/renderer.js", "src/noise.js", "src/ward-wall.js", "src/ward.js", "src/rooms.js", "src/cell-light.js", "src/weather.js", "src/fighter-context.js", "scripts/render-room.mjs", "tests/crank.mjs", "tests/roach-rules.test.js", "tests/crank.test.js"]
+  },
+  "podciaganie-anatomia": {
+    "out": "podciaganie-anatomia-kontekst.md",
+    "title": "Roadwork — kontekst: anatomia sylwetki w podciąganiu",
+    "intro": "Plik główny: `src/pullup-scene.js` (funkcje `solvePose`, `backHalf`, `backBumps`, `rasterBody`, `shadeBody`). Ciało to mapa wysokości rasteryzowana z kapsuł i elips (`cap`, `ell`, `muscle`), potem cieniowana lampą z lewej i obrysem od okna z przodu. Reszta plików to kontekst (`pullups.js` — reguły i dane, `appearance.js` — paleta, `noise.js`). Z `tests/browser.mjs` istotne są scenariusze `pull-up`.",
+    "files": ["AGENTS.md", "src/pullup-scene.js", "src/pullups.js", "src/appearance.js", "src/noise.js", "tests/browser.mjs"]
+  },
+  "port": {
+    "out": "port-kontekst.md",
+    "title": "Roadwork — kontekst portu nad Tamizą",
+    "intro": "Scena portu: `src/thames-port.js` (geometria, kamera, render, statyczne tło w kawałkach), życie nabrzeża i rutyny postaci `src/port-life.js`, sceny i rekwizyty `src/port-scenes.js`, `src/port-details.js`, `src/port-extension.js`, dzielnica `src/port-district.js`, fabuła prologu `src/port-story.js`, wóz `src/carriage.js`. Postacie rysuje `figureHD` w `gym.js`. Podgląd: `node scripts/shot.mjs --scene=port --at=21.5:9`.",
+    "files": ["AGENTS.md", "src/thames-port.js", "src/port-life.js", "src/port-scenes.js", "src/port-details.js", "src/port-extension.js", "src/port-district.js", "src/port-story.js", "src/carriage.js", "src/renderer.js", "src/appearance.js", "tests/port-district.test.js", "tests/port-fisherman.test.js", "tests/port-pub.test.js", "tests/port-life-browser.mjs", "tests/port-district-browser.mjs"]
+  }
+}

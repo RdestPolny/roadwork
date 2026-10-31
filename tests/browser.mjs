@@ -15,9 +15,8 @@ import { checkShadowboxing } from './shadowboxing.mjs';
 import { checkHealers } from './healers.mjs';
 
 
-const port = 5189;
-const server = spawn(process.execPath, ['scripts/serve.mjs'], { env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'] });
-await once(server.stdout, 'data');
+const server = spawn(process.execPath, ['scripts/serve.mjs'], { env: { ...process.env, PORT: '0' }, stdio: ['ignore', 'pipe', 'inherit'] });   // a free port: runs in parallel do not collide
+const port = Number(String((await once(server.stdout, 'data'))[0]).match(/:(\d+)/)[1]);
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const browser = await chromium.launch({ headless: true, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
 let context;
@@ -81,12 +80,17 @@ async function pushRep(kind){
 async function pushTop(rest=0){ await page.evaluate(async rest => {const U=await import('/src/pushups.js');let n=0;while(U.state.puPhase!=='top'&&n++<600)window.__boxer.step(1);window.__boxer.step(rest);},rest); }
 async function untilHang(){ await page.evaluate(async () => {const {state}=await import('/src/pullups.js');let n=0;while(state.phase!=='hang'&&n++<400)window.__boxer.step(1);}); }
 const only = process.argv.find(a => a.startsWith('--only='))?.slice(7).toLowerCase();   // npm run test:browser -- --only=cell
+const list = process.argv.includes('--list');   // npm run test:browser -- --list [--only=…]: scenario names, nothing runs
+const started = performance.now();
 async function check(name, run) {
   if (only && !name.toLowerCase().includes(only)) return;
+  if (list) { console.log(name); return; }
+  const t0 = performance.now();
   await fresh();
   await run();
-  results.push({ name, passed: true });
-  console.log(`PASS ${name}`);
+  const s = +((performance.now() - t0) / 1000).toFixed(1);
+  results.push({ name, passed: true, s });
+  console.log(`PASS ${name} (${s}s)`);
 }
 try {
   await check('HD sandy fight: 432x288, Harry AI, shared joints, clean save and room return',async()=>{
@@ -1126,7 +1130,10 @@ try {
   process.exitCode = 1;
   console.error(error);
 } finally {
-  await mkdir('artifacts', { recursive: true });
-  await writeFile('artifacts/browser-results.json', JSON.stringify({ results, errors }, null, 2));
+  if (!list) {
+    console.log(`${results.filter(r => r.passed).length} passed in ${((performance.now() - started) / 1000).toFixed(0)}s`);
+    await mkdir('artifacts', { recursive: true });
+    await writeFile('artifacts/browser-results.json', JSON.stringify({ results, errors }, null, 2));
+  }
   await browser.close(); server.kill();
 }

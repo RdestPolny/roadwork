@@ -13,24 +13,13 @@
 // --mini     pullup|pushup|roach — with --fight=n:gap: the cell's pull-up, push-up or roach-wall scene instead of a fight
 // --arm      n:gap — the arm wrestling close-up (the canteen), like --fight; the rival pulls, nobody presses
 // Writes artifacts/tmp/<out>.png (ignored by git). Math.random is seeded, so the same call gives the same picture.
-import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { openGame, root } from './lib/harness.mjs';
 
 const arg = (k, d) => process.argv.find(a => a.startsWith(`--${k}=`))?.slice(k.length + 3) ?? d;
 const setup = arg('eval', ''), mini = arg('mini', ''), arm = arg('arm', ''), fight = arg('fight', '') || arm, anim = arg('anim', ''), room = arg('room', 'cell'), times = arg('times', '600,1230').split(',').map(Number), crop = arg('crop', ''), people = arg('people', 'live'), out = arg('out', room);
-const port = 5194, root = new URL('..', import.meta.url).pathname;
-const server = spawn(process.execPath, ['scripts/serve.mjs'], { cwd: root, env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'] });
-await once(server.stdout, 'data');
-const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const browser = await chromium.launch({ headless: true, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
+const game = await openGame({ seed: true }), page = game.page, errors = game.errors;
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.addInitScript(() => { let seed = 123456789; Math.random = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; }; });
-  await page.goto(`http://127.0.0.1:${port}/?debug=1`); await page.waitForFunction(() => !!window.__boxer, null, { timeout: 15000 });
   const png = await page.evaluate(async ({ room, times, crop, people, anim, setup, fight, arm, mini }) => {
     const b = window.__boxer; b.newGame('prison'); b.pause();
     const X = await import('/src/prison.js'); for (let k = 0; k < 6 && X.cardOpen(); k++) document.querySelector('#storyChoices button')?.click();
@@ -82,4 +71,4 @@ try {
   await mkdir(`${root}artifacts/tmp`, { recursive: true });
   await writeFile(`${root}artifacts/tmp/${out}.png`, Buffer.from(png.split(',')[1], 'base64'));
   console.log(`artifacts/tmp/${out}.png${errors.length ? '  ERRORS: ' + errors.slice(0, 3).join(' | ') : ''}`);
-} finally { await browser.close(); server.kill(); }
+} finally { await game.close(); }
