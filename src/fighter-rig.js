@@ -92,8 +92,8 @@ export function buildSpine(pelvis,{lean=0,sideLean=0,fold=0,lunge=0}={}){
 /** A short neck with a fixed attachment to the ribcage. Head hints still
  * provide slipping, shock and chin-tuck, but cannot dislocate the skull. */
 export function headSocket(chest,hint){
-  const vx=clamp(hint[0]-chest[0],-1.0,1.1);
-  const vy=clamp(hint[1]-chest[1],-0.95,0.95);
+  const vx=clamp(hint[0]-chest[0],-0.9,0.9);
+  const vy=clamp(hint[1]-chest[1],-0.75,0.75);
   const vz=Math.max(2.5,hint[2]-chest[2]);
   return move(chest,[vx,vy,vz],RIG.neckToHead);
 }
