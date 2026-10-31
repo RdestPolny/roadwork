@@ -23,7 +23,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Extended dock geometry and NPC tests
-        run: node --test tests/port-district.test.js
+        run: node --test tests/port-district.test.js tests/port-fisherman.test.js
       - name: Full unit regression (report existing unrelated failures)
         continue-on-error: true
         run: npm test
@@ -33,6 +33,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Native Thames 432x288 captures and collision smoke
         run: npm run test:browser -- --only='Thames district'
+      - name: Dock cat poses and larger fish-pail native captures
+        run: npm run test:browser -- --only='Thames life: fixed routine phases'
       - name: Thames original job and story regression
         run: npm run test:browser -- --only='Thames port developer preview'
       - name: Upload native captures and browser diagnostics
@@ -42,5 +44,6 @@ jobs:
           name: thames-port-432-captures
           path: |
             artifacts/thames-district/
+            artifacts/port-life/
             artifacts/browser-results.json
           if-no-files-found: warn
