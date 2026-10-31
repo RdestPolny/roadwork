@@ -10,8 +10,8 @@
  * the chest, neck or hips apart as if they were unrelated animation controls.
  */
 export const RIG=Object.freeze({
-  pelvisHeight:6.6, hipHeight:0.3, hipHalf:1.25,
-  lowerSpine:2.68, upperSpine:2.94, shoulderHalf:2.7, shoulderHeight:0.2,
+  pelvisHeight:6.6, hipHeight:0.3, hipHalf:1.38,
+  lowerSpine:2.68, upperSpine:2.94, shoulderHalf:2.40, shoulderHeight:0.2,
   neckToHead:3.4, legUpper:3.2, legLower:3.2,
   footHeight:0.9, minimumFootClearance:0.05
 });
