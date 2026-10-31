@@ -1248,7 +1248,7 @@ const rnd=(/** @type {number} */ a,/** @type {number} */ b)=>a+Math.random()*(b-
 /** Throw a small amount of sweat on damaging hits; blood replaces it below 60% health and grows as health falls.
  * @param {any} A @param {any} D @param {number} pid @param {boolean} low @param {boolean} blocked @param {{damage:number,counter:boolean}} o @param {boolean} [ko] */
 function spray(A,D,pid,low,blocked,o,ko){
-  const [ui,uj]=toward(A,D), si=-uj, sj=ui, z0=low?9.5:14.6, hpF=D.rt.hp/D.rt.hpMax, swing=pid===2?1:0, heavy=pid>=1||o.counter||!!ko;
+  const [ui,uj]=toward(A,D), si=-uj, sj=ui, pose=fighterJoints(D), z0=low?pose.abd[2]+0.6:pose.head[2]-0.5, hpF=D.rt.hp/D.rt.hpMax, swing=pid===2?1:0, heavy=pid>=1||o.counter||!!ko;
   const fire=(/** @type {'mist'|'sweat'|'blood'} */ kind,/** @type {number} */ n,/** @type {number} */ power)=>{
     const mist=kind==='mist';
     for(let k=0;k<n;k++){
@@ -1272,7 +1272,7 @@ function spray(A,D,pid,low,blocked,o,ko){
 function tickSpurt(F,scale){
   const S=F.spurt; if(!S) return;
   S.t-=scale; if(S.t<=0){ F.spurt=null; return; }
-  const h=F.rd?F.rd.nodes[2]:{i:F.i,j:F.j,z:14}, fade=Math.min(1,S.t/12), pulse=0.55+0.45*Math.sin(S.t*0.9), n=1+Math.round(3*pulse*fade);
+  const h=F.rd?F.rd.nodes[2]:(()=>{const j=fighterJoints(F),w=world(F,j.head[0],j.head[1]);return {...w,z:j.head[2]};})(), fade=Math.min(1,S.t/12), pulse=0.55+0.45*Math.sin(S.t*0.9), n=1+Math.round(3*pulse*fade);
   for(let k=0;k<n;k++){
     const along=rnd(0.9,1.9)*(0.5+0.5*pulse)*(0.6+0.4*fade), across=rnd(-0.55,0.55), sp=0.021;
     state.parts.push({kind:'blood',i:h.i,j:h.j,z:h.z,vi:(S.ui*along+S.si*across)*sp,vj:(S.uj*along+S.sj*across)*sp,vz:rnd(0.3,0.85)*(0.5+0.5*pulse),size:Math.random()<0.3?2:1,
@@ -1282,7 +1282,8 @@ function tickSpurt(F,scale){
 
 /** A drop that creeps down the face first (a cut that keeps bleeding, a tired sweat) and only then lets go. @param {any} F @param {'sweat'|'blood'} kind */
 function drip(F,kind){
-  const df=rnd(0.14,0.21), ds=rnd(-0.08,0.08), z=kind==='blood'?rnd(13.2,14.4):rnd(13.8,15), i=F.i+F.fi*df-F.fj*ds, j=F.j+F.fj*df+F.fi*ds;
+  const face=fighterJoints(F).head, df=face[0]/7.5+rnd(0.08,0.13), ds=face[1]/7.5+rnd(-0.05,0.05);
+  const z=face[2]+(kind==='blood'?rnd(-1.25,-0.2):rnd(-0.65,0.25)), i=F.i+F.fi*df-F.fj*ds, j=F.j+F.fj*df+F.fi*ds;
   state.parts.push({kind,i,j,z,vi:F.fi*0.002,vj:F.fj*0.002,vz:0,size:1,age:0,maxAge:999,creep:14+(Math.random()*8|0),host:F,df,ds,pi:i,pj:j,pz:z});
 }
 
