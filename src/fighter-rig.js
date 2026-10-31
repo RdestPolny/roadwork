@@ -80,10 +80,10 @@ export function kneePole(hip,foot,side){
  * fixed-length segments rather than uncontrolled screen-space translations.
  * As the abdomen retreats, the ribs fold over it in an actual articulated arc.
  */
-export function buildSpine(pelvis,{lean=0,sideLean=0,fold=0,lunge=0}={}){
-  const l=clamp(lean,-3.5,4.0),s=clamp(sideLean,-3.0,3.0),f=clamp(fold,0,1.15);
-  const lower=[0.075+0.115*l+0.028*lunge-0.19*f,0.045*s-0.055*f,1];
-  const upper=[0.105+0.135*l+0.042*lunge+0.34*f,0.06*s+0.065*f,1];
+export function buildSpine(pelvis,{lean=0,sideLean=0,fold=0,foldSide=0,lunge=0}={}){
+  const l=clamp(lean,-3.5,4.0),s=clamp(sideLean,-3.0,3.0),f=clamp(fold,0,1.15),fs=clamp(foldSide,-1,1);
+  const lower=[0.075+0.115*l+0.028*lunge-0.19*f,0.045*s-0.055*f*fs,1];
+  const upper=[0.105+0.135*l+0.042*lunge+0.34*f,0.06*s+0.065*f*fs,1];
   const abdomen=move(pelvis,lower,RIG.lowerSpine);
   const chest=move(abdomen,upper,RIG.upperSpine);
   return {pelvis:[...pelvis],abdomen,chest};
