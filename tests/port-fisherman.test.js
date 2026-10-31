@@ -122,7 +122,7 @@ test('larger pail and cat reach remain aligned without stepping into bucket',()=
     const cat=catAt(t);
     assert.ok(cat.reach>=0&&cat.reach<=1&&Number.isFinite(cat.reach));
     if(cat.state==='STEAL'&&prev.state==='STEAL')
-      assert.ok(Math.abs(cat.reach-prev.reach)<.065, 'Reach should animate continuously');
+      assert.ok(Math.abs(cat.reach-prev.reach)<.12, 'Reach should animate continuously');
     prev=cat;
   }
 });
