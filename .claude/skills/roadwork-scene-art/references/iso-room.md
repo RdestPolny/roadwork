@@ -1,13 +1,14 @@
-# Isometric hub rooms (2× frame, 288×192)
+# Isometric rooms and fights (native 432×288)
 
 ## Frame and projection
 
-- `hdRoom()` in `src/renderer.js` lists the 2× rooms (cell, izolatka, yard, laznia). A room joins the 2× frame by
-  being added there first; `withHD(fn)` swaps the picture size, buffers and `gymState.ISO_K = 2` for the bake and the frame.
+- `hdRoom()` in `src/renderer.js` lists the isometric rooms (cell, yard, laznia); `isometricFrame(venue)` maps rooms,
+  fight venues and the port to the 432×288 frame `rendererState.hd3`. `withHD(fn, frame)` swaps the picture size,
+  buffers and `gymState.ISO_K` (= 3 for that frame) for the bake and the frame.
 - Projection in `src/gym.js`: `isoX(i,j)`, `isoY(i,j,z)` (6 px per unit across, 3 down, ×`ISO_K`); fill a face
   with `quad(…, (x,y)=>colour)`; `isoLine`, `isoLineThin`; `psetK` for a 2×2 dot.
 - Placement by clock positions on the diamond: 12 = back corner, 3 = right, 6 = front, 9 = left.
-- People in 2× rooms use `figureHD` (`src/gym.js`) with an `hd` look; walls and floor are baked by `hubRebake()`
+- People in the rooms, fights and port use `figureHD` (`src/gym.js`) with an `hd` look; walls and floor are baked by `hubRebake()`
   (call it after changing anything static, and when the hour or weather changes).
 
 ## Module pattern (see `src/exercise-yard.js`)
@@ -23,11 +24,12 @@
 ## Render commands
 
 ```bash
-node scripts/render-room.mjs --room=yard --times=600,1230 --crop=40:60:120:80 --out=r1     # hours + one close-up
-node scripts/render-room.mjs --room=yard --people=none --times=600 --out=r2                 # empty room: furniture only
-node scripts/render-room.mjs --room=yard --times=600 --crop=100:60:80:60 --anim=8:4 --out=r3 # 8 close-ups 4 ticks apart
+node scripts/render-room.mjs --room=yard --times=600,1230 --crop=120:90:180:120 --out=r1     # hours + one close-up
+node scripts/render-room.mjs --room=yard --people=none --times=600 --out=r2                   # empty room: furniture only
+node scripts/render-room.mjs --room=yard --times=600 --crop=150:90:120:90 --anim=8:4 --out=r3  # 8 close-ups 4 ticks apart
+node scripts/shot.mjs --scene=fight --venue=yard --crop=150:90:140:110 --frames=4 --gap=10     # fight close-up
 ```
-Crops are in 2× picture pixels. `--eval='…'` sets a scene up after entering the room (`await import('/src/…')` works).
+Crops are in native 432×288 pixels. `--eval='…'` sets a scene up after entering the room (`await import('/src/…')` works).
 
 ## What has worked
 

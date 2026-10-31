@@ -14,7 +14,9 @@ on:
     paths:
       - 'src/fighter-rig.js'
       - 'src/combat-anatomy.js'
+      - 'src/figure-anatomy.js'
       - 'src/iso-fight.js'
+      - 'src/gym.js'
       - 'tests/**'
       - '.github/workflows/combat-rig.yml'
 permissions:
