@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   portLife, fisherAt, bucketAt, catAt, phaseTime,
-  LOOPS, FISH, CAT, PEE_SPOT, CAT_SPOT, CAT_CRATE,
+  LOOPS, FISH, CAT, PEE_SPOT, CAT_SPOT, CAT_CRATE, CAT_STEAL_SPOT, BUCKET,
   BUCKET_DROP_TICK, BUCKET_STEAL_TICK
 } from '../src/port-life.js';
 import { portSurface, districtBlocked, DECK_Z } from '../src/port-district.js';
@@ -98,6 +98,32 @@ test('dock cat routine executes observation, stalk, theft, sprint, eating on cra
   const expectedCat = ['WATCH', 'STALK', 'STEAL', 'SPRINT', 'EAT', 'RETURN'];
   for(const st of expectedCat){
     assert.ok(visited.has(st), `Expected cat state ${st} was not visited`);
+  }
+});
+
+test('larger pail and cat reach remain aligned without stepping into bucket',()=>{
+  assert.ok(BUCKET.r>=.34, 'The pail mouth must be wide enough to read in 432x288');
+  assert.ok(BUCKET.h>=3.4, 'The pail must be taller than the previous 2.5 units');
+  assert.equal(districtBlocked(BUCKET.i+BUCKET.r-.025,BUCKET.j),true,
+    'Expanded collision must cover the pail mouth');
+  const approach=Math.hypot(CAT_STEAL_SPOT.i-BUCKET.i,CAT_STEAL_SPOT.j-BUCKET.j);
+  assert.ok(approach>BUCKET.r+.18, 'The cat root must stay outside the pail');
+
+  const early=catAt(phaseTime('cat','STEAL',.05));
+  const dipping=catAt(phaseTime('cat','STEAL',.50));
+  const leaving=catAt(phaseTime('cat','STEAL',.90));
+  assert.equal(early.reach,0,'The paw starts at a natural resting position');
+  assert.ok(dipping.reach>.9 && dipping.pawInBucket,'The paw enters the larger pail');
+  assert.ok(leaving.reach<.01 && leaving.hasFish,'The paw retracts with the fish');
+
+  // Numerical safety and smoothness at every step, including transitions.
+  let prev=catAt(0);
+  for(let t=1;t<LOOPS.CAT.T;t++){
+    const cat=catAt(t);
+    assert.ok(cat.reach>=0&&cat.reach<=1&&Number.isFinite(cat.reach));
+    if(cat.state==='STEAL'&&prev.state==='STEAL')
+      assert.ok(Math.abs(cat.reach-prev.reach)<.12, 'Reach should animate continuously');
+    prev=cat;
   }
 });
 
