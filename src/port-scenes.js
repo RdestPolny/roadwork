@@ -10,7 +10,9 @@ import { portLife, lifeTime, TABLE, BUCKET, TACKLE, CAT_CRATE, BENCH, BIN, RAW_S
 function drawCat(c, t){
   const P=c.P, cosA=Math.cos(P.a), sinA=Math.sin(P.a);
   const toW=(f,s,z)=>[P.i+(f*cosA-s*sinA)/7.5,P.j+(f*sinA+s*cosA)/7.5,P.z+z];
-  contact(P.i-.30,P.j-.30,P.i+.30,P.j+.30,P.z,.55);
+  // Shadows always belong to the pier or crate, never to the airborne cat.
+  const onCrate=Math.abs(P.i-CAT_CRATE.i)<.4&&Math.abs(P.j-CAT_CRATE.j)<.4&&P.z>DECK_Z+CAT_CRATE.h*.7;
+  contact(P.i-.30,P.j-.30,P.i+.30,P.j+.30,onCrate?DECK_Z+CAT_CRATE.h:DECK_Z,.55);
 
   // Warm ginger tabby dock cat with ivory chest bib, white socks, luminous eyes and salmon nose
   const C_COAT=rgb('#c86b28');        // rich warm ginger body
@@ -32,22 +34,16 @@ function drawCat(c, t){
   const chew=c.chew||0, wash=c.washFace||0;
   const breath=c.breath||0;
 
-  // Sturdy, well-fed feline proportions (width, hips, head)
-  const sW=1.35;        // chest half-width (~5.4 screen px across body)
-  const sHips=1.65;     // haunch half-width (~6.6 screen px across haunches)
-  const sHead=1.25;     // head half-width (~5.0 screen px across cheeks)
-
-  // Altitudes in z-units
-  const rumpZ=Math.max(0.7, 3.5-1.4*crouch-2.3*sit-1.0*rear);
-  const midZ=Math.max(0.8, 3.7-1.6*crouch-1.3*sit+0.6*rear+breath*0.6);
-  const chestZ=Math.max(1.0, 3.3-1.5*crouch+0.8*sit+2.5*rear+breath);
-  const headZ=Math.max(1.4, 4.7-2.3*crouch+0.8*sit+2.6*rear+0.3*chew+breath*0.5);
-
-  const sitF=0.6*sit;
-  const fRump=-2.6+sitF;
-  const fMid=-0.4+sitF*0.3;
-  const fChest=1.6-sitF*0.4;
-  const fHead=2.8-sitF*0.6;
+  // Anatomical lengths are in height units, not pixels: narrow shoulders,
+  // stronger haunches, and a shorter skull than the broad original mesh.
+  const sW=1.14, sHips=1.30, sHead=1.02;
+  const rumpZ=Math.max(1.05,3.2-1.1*crouch-1.8*sit-.3*rear);
+  const midZ=Math.max(1.25,3.55-1.25*crouch-.9*sit+.3*rear+breath*.6);
+  const chestZ=Math.max(1.35,3.35-1.2*crouch+.4*sit+1.1*rear+breath);
+  const headZ=Math.max(1.6,4.4-1.55*crouch+.55*sit+1.25*rear-(c.eating?1.55:0)+.12*chew+breath*.5);
+  const fRump=-2.5+.48*sit, fMid=-.32, fChest=1.45-.18*sit, fHead=2.62-.2*sit;
+  const blend3=(a,b,u)=>a.map((x,k)=>x+(b[k]-x)*u);
+  const coat=[C_COAT,C_COAT_SHADE];
 
   // Spine & torso anchor points
   const rTop=toW(fRump,0,rumpZ+0.7);
@@ -99,53 +95,50 @@ function drawCat(c, t){
   quad(cL[0],cL[1],cL[2], bibMid[0],bibMid[1],bibMid[2], bibLow[0],bibLow[1],bibLow[2], cBellyL[0],cBellyL[1],cBellyL[2], ()=>C_BIB);
   quad(cR[0],cR[1],cR[2], cBellyR[0],cBellyR[1],cBellyR[2], bibLow[0],bibLow[1],bibLow[2], bibMid[0],bibMid[1],bibMid[2], ()=>C_BIB);
 
-  // 6. Legs, haunches and white sock paws
-  if(sit>0.5){
-    // Folded haunches on deck
-    quad(rL[0],rL[1],0.2, rL[0],rL[1],Math.max(0.6,rumpZ), toW(fMid-0.2,-sHips*1.1,Math.max(0.6,rumpZ))[0],toW(fMid-0.2,-sHips*1.1,Math.max(0.6,rumpZ))[1],toW(fMid-0.2,-sHips*1.1,Math.max(0.6,rumpZ))[2], toW(fMid-0.2,-sHips*1.1,0.2)[0],toW(fMid-0.2,-sHips*1.1,0.2)[1],0.2, ()=>C_COAT);
-    quad(rR[0],rR[1],0.2, toW(fMid-0.2,sHips*1.1,0.2)[0],toW(fMid-0.2,sHips*1.1,0.2)[1],0.2, toW(fMid-0.2,sHips*1.1,Math.max(0.6,rumpZ))[0],toW(fMid-0.2,sHips*1.1,Math.max(0.6,rumpZ))[1],toW(fMid-0.2,sHips*1.1,Math.max(0.6,rumpZ))[2], rR[0],rR[1],Math.max(0.6,rumpZ), ()=>C_COAT_SHADE);
+  // 6. Four jointed limbs: feline hocks and elbows, planted paws and
+  // alternating diagonal steps. The same rig stays grounded on raised crates.
+  // No world-space z=0 points: all coordinates are relative to P.z.
+  const gait=c.gait||0, moving=(1-sit)*(1-.45*rear);
+  for(const side of [-1,1]){
+    const dark=side>0, fur=coat[dark?1:0];
+    const hindSwing=Math.sin(gait+(side<0?Math.PI/2:-Math.PI/2))*moving;
+    const hindLift=Math.max(0,hindSwing)*.52;
+    const hip=side<0?rL:rR;
+    const knee=toW(fRump+.62+.34*sit,side*sHips*1.04,Math.max(.7,rumpZ*.56));
+    const hock=toW(fRump-.2+.78*sit+hindSwing*.24,side*sHips*.98,.72+hindLift*.38);
+    const backFoot=toW(fRump+.18+.9*sit+hindSwing*.65,side*sHips*.91,.18+hindLift);
+    const backToe=toW(fRump+.55+.88*sit+hindSwing*.65,side*sHips*.91,.18+hindLift);
+    // Haunch facet has real mass; the lower leg bends backward at the hock.
+    quad(...hip,...toW(fRump+.22,side*sHips*.96,rumpZ-.18),...knee,
+      ...toW(fRump+.40,side*sHips*1.09,Math.max(.65,rumpZ*.55)),()=>fur);
+    stroke(...knee,...hock,fur);
+    stroke(...hock,...backFoot,fur);
+    stroke(...backFoot,...backToe,C_PAW);
+    thin(...backToe,...toW(fRump+.62+.88*sit+hindSwing*.65,side*sHips*.93,.18+hindLift),C_COAT_SHADE);
 
-    // Folded rear white paws
-    stroke(...toW(fMid-0.2,-sHips*0.9,0.2), ...toW(fMid+0.3,-sHips*0.8,0.2), C_PAW);
-    stroke(...toW(fMid-0.2,sHips*0.9,0.2), ...toW(fMid+0.3,sHips*0.8,0.2), C_PAW);
-
-    // Front legs supporting upright chest
-    const pFL_top=toW(fChest+0.1,-0.55,chestZ-0.5);
-    const pFL_bot=toW(fChest+0.4,-0.55,0.2);
-    const rPawZ=wash?(headZ+0.4*wash):0.2;
-    const pFR_top=toW(fChest+0.1,0.55,chestZ-0.5);
-    const pFR_bot=toW(fChest+0.4,0.55,rPawZ);
-
-    stroke(...pFL_top,...pFL_bot,C_COAT);
-    stroke(...pFR_top,...pFR_bot,C_COAT_SHADE);
-
-    stroke(pFL_bot[0],pFL_bot[1],0.15,pFL_bot[0]+cosA*0.08,pFL_bot[1]+sinA*0.08,0.15,C_PAW);
-    stroke(pFR_bot[0],pFR_bot[1],rPawZ,pFR_bot[0]+cosA*0.08,pFR_bot[1]+sinA*0.08,rPawZ,C_PAW);
-  } else {
-    // 4-beat gait cycle
-    const gait=c.gait||0;
-    const swingF1=Math.sin(gait)*0.55;
-    const swingF2=-Math.sin(gait)*0.55;
-    const swingR1=Math.sin(gait+Math.PI*0.5)*0.55;
-
-    // Hind legs
-    const pBL=toW(fRump-0.2,-sHips*0.85,Math.max(0,-swingR1));
-    const pBR=toW(fRump-0.2,sHips*0.85,Math.max(0,swingR1));
-    stroke(...rL,...pBL,C_COAT);
-    stroke(...rR,...pBR,C_COAT_SHADE);
-    stroke(pBL[0],pBL[1],pBL[2],pBL[0]+cosA*0.06,pBL[1]+sinA*0.06,pBL[2],C_PAW);
-    stroke(pBR[0],pBR[1],pBR[2],pBR[0]+cosA*0.06,pBR[1]+sinA*0.06,pBR[2],C_PAW);
-
-    // Forelegs
-    const fPawRZ=c.pawInBucket?2.5:wash?(headZ+0.4*wash):rear?2.45:Math.max(0,-swingF2);
-    const pFL=toW(fChest+0.2,-sW*0.8,Math.max(0,swingF1));
-    const pFR=toW(fChest+0.2,sW*0.8,fPawRZ);
-
-    stroke(...cL,...pFL,C_COAT);
-    stroke(...cR,...pFR,C_COAT_SHADE);
-
-    stroke(pFL[0],pFL[1],pFL[2],pFL[0]+cosA*0.06,pFL[1]+sinA*0.06,pFL[2],C_PAW);
-    stroke(pFR[0],pFR[1],pFR[2],pFR[0]+cosA*0.06,pFR[1]+sinA*0.06,pFR[2],C_PAW);
+    const frontSwing=Math.sin(gait+(side<0?0:Math.PI))*moving;
+    const frontLift=Math.max(0,frontSwing)*.5;
+    const shoulder=side<0?cL:cR;
+    const baseElbow=toW(fChest+.08,side*sW*.94,Math.max(.78,chestZ*.48));
+    const basePaw=toW(fChest+.48+frontSwing*.65,side*sW*.91,.17+frontLift);
+    // The stealing paw reaches inside the real bucket mouth, rather than
+    // hovering at a hard-coded height belonging to the old tiny bucket.
+    const reach=side>0?Math.max(0,Math.min(1,c.reach||0)):0;
+    const washReach=side>0?Math.max(0,c.washFace||0):0;
+    const bucketPaw=[BUCKET.i-.055,BUCKET.j-.035,DECK_Z+BUCKET.h-.30];
+    const washPaw=toW(fHead+.62,side*sHead*.70,headZ+.06);
+    const forePaw=blend3(blend3(basePaw,bucketPaw,reach),washPaw,washReach*(1-reach));
+    const reachElbow=[
+      (shoulder[0]+forePaw[0])*.5,
+      (shoulder[1]+forePaw[1])*.5,
+      Math.max(forePaw[2]+.17,(shoulder[2]+forePaw[2])*.5-.14)
+    ];
+    const elbow=blend3(baseElbow,reachElbow,Math.max(reach,washReach));
+    stroke(...shoulder,...elbow,fur);
+    stroke(...elbow,...forePaw,fur);
+    const toe=[forePaw[0]+cosA*.075,forePaw[1]+sinA*.075,forePaw[2]];
+    stroke(...forePaw,...toe,C_PAW);
+    thin(...toe,toe[0]+cosA*.024,toe[1]+sinA*.024,toe[2],C_COAT_SHADE);
   }
 
   // 7. Volumetric skull, cheeks and muzzle
@@ -157,7 +150,14 @@ function drawCat(c, t){
   const muzzleTop=toW(fHead+1.25,0,headZ+0.1);
   const muzzleTip=toW(fHead+1.45,0,headZ-0.25);
   const chin=toW(fHead+0.95,0,headZ-0.7);
+  const noseFacing=isoY(...toW(fHead+.9,0,headZ))>=isoY(...toW(fHead-.8,0,headZ))-.6;
 
+  // Rear facets close the skull when the cat turns away from the camera.
+  const occL=toW(fHead-.95,-sHead*.72,headZ+.08), occR=toW(fHead-.95,sHead*.72,headZ+.08);
+  const nape=toW(fHead-1.05,0,headZ-.42);
+  quad(...crown,...occL,...nape,...leftBrow,()=>C_COAT);
+  quad(...crown,...rightBrow,...nape,...occR,()=>C_COAT_SHADE);
+  if(noseFacing){
   quad(crown[0],crown[1],crown[2], leftBrow[0],leftBrow[1],leftBrow[2], muzzleTop[0],muzzleTop[1],muzzleTop[2], rightBrow[0],rightBrow[1],rightBrow[2], ()=>C_COAT_HI);
   quad(leftBrow[0],leftBrow[1],leftBrow[2], leftCheek[0],leftCheek[1],leftCheek[2], muzzleTip[0],muzzleTip[1],muzzleTip[2], muzzleTop[0],muzzleTop[1],muzzleTop[2], ()=>C_COAT);
   quad(rightBrow[0],rightBrow[1],rightBrow[2], muzzleTop[0],muzzleTop[1],muzzleTop[2], muzzleTip[0],muzzleTip[1],muzzleTip[2], rightCheek[0],rightCheek[1],rightCheek[2], ()=>C_COAT_SHADE);
@@ -167,6 +167,11 @@ function drawCat(c, t){
   stroke(...leftCheek,...chin,C_BIB);
   stroke(...rightCheek,...chin,C_BIB);
   stroke(...chin,...throat,C_BIB);
+  } else {
+    // Faceted rear skull shields the eyes, cheeks and cream muzzle.
+    quad(...crown,...occL,...leftCheek,...leftBrow,()=>C_COAT_HI);
+    quad(...crown,...rightBrow,...rightCheek,...occR,()=>C_COAT);
+  }
 
   // 8. Triangular ears with depth
   const earTilt=crouch?-0.22:(c.earTwitch||0)*0.25;
@@ -188,7 +193,9 @@ function drawCat(c, t){
   thin(...earR_inner,...earR_tip,C_COAT);
   thin(...toW(fHead-0.25,sHead*0.65,headZ+1.05), ...toW(fHead-0.3,sHead*0.75,headZ+1.4-earTilt*0.5), C_EAR_IN);
 
-  // 9. Luminous almond eyes with specular catchlight
+  // 9. Face detail only on the camera-facing side of the head; the eyes
+  // must not be drawn through the back of the skull while sprinting away.
+  if(noseFacing){
   const eyeL=toW(fHead+0.65,-sHead*0.45,headZ+0.35);
   const eyeR=toW(fHead+0.65,sHead*0.45,headZ+0.35);
   thin(eyeL[0],eyeL[1],eyeL[2]+0.08,eyeL[0]+cosA*0.06,eyeL[1]+sinA*0.06,eyeL[2]+0.08,C_EYE_RIM);
@@ -202,32 +209,33 @@ function drawCat(c, t){
   thin(muzzleTip[0],muzzleTip[1],muzzleTip[2],muzzleTip[0]+cosA*0.04,muzzleTip[1]+sinA*0.04,muzzleTip[2],C_NOSE);
   thin(...toW(fHead+1.1,-sHead*0.5,headZ-0.25), ...toW(fHead+1.2,-sHead*0.9,headZ-0.4), C_BIB);
   thin(...toW(fHead+1.1,sHead*0.5,headZ-0.25), ...toW(fHead+1.2,sHead*0.9,headZ-0.4), C_BIB);
-
-  // 11. Sinuous, expressive tail
-  const tYaw=c.tail?c.tail.yaw:0;
-  const tPitch=c.tail?c.tail.pitch:0;
-  const tWag=c.tail?c.tail.wag:0;
-
-  if(sit>0.5){
-    const tBase=toW(fRump-0.4,0,0.45);
-    const tMid=toW(-0.8,-sHips*1.15,0.22);
-    const tWrap=toW(0.8,-sW*1.05,0.2);
-    const tFront=toW(1.8,-0.2,0.2);
-    const tTip=toW(1.7,0.5+0.25*tWag,0.22);
-    stroke(...tBase,...tMid,C_COAT);
-    stroke(...tMid,...tWrap,C_COAT);
-    stroke(...tWrap,...tFront,C_COAT_HI);
-    stroke(...tFront,...tTip,C_BIB);
   } else {
-    const tailH=crouch?0.2:0.7;
-    const tBase=toW(fRump-0.3,0,rumpZ+0.25);
-    const tMid=toW(fRump-1.6,tYaw*0.7,rumpZ+0.25+tPitch*0.4);
-    const tEnd=toW(fRump-2.9,tYaw*1.2,rumpZ+0.25+tailH*0.4+tPitch*0.8);
-    const tTip=toW(fRump-4.1,tYaw*1.6+0.35*tWag,rumpZ+0.25+tailH*0.8+tPitch);
-    stroke(...tBase,...tMid,C_COAT);
-    stroke(...tMid,...tEnd,C_COAT);
-    stroke(...tEnd,...tTip,C_BIB);
+    // Visible nape / dark occipital markings replace facial features.
+    thin(...occL,...toW(fHead-.72,-sHead*.5,headZ+.52),C_DARK);
+    thin(...occR,...toW(fHead-.72,sHead*.5,headZ+.52),C_DARK);
   }
+
+  // 11. Tapered, four-point tail. Interpolate to its curled sitting pose:
+  // changing pose no longer pops the tail to an unrelated location.
+  const tYaw=c.tail?c.tail.yaw:0, tPitch=c.tail?c.tail.pitch:0, tWag=c.tail?c.tail.wag:0;
+  const tailWalk=[
+    toW(fRump-.35,0,rumpZ+.25),
+    toW(fRump-1.2,tYaw*.50,rumpZ+.25+tPitch*.4),
+    toW(fRump-2.45,tYaw*.95,rumpZ+.52+tPitch*.7),
+    toW(fRump-3.3,tYaw*1.1+.3*tWag,rumpZ+1.05+tPitch)
+  ];
+  const tailSit=[
+    toW(fRump-.35,0,Math.max(.43,rumpZ*.5)),
+    toW(fRump-1.0,-sHips*1.18,.30),
+    toW(fMid+.1,-sW*1.42,.25),
+    toW(fChest+.1,-sW*1.22+.22*tWag,.24)
+  ];
+  const T=tailWalk.map((p,k)=>blend3(p,tailSit[k],sit));
+  stroke(...T[0],...T[1],C_COAT_SHADE);
+  stroke(...T[1],...T[2],C_COAT);
+  stroke(...T[2],...T[3],C_COAT_HI);
+  thin(...blend3(T[1],T[2],.4),...blend3(T[1],T[2],.65),C_DARK);
+  thin(...blend3(T[2],T[3],.25),...blend3(T[2],T[3],.45),C_DARK);
 
   // 12. Silvery Thames fish
   if(c.hasFish){
@@ -369,28 +377,65 @@ export function portLifeProps(t){
   add(BOTTLE_SPOT[0],BOTTLE_SPOT[1],()=>standingBottle(BOTTLE_SPOT));
   const bk=L.bucket;
   add(bk.i,bk.j,()=>{
-    cyl(bk.i,bk.j,bk.r,DECK_Z,DECK_Z+bk.h,(z,s)=>shadeC(C.woodDark,roundLit(s)),(s,v)=>{
-      const r2=s*s+v*v;
-      if(r2>.72) return shadeC(C.woodDark,1.15);
+    const wood=rgb('#78523a'), grain=rgb('#4c3126'), iron=rgb('#343b3b');
+    const water=rgb('#294a4c'), waterHi=rgb('#6eaaa5');
+    const rimZ=DECK_Z+bk.h;
+    contact(bk.i-bk.r,bk.j-bk.r,bk.i+bk.r,bk.j+bk.r,DECK_Z,.68);
+    // A broad, open, iron-bound wooden pail, not a solid dark miniature
+    // cylinder. The interior water is inset behind a legible wooden lip.
+    cyl(bk.i,bk.j,bk.r,DECK_Z,rimZ,(z,side)=>{
+      const h=(z-DECK_Z)/bk.h;
+      if(Math.abs(h-.16)<.064||Math.abs(h-.82)<.057)
+        return shadeC(iron,roundLit(side)*.98);
+      const grainLine=Math.abs(((side+1)*5.3)%1-.5)<.055;
+      return shadeC(grainLine?grain:wood,roundLit(side)*(.91+.08*h));
+    },(side,v)=>{
+      const r=Math.hypot(side,v);
+      if(r>.91) return shadeC(iron,1.15);
+      if(r>.78) return shadeC(wood,1.13-.2*v);
+      if(r>.70) return shadeC(grain,.84);
       if(bk.splash>=0){
-        const rad1=(bk.splash/25)*.7;
-        if(Math.abs(Math.sqrt(r2)-rad1)<.09) return shadeC(C.waterHi,1.5);
+        const rad=(bk.splash/25)*.70;
+        if(Math.abs(r-rad)<.11) return waterHi;
       }
-      if(bk.flop>0){
-        if(Math.abs(Math.sqrt(r2)-bk.flop*.6)<.08) return shadeC(C.waterHi,1.2);
-      }
-      if(bk.count>=1&&s>-.28&&s<.28&&Math.abs(v)<.18) return rgb('#788c83');
-      if(bk.count>=2&&s>-.55&&s<-.1&&v>.08&&v<.38) return rgb('#6b7f76');
-      if(bk.count>=3&&s>.1&&s<.55&&v>-.35&&v<-.05) return rgb('#889d94');
-      if((Math.abs(s+.12)<.06&&Math.abs(v+.2)<.06)||(Math.abs(s-.22)<.06&&Math.abs(v-.18)<.06)) return rgb('#d8ece7');
-      return shadeC(rgb('#1c2b28'),.85+.25*v);
+      if(bk.flop>0&&Math.abs(r-bk.flop*.52)<.08) return shadeC(waterHi,1.06);
+      return shadeC(water,1.05-.14*v);
     });
+    // Two visible silver fish (a third appears after the fisherman catches
+    // one). Body, belly and tail all remain entirely inside the pail.
+    const fish=[
+      {x:-.115,y:-.065,dx:.19,dy:.015},
+      {x:-.09,y:.105,dx:.20,dy:-.035},
+      {x:-.035,y:-.005,dx:.19,dy:.092}
+    ];
+    const silver=rgb('#b5c5b8'), back=rgb('#57726b'), glint=rgb('#e2e8d7');
+    for(let n=0;n<bk.count;n++){
+      const q=fish[n], z=rimZ+.035;
+      const a=[bk.i+q.x,bk.j+q.y,z], b=[a[0]+q.dx,a[1]+q.dy,z];
+      stroke(...a,...b,silver);
+      thin(a[0],a[1],z+.06,b[0],b[1],z+.06,back);
+      thin(b[0],b[1],z,b[0]+.035,b[1]-.035,z,glint);
+      thin(a[0],a[1],z,a[0]-.045,a[1]+.035,z,back);
+    }
+    // Curved iron bail fixed to opposite sides; it rises above the rim.
+    const pL=[bk.i-bk.r*.83,bk.j,rimZ-.14],pR=[bk.i+bk.r*.83,bk.j,rimZ-.14];
+    const hL=[bk.i-bk.r*.72,bk.j,rimZ+.60],hM=[bk.i,bk.j,rimZ+.9],hR=[bk.i+bk.r*.72,bk.j,rimZ+.60];
+    thin(...pL,...hL,iron);
+    thin(...hL,...hM,rgb('#798381'));
+    thin(...hM,...hR,rgb('#798381'));
+    thin(...hR,...pR,iron);
+    // Paw tip on the water: keep its light sock visible above the water
+    // even though the bucket is depth-sorted in front of the cat.
+    if(L.cat.state==='STEAL'&&L.cat.reach>.4){
+      const paw=[bk.i-.055,bk.j-.035,rimZ+.055];
+      thin(...paw,paw[0]-.055,paw[1]-.035,paw[2],rgb('#eee8d8'));
+    }
     if(bk.splash>=0&&bk.splash<=24){
       const tau=bk.splash;
       for(let k=0;k<5;k++){
         const ang=k*1.25+.3, spd=.012+(k%3)*.005;
         const dx=Math.cos(ang)*spd*tau, dy=Math.sin(ang)*spd*tau, dz=.35*tau-.018*tau*tau;
-        if(dz>0) thin(bk.i+dx,bk.j+dy,DECK_Z+bk.h+dz,bk.i+dx*1.1,bk.j+dy*1.1,DECK_Z+bk.h+dz+.2,C.waterHi);
+        if(dz>0) thin(bk.i+dx,bk.j+dy,rimZ+dz,bk.i+dx*1.1,bk.j+dy*1.1,rimZ+dz+.2,C.waterHi);
       }
     }
   });
