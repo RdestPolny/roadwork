@@ -131,7 +131,7 @@ export function startIsoFight(idx,venue,station){
   if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.bullClock=0; }
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
   Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
-    notice:'1-4 ciosy · F dash · LPM korpus · Spacja blok · Q slip',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
+    notice:'Ciosy 1-4 · LPM: korpus · Spacja: blok · Q: slip · F: dash',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
     const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2],[-2.6,0.3],[2.6,0.3]];
     const spectators=[...npcsState.CN,npcsState.STINK].filter(C=>String(C.name).toUpperCase()!==O.name).map((C,k)=>{
@@ -278,7 +278,7 @@ function startClinch(byRival=false){
   if(P.rt.guarding) setGuard(P.rt,false,S.t);
   if(O.rt.guarding) setGuard(O.rt,false,S.t);
   P.buf=O.buf=null; O.combo=[]; S.clinch=true; S.clinchAt=S.t; S.guardHeld=false;
-  say(byRival?'Rywal wisi na tobie · Spacja odepchnij':'Klincz: oddech wraca obu · Spacja odepchnij');
+  say(byRival?'Rywal cię klinczuje · Spacja: odepchnij':'Klincz · Spacja: odepchnij');
   return true;
 }
 
@@ -291,7 +291,6 @@ function clinchPush(){
   if(!di&&!dj) [di,dj]=toward(P,O);
   S.clinch=false; S.guardHeld=false; O.stagger=0.35; O.aiAt=S.t+0.55;
   S.push={di,dj,left:30};
-  say('Odepchnięcie');
 }
 
 /** Move the pair together and turn the opponent around the player on sideways input. @param {number} di @param {number} dj @param {number} scale */
@@ -354,7 +353,7 @@ function evade(F,G,di,dj){
   if(busy(F)||state.phase!=='fight') return false;
   const [ui,uj]=toward(F,G), info=classifyEvade(di,dj,ui,uj);
   if(!beginSlip(F.rt,now,info.kind)){
-    if(F===state.P&&F.rt.sta<evadeCost(F.rt,now)) say('Brak tchu na unik');
+    if(F===state.P&&F.rt.sta<evadeCost(F.rt,now)) say('Za mało tchu na unik');
     return false;
   }
   F.slipSince=now; F.evKind=info.kind; F.evDi=info.di; F.evDj=info.dj; F.evFwd=info.fwd; F.evSide=info.side; F.slipDir=info.slipDir;
@@ -367,7 +366,7 @@ function evade(F,G,di,dj){
 function slip(F,dir){
   const now=state.t, G=F===state.P?state.O:state.P;
   if(busy(F)||state.phase!=='fight') return false;
-  if(!beginSlip(F.rt,now,'slip')){ if(F===state.P&&F.rt.sta<evadeCost(F.rt,now)) say('Slip: odetchnij'); return false; }
+  if(!beginSlip(F.rt,now,'slip')){ if(F===state.P&&F.rt.sta<evadeCost(F.rt,now)) say('Za mało tchu na slip'); return false; }
   const [ui,uj]=toward(F,G);
   F.slipSince=now; state.slipFlip=-state.slipFlip; F.slipDir=dir||state.slipFlip;
   F.evKind='slip'; F.evDi=-uj*F.slipDir; F.evDj=ui*F.slipDir; F.evFwd=0; F.evSide=F.slipDir;
@@ -402,7 +401,7 @@ function walk(F,G,di,dj,sp){
 function startDash(F){
   const S=state, now=S.t;
   if(!S.on||S.phase!=='fight'||S.clinch||busy(F)||now<F.dashReadyAt) return false;
-  if(F.rt.sta<DASH.cost){ if(F===S.P) say('Brak tchu na dash'); return false; }
+  if(F.rt.sta<DASH.cost){ if(F===S.P) say('Za mało tchu na dash'); return false; }
   const [di,dj]=dashDirection(pointerDirection(),F.lastMove);
   if(!di&&!dj) return false;
   F.rt.sta-=DASH.cost;
@@ -434,7 +433,7 @@ function updateCrowdGrab(F){
   F.pk=null; F.dash=null; F.buf=null; F.combo=[]; F.slipSince=-Infinity; F.rt.slipSince=-Infinity;
   if(F.rt.guarding) setGuard(F.rt,false,S.t);
   S.clinch=false; S.push=null;
-  if(F===S.P){ S.eTap=null; say('Tłum cię trzyma!'); } else say('Tłum trzyma rywala!');
+  if(F===S.P){ S.eTap=null; say('Tłum cię trzyma'); } else say('Tłum trzyma rywala');
 }
 
 /** The end of the brawl: a knockout or a stoppage, the time, the knuckle-duster. @param {any} W winner @param {string} how */
@@ -472,7 +471,7 @@ function onPerfectEvade(D){
   popup(sparringState.T_UNIK,px,py-12,appearanceState.C_SPARK,1,30);
   if(D===S.P){
     S.slowMo=TUNING.slowMoDuration; D.rt.counterUntil=Math.max(D.rt.counterUntil,S.t+1.1); sfxPerfectEvade();
-    say(D.evKind==='back'?'Idealny odskok! Kontruj +55%':D.evKind==='in'?'Idealny doskok! Kontruj +55%':'Idealny unik! Następny cios +55%');
+    say((D.evKind==='back'?'Idealny odskok':D.evKind==='in'?'Idealny doskok':'Idealny unik')+' · kontruj');
   } else { sfxWhoosh(0.55); S.freeze=2; }
 }
 
@@ -504,7 +503,7 @@ function impact(A,D){
   const px=hx(D), py=hy(D)+(low?10:0);
   if(o.kind==='parry'){
     D.c.blocks++; D.c.perfects++; A.stagger=.45; A.pk=null; A.stun+=16; popup(sparringState.T_PARRY,px,py-12,appearanceState.C_SPARK,1,30); sfxBlock(0.95,true);
-    S.freeze=4; say(D===S.P?'Idealny blok - kontruj!':'Rywal zbił cios'); return;
+    S.freeze=4; say(D===S.P?'Idealny blok · kontruj':'Rywal sparował'); return;
   }
   if(o.kind==='slip'){ onPerfectEvade(D); return; }
   const blocked=o.kind==='block';
@@ -536,14 +535,14 @@ function impact(A,D){
   spray(A,D,pid,low,blocked,o);   // the hit shows as drops, not a comic flash
   if(blocked) sfxBlock(0.6); else sfxPunch(Math.min(1.4,0.55+0.25*pid+(o.counter?0.2:0)),low?1:0.35+pid*0.15,true);
   hitFeel(blocked,o.damage,o.counter);
-  if(o.failedSlip&&D===S.P) say('Zły slip: cios rywala +35%'); else if(o.counter&&A===S.P) say('Kontra!');
+  if(o.failedSlip&&D===S.P) say('Spóźniony slip'); else if(o.counter&&A===S.P) say('Kontra');
   if(D.rt.hp<=0){
     const brutal=D.kdN>=2||(D.kdN===1&&o.counter&&pid===3);
     if(!D.down&&!brutal){
       D.down=true; D.downAt=now; D.kdN++; D.kdMash=0; D.pk=null; D.dash=null; D.buf=null;
       D.rt.hp=Math.round(D.rt.hpMax*(D.kdN===1?0.32:0.20)); D.rt.sta=Math.max(D.rt.sta,D.rt.staCap*0.5); D.stun=0;
       startIsoRagdoll(D,A,pid,false); banner('NOKDAUN!',appearanceState.C_RED,80); sfxKO();
-      say(D===S.P?'NOKDAUN! Wciskaj klawisze, żeby wstać!':'Rywal na deskach ('+D.kdN+'/3)');
+      say(D===S.P?'Wciskaj klawisze, żeby wstać':'Rywal na deskach ('+D.kdN+'/3)');
     } else if(A===S.P&&S.venue!=='sandy'&&!S.rigKO) startFinisher(A,D,D.kdN>=2?'TKO':'KO');
     else { D.ko=true; D.pk=null; D.dash=null; startIsoRagdoll(D,A,pid,true); spray(A,D,pid,low,false,o,true); endBout(A,D.kdN>=2?'TKO':'KO'); }
   }
@@ -583,7 +582,7 @@ function startFinisher(A,D,how){
   S.clinch=false; S.push=null;
   S.tape.push(snapshot());
   S.fin={stage:'stun',how,at:S.t,hits:[{idx:S.tape.length-1,pid:pk?.pid??1,low:!!pk?.low}],fall:0,t:0,skip:false};
-  banner('DOBIJ GO!',appearanceState.C_RED,70); say('Rywal się chwieje - dobij go!');
+  say('Rywal się chwieje · dobij go');
 }
 
 /** A free blow on the stunned rival: no guard, no damage left to deal, only the reaction, the spray and the count; the last one drops him.
@@ -788,8 +787,8 @@ function tickFight(){
   for(const [F,ti,tj] of [[P,pi,pj],[O,oi,oj]]){ if(F.ko||F.down) continue; const turn=F.bull?0.11:0.22; F.fi+=(ti-F.fi)*turn*scale; F.fj+=(tj-F.fj)*turn*scale; const m=Math.hypot(F.fi,F.fj)||1; F.fi/=m; F.fj/=m; }
   P.moving=false; O.moving=false;
   if(S.phase==='intro'){
-    S.pt++; if(S.pt===2) banner('WALCZ!',appearanceState.C_WHITE,80);
-    if(S.pt>=45){ hideFightPlate(); S.phase='fight'; S.pt=0; banner('WALCZ!',appearanceState.C_SPARK,40); if(!S.evadeHintShown){ S.evadeHintShown=true; say('Mysz ruch · E unik'); } setInfo(); }
+    S.pt++;
+    if(S.pt>=45){ hideFightPlate(); S.phase='fight'; S.pt=0; if(!S.evadeHintShown){ S.evadeHintShown=true; say('Mysz: ruch · E: unik'); } setInfo(); }
     return;
   }
   if(S.phase==='ko'){
@@ -831,7 +830,7 @@ function tickFight(){
     if(F.down&&!F.ko){   /* the count: the player gets up with enough taps, the rival on his own */
       const down=now-F.downAt;
       if(F===P){
-        if(F.kdMash>=riseTaps(F)&&down>=1.2){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); say('Wstałeś z desek! Trzymaj gardę'); }
+        if(F.kdMash>=riseTaps(F)&&down>=1.2){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); say('Wstałeś · trzymaj gardę'); }
         else if(down>=3.4){ if(F.kdN===1&&F.kdMash>=2){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); } else { F.down=false; F.ko=true; F.rt.hp=0; endBout(O,'KO'); return; } }
       } else if(down>=2.3+F.kdN*0.45){ F.down=false; F.stagger=.6; stopIsoRagdoll(F); }
     }
@@ -868,7 +867,7 @@ function tickFight(){
     else if(F.rt.zone&&Math.random()<0.012*F.rt.zone*scale) drip(F,'sweat');
   }
   if(!S.windUsed&&P.rt.zone===2&&!P.pk&&!P.down&&now-P.rt.lastActionAt>=TUNING.secondWindRest&&now-P.slipSince>=TUNING.secondWindRest){
-    S.windUsed=true; secondWind(P.rt); banner('DRUGI ODDECH!',appearanceState.C_SPARK,70); say('Drugi oddech - raz na walkę');
+    S.windUsed=true; secondWind(P.rt); say('Drugi oddech');
   }
   recordTape();
   if(S.fin?.stage==='stun'&&now-S.fin.at>=FIN_WINDOW) finisherFall(P,O);
@@ -1580,7 +1579,7 @@ function renderFight(){
   bars(22,6,44,S.P,false); bars(W-66,6,44,S.O,true);
   drawText('TY',30*K,17*K,appearanceState.C_WHITE,1); drawText(plain(String(S.opp.name)),(W-22)*K-(String(S.opp.name).length*2)*K,17*K,appearanceState.C_WHITE,1);
   if(S.notice&&(S.t<S.noticeUntil||S.phase!=='fight')) drawText(plain(S.notice),(W/2)*K,(appearanceState.H/K-12)*K,appearanceState.C_WHITE,1);
-  if(S.banner){ const b=S.banner; if(b.t>8||(b.t&2)) drawText(b.text,W/2*K,56*K,b.color,2); }
+  if(S.banner){ const b=S.banner; if(b.t>8||(b.t&2)) drawText(b.text,W/2*K,30*K,b.color,1); }   // small, under the bars: the fight stays in view
 }
 
 /** A small arrow over the player's head, so the two can be told apart. @param {any} F */
