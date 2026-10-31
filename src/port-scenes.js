@@ -40,7 +40,7 @@ function drawCat(c, t){
   const rumpZ=Math.max(1.05,3.2-1.1*crouch-1.8*sit-.3*rear);
   const midZ=Math.max(1.25,3.55-1.25*crouch-.9*sit+.3*rear+breath*.6);
   const chestZ=Math.max(1.35,3.35-1.2*crouch+.4*sit+1.1*rear+breath);
-  const headZ=Math.max(1.6,4.4-1.55*crouch+.55*sit+1.25*rear+.12*chew+breath*.5);
+  const headZ=Math.max(1.6,4.4-1.55*crouch+.55*sit+1.25*rear-(c.eating?1.55:0)+.12*chew+breath*.5);
   const fRump=-2.5+.48*sit, fMid=-.32, fChest=1.45-.18*sit, fHead=2.62-.2*sit;
   const blend3=(a,b,u)=>a.map((x,k)=>x+(b[k]-x)*u);
   const coat=[C_COAT,C_COAT_SHADE];
@@ -150,12 +150,14 @@ function drawCat(c, t){
   const muzzleTop=toW(fHead+1.25,0,headZ+0.1);
   const muzzleTip=toW(fHead+1.45,0,headZ-0.25);
   const chin=toW(fHead+0.95,0,headZ-0.7);
+  const noseFacing=isoY(...toW(fHead+.9,0,headZ))>=isoY(...toW(fHead-.8,0,headZ))-.6;
 
   // Rear facets close the skull when the cat turns away from the camera.
   const occL=toW(fHead-.95,-sHead*.72,headZ+.08), occR=toW(fHead-.95,sHead*.72,headZ+.08);
   const nape=toW(fHead-1.05,0,headZ-.42);
   quad(...crown,...occL,...nape,...leftBrow,()=>C_COAT);
   quad(...crown,...rightBrow,...nape,...occR,()=>C_COAT_SHADE);
+  if(noseFacing){
   quad(crown[0],crown[1],crown[2], leftBrow[0],leftBrow[1],leftBrow[2], muzzleTop[0],muzzleTop[1],muzzleTop[2], rightBrow[0],rightBrow[1],rightBrow[2], ()=>C_COAT_HI);
   quad(leftBrow[0],leftBrow[1],leftBrow[2], leftCheek[0],leftCheek[1],leftCheek[2], muzzleTip[0],muzzleTip[1],muzzleTip[2], muzzleTop[0],muzzleTop[1],muzzleTop[2], ()=>C_COAT);
   quad(rightBrow[0],rightBrow[1],rightBrow[2], muzzleTop[0],muzzleTop[1],muzzleTop[2], muzzleTip[0],muzzleTip[1],muzzleTip[2], rightCheek[0],rightCheek[1],rightCheek[2], ()=>C_COAT_SHADE);
@@ -165,6 +167,11 @@ function drawCat(c, t){
   stroke(...leftCheek,...chin,C_BIB);
   stroke(...rightCheek,...chin,C_BIB);
   stroke(...chin,...throat,C_BIB);
+  } else {
+    // Faceted rear skull shields the eyes, cheeks and cream muzzle.
+    quad(...crown,...occL,...leftCheek,...leftBrow,()=>C_COAT_HI);
+    quad(...crown,...rightBrow,...rightCheek,...occR,()=>C_COAT);
+  }
 
   // 8. Triangular ears with depth
   const earTilt=crouch?-0.22:(c.earTwitch||0)*0.25;
@@ -188,7 +195,6 @@ function drawCat(c, t){
 
   // 9. Face detail only on the camera-facing side of the head; the eyes
   // must not be drawn through the back of the skull while sprinting away.
-  const noseFacing=isoY(...toW(fHead+.9,0,headZ))>=isoY(...toW(fHead-.8,0,headZ))-.6;
   if(noseFacing){
   const eyeL=toW(fHead+0.65,-sHead*0.45,headZ+0.35);
   const eyeR=toW(fHead+0.65,sHead*0.45,headZ+0.35);
