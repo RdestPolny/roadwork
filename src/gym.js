@@ -283,7 +283,7 @@ function litEnd(lit,st,cx,cy){
  */
 export function figureHD(C,J,L,o={}){
   state.ipC=C; state.ipN=0; state.ipPose=o.pose||0; state.ipBase=o.base||0;
-  const heavy=L.bodyType==='heavy', bulk=heavy?{shoulders:1.26,arms:1.5,forearms:1.6,chest:1.3,belly:1.6,thighs:1.5,calves:1.4,neck:1.6,head:1.17,...(L.bulk||{})}:null;
+  const heavy=L.bodyType==='heavy', bulk=heavy?{shoulders:1.34,arms:1.65,forearms:1.52,chest:1.42,belly:1.15,thighs:1.65,calves:1.48,neck:1.5,head:1.12,...(L.bulk||{})}:null;
   const inhale=heavy?Math.sin((C.bullClock??(C.t||0)/60)*7)*((C.bull?.mode==='EXHAUSTED')?0.32:0.12):0;
   const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   for(let s=-1;s<=1;s+=2){
@@ -317,8 +317,9 @@ export function figureHD(C,J,L,o={}){
   else ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),(L.tuckedShirt?1.55:1.85)*(bulk?.chest||1), Q[0],Q[1],Q[2]-0.3,2.2*(bulk?.chest||1), T0);
   if(heavy){
     // A real forward-projecting belly, attached to the spine. Soft delay is visual only: IK bone lengths remain unchanged.
-    const lag=Math.max(-0.28,Math.min(0.28,(C.lagF||0)*0.19)), r=2.35*bulk.belly;
-    ipAdd(...pp(1.5+lag,0,1.35),r*0.87+inhale, ...pp(2.15+lag,0,-1.05),r+inhale,T0);
+    const lag=Math.max(-0.16,Math.min(0.16,(C.lagF||0)*0.12)), r=2.15*bulk.belly;
+    // A short lower strip of skin protrudes under the stretched shirt.
+    ipAdd(...pp(.85+lag,0,1.65),r*.94+inhale, ...pp(1.05+lag,0,-.35),r+inhale,S0,T0,.72,.72,T0);
   }
   ipAdd(SL[0],SL[1]*0.82,SL[2]-0.15,1.15*(bulk?.shoulders||1), SR[0],SR[1]*0.82,SR[2]-0.15,1.15*(bulk?.shoulders||1), T0);                               // shoulders
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
