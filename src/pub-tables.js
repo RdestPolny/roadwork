@@ -273,9 +273,13 @@ function banquette(){
   contact(i0,j0,i1,j1,0,.5);
   slab('i',i0,j0+.03,bx1,j1,0,1.2,OAK,{});
   slab('i',i0,j0,bx1,j1-.34,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,j0,j1-.34,'j')});
-  quad(i0,j1,1.2,bx1,j1,1.2,bx1,j1,top,i0,j1,top,tuft('j',j1,.17,top));
-  quad(i0,bj,top,bx1,bj,top,bx1,j1,top,i0,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
-  thin(i0,j1,top-.1,bx1,j1,top-.1,shadeC(GREEN,1.9));
+  /* the backrest starts clear of the corner: from the camera it would stand in front of the L leg's seat; the seat runs on round the corner */
+  const ib=Math.max(i0,PUB.banquette.backFrom);
+  quad(i0,j1,1.2,ib,j1,1.2,ib,j1,4.5,i0,j1,4.5,cushionSide(1.2,4.5)('j',j1,1));
+  quad(ib,j1,1.2,bx1,j1,1.2,bx1,j1,top,ib,j1,top,tuft('j',j1,.17,top));
+  quad(ib,bj,top,bx1,bj,top,bx1,j1,top,ib,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
+  thin(ib,j1,top-.1,bx1,j1,top-.1,shadeC(GREEN,1.9));
+  scrollEnd(ib-.12,j0+.3,ib+.12,j1,top,0,0);
   const bays=PUB.dining.map(d=>d.box).sort((a,b)=>a[0]-b[0]);
   for(const c of [(bays[0][2]+bays[1][0])/2,(bays[1][2]+bays[2][0])/2]){
     slab('i',c-.07,j0,c+.07,j1,5.6,6.5,OAK,{top:oakTop(6.5)}); slab('i',c-.06,j0+.02,c+.06,j0+.16,0,5.6,OAK,{});
@@ -294,9 +298,9 @@ function banquetteLeg(){
   quad(i0,j0+ec,top,i0+bk,j0+ec,top,i0+bk,bj,top,i0,bj,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(i-i0)/bk; return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*3,j*2)); });
   thin(i0+bk,j0+ec,top-.1,i0+bk,bj,top-.1,shadeC(GREEN,1.9));
   // corner block: rear face continues the long run's tufting and its rolled top
-  quad(i0,j1,1.2,i1,j1,1.2,i1,j1,top,i0,j1,top,tuft('j',j1,.17,top));
-  quad(i0,bj,top,i1,bj,top,i1,j1,top,i0,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
-  quad(i1,bj,1.2,i1,j1,1.2,i1,j1,top,i1,bj,top,tuft('i',i1,bj,top));
+  /* corner block at the long run's height: a tall corner would stand between the camera and this seat */
+  /* corner: seat cushion only, continuing into the long run's seat (its backrest starts further along) */
+  slab('i',i0+bk,j1-.34,i1,j1,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,i0+bk,i1,'i')});
   // slim carved arm at the chimney end
   slab('i',i0,j0,i1,j0+ec,0,6.4,OAK,{top:oakTop(6.4)});
   slab('i',i0,j0,i0+bk,j0+ec,6.4,top+.6,OAK,{top:oakTop(top+.6)});
