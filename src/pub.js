@@ -37,7 +37,7 @@ export function pubBlocked(i,j){
   const P=PUB, D=P.door, atDoor=j>D.j0+R&&j<D.j1-R;
   if(i<R||j<R||j>P.J-R||i>(atDoor?P.I+.1:P.I-R)) return true;
   if(inBox(i,j,[0,P.fire.j0,P.fire.d,P.fire.j1])) return true;
-  for(const b of [P.piano.box,P.stairs.box,P.counter.box,P.ret.box,P.backbar.box,P.servery,P.clock.box,P.banquette.box,...seatBoxes()]) if(inBox(i,j,b)) return true;
+  for(const b of [P.piano.box,P.stairs.box,P.counter.box,P.ret.box,P.backbar.box,P.servery,P.clock.box,P.banquette.box,P.banquette.leg,...seatBoxes()]) if(inBox(i,j,b)) return true;
   if(P.stools.some(([si,sj])=>Math.hypot(i-si,j-sj)<P.stoolR+R)) return true;
   if(P.standing.some(s=>Math.hypot(i-s.i,j-s.j)<s.r+R)) return true;
   return [P.coatStand,P.pianoStool].some(c=>Math.hypot(i-c.i,j-c.j)<c.r+R);

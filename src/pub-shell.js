@@ -463,7 +463,7 @@ function galleryDoors(){
   });
 }
 function chalkboard(){
-  const F={k:'I',c:.05}, a0=10.35, a1=11.19, z0=5, z1=16.6;
+  const F={k:'I',c:.05}, a0=10.35, a1=11.19, z0=11, z1=22.6;   /* hung above the banquette's back */
   fq(F,a0,z0,a1,z1,(a,z)=>{ const e=Math.min((a-a0)*18,(a1-a)*18,(z-z0)*3,(z1-z)*3); if(e<1.6) return lit(K.mahog,e<.9?1.35:.8); const sm_=vn(a*6,z*.5); return lit(rgb('#202b27'),.85+.25*sm_*sm_); });
   const chalk=rgb('#d9d5c4');
   glyphs(F,a1-.1,z1-1.0,'FARE',chalk,1);
