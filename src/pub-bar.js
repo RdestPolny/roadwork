@@ -589,7 +589,12 @@ function gallerySlab(){
   faceI(.03,j0,GZ,j1,GZ+2.2,(j,z)=>{ for(const [a,b] of GA.doors) if(j>a-.05&&j<b+.05) return 0; return z>GZ+1.9?mahog(j,z,1.5):z>GZ+1.6?mahog(j,z,.5):mahog(j*.4,z*.4,.9); });
   faceJ(.03,i0,GZ,i1,GZ+2.2,(i,z)=>z>GZ+1.9?mahog(i,z,1.5):z>GZ+1.6?mahog(i,z,.5):mahog(i*.4,z*.4,.9));
   // end of the slab against the chimney breast
-  faceJ(j1,d,zb,i1,GZ,(i,z)=>mahog(i,z,z>GZ-.3?1.3:.7));
+  faceJ(j1,d,zb,i1,GZ,(i,z)=>{
+    if(z<zb+.3) return mahog(i,z,z<zb+.12?.35:1.5);
+    if(z>GZ-.45) return z>GZ-.1?mix(mahog(i,z,1.4),rgb('#f0b57a'),.5):mahog(i,z,z>GZ-.3?1.3:.6);
+    if(z>GZ-.95) return (Math.floor(i*9)%2===0)?mahog(i,z,1.25):mahog(i,z,.4);
+    return mahog(i*.3,z*.3,1.1);
+  });
   // brackets: big carved scrolls fixed to the wall, the slab hangs on them
   for(const jb of [.45,1.7,2.9,4.0,6.0,6.8]){
     const z0=15.6, zt=zb, w=(/** @type {number} */z)=>1.25*Math.pow(Math.max(0,(z-z0)/(zt-z0)),.55);
@@ -629,6 +634,11 @@ function galleryRail(){
       (h,s)=>shadeC(mix(rgb('#6a361b'),rgb('#a45f30'),Math.max(0,-s)),lit(s)*1.05));
   }
   rod(GI2,jb,top,GI2,jEnd,top,rail);
+  const dI=PUB.fire.d+.06;
+  for(let i=GI2-.2;i>dI+.12;i-=.2) lathe(i,jEnd,GZ,top-.7,h=>{ const t=h/(top-.7-GZ); return t<.12?.034:t<.2?.026:t<.34?.026+.026*Math.sin((t-.2)/.14*Math.PI):t<.5?.024:t<.62?.024+.02*Math.sin((t-.5)/.12*Math.PI):.024; },
+    (h,s)=>shadeC(mix(rgb('#6a361b'),rgb('#a45f30'),Math.max(0,-s)),lit(s)*1.05));
+  rod(GI2,jEnd,top,dI,jEnd,top,rail);
+  lathe(dI,jEnd,GZ,top+1.2,h=>h<.5?.1:h<1?.07:.09,(h,s)=>shadeC(mix(rgb('#6a361b'),rgb('#a45f30'),Math.max(0,-s*.8)),lit(s)*1.1));   // half-newel against the breast
   const jj=jEnd;
   lathe(GI2,jj,GZ,top+3.4,h=>{ const t=h/(top+3.4-GZ);
     if(t<.14) return .15; if(t<.2) return .1; if(t<.5) return .1+.1*Math.sin((t-.2)/.3*Math.PI);
