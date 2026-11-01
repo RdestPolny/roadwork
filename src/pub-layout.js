@@ -13,7 +13,6 @@ export const PUB={
   I:12.5, J:11.5, H:46,
   door:{j0:4.9,j1:6.6},                                   // street door in the front wall i=I
   passage:{j0:4.3,j1:5.7,h:16},                           // open arched passage in wall i=0 to the next room (built later; not walkable yet)
-  kitchen:{j0:4.3,j1:5.7}, landingDoor:{j0:.15,j1:1.15},   // TEMP aliases for the old shell art; removed when the shell is repainted
   piano:{box:[0,5.75,.8,6.95]},                           // cottage piano against wall i=0, right beside the passage
   pianoStool:{i:1.2,j:6.35,r:.22},                        // round piano stool in front of it
   fire:{j0:7.0,j1:9.8,d:.9,hearth:1.75},                  // wide chimney breast in wall i=0 (projects to i=d), hearth stone out to i=hearth
