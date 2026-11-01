@@ -239,49 +239,63 @@ function chairRow(/** @type {number[]} */box,/** @type {number[]} */us,/** @type
   const [i0,j0,i1]=box;
   us.forEach((u,n)=>chair(i0+(i1-i0)*u,j0-.29,k+n));
 }
-/** Deep-buttoned bottle-green leather banquette with oak plinth, scroll ends and bay dividers (the viewer sees its rear and the near end). */
-function banquette(){
-  const [i0,j0,i1,j1]=PUB.banquette.box, top=PUB.banquette.back, oak=rgb('#3f2616'), green=rgb('#1f4a34'), ei=.24;
-  contact(i0,j0,i1,j1,0,.5);
-  const part=(/** @type {number} */a0,/** @type {number} */b0,/** @type {number} */a1,/** @type {number} */b1,/** @type {number} */z0,/** @type {number} */z1,/** @type {number} */c,o={})=>slab('i',a0,b0,a1,b1,z0,z1,c,o);
-  const oakTop=(/** @type {number} */z)=>plankTop(z,'j',oak,5,6);
-  // seat cushion and plinth
-  part(i0+ei,j0,i1-ei,j1-.34,1.2,4.5,green,{side:(pl,v,kk)=>(x,y)=>{ const [u,z]=fz(pl,v,x,y); return shadeC(green,kk*(.8+.35*Math.sin((z-1.2)/3.3*3.1)+.1*vn(u*3,z)));},top:(x,y)=>{ const [i,j]=ground(x,y,4.5); return shadeC(green,.95+.25*Math.sin((j-j0)/(j1-.34-j0)*3.1)+.1*vn(i*3,j*3)); }});
-  part(i0+ei,j0+.03,i1-ei,j1,0,1.2,oak,{});
-  // the back: tufted leather, seen from behind
-  const bx0=i0+ei, bx1=i1-ei, bj=j1-.36;
-  const rear=(/** @type {number} */x,/** @type {number} */y)=>{
-    const [u,z]=onJ(j1,x,y);
+/** Bottle-green leather colour of the banquette, tufted: diamond buttons, puffs, rolled lip near the top edge. */
+function tuft(/** @type {string} */plane,/** @type {number} */val,/** @type {number} */u0,/** @type {number} */top){
+  const green=rgb('#1f4a34'), oak=rgb('#3f2616');
+  return (/** @type {number} */x,/** @type {number} */y)=>{
+    const [u,z]=fz(plane,val,x,y);
     if(z<1.2) return oak;
-    if(z<3.6) return shadeC(green,.7+.12*vn(u*3,z)+(z<1.5?-.15:0)+(z>3.3?.12:0));
-    const gx=(u-bx0)/.5, gz=(z-3.6)/1.5, fp=frac((gx+gz)/2), fq=frac((gx-gz)/2), dp=Math.min(fp,1-fp), dq=Math.min(fq,1-fq);
-    const crease=Math.min(dp,dq), btn=Math.hypot(dp,dq)<.1;
-    if(btn) return shadeC(rgb('#0c1f16'),1+.6*(z>6));
-    const puff=.52+1.15*Math.min(1,crease*3.4), lit=.88+.35*(.5-Math.abs(fp-.5))*(fq<.5?1:.6);
+    if(z<3.3) return shadeC(green,.7+.12*vn(u*3,z)+(z<1.5?-.15:0)+(z>3.0?.12:0));
+    const gx=(u-u0)/.5, gz=(z-3.3)/1.3, fp=frac((gx+gz)/2), fq=frac((gx-gz)/2), dp=Math.min(fp,1-fp), dq=Math.min(fq,1-fq);
+    if(Math.hypot(dp,dq)<.1) return shadeC(rgb('#0c1f16'),1+.6*(z>5.5));
+    const crease=Math.min(dp,dq), puff=.52+1.15*Math.min(1,crease*3.4), lit=.88+.35*(.5-Math.abs(fp-.5))*(fq<.5?1:.6);
     let k=puff*lit*(.94+.14*vn(u*4,z*2));
     if(z>top-.8) k*=1.12+.2*Math.sin((top-z)/.8*1.57);
-    return shadeC(green,k*1.12);
+    return shadeC(green,k*1.12*(plane==='i'?1.12:1));
   };
-  quad(bx0,j1,1.2,bx1,j1,1.2,bx1,j1,top,bx0,j1,top,rear);
-  // rolled top: highlight across the roll
-  quad(bx0,bj,top,bx1,bj,top,bx1,j1,top,bx0,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(green,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
-  thin(bx0,j1,top-.1,bx1,j1,top-.1,shadeC(green,1.9));
-  // dividers between the table bays and carved scroll ends
-  const divs=[(PUB.dining[1].box[2]+PUB.dining[2].box[0])/2,(PUB.dining[0].box[0]+PUB.dining[2].box[2])/2].map(v=>v);
+}
+const OAK=rgb('#3f2616'), GREEN=rgb('#1f4a34');
+const oakTop=(/** @type {number} */z)=>plankTop(z,'j',OAK,5,6);
+const cushionSide=(/** @type {number} */z0,/** @type {number} */z1)=>(/** @type {string} */pl,/** @type {number} */v,/** @type {number} */kk)=>(/** @type {number} */x,/** @type {number} */y)=>{
+  const [u,z]=fz(pl,v,x,y), e=(z-z0)/(z1-z0); return shadeC(GREEN,kk*(.75+.45*Math.sin(Math.max(0,Math.min(1,e))*3.1)+.1*vn(u*3,z))*(e>.9?1.35:1)); };
+const cushionTop=(/** @type {number} */z,/** @type {number} */a0,/** @type {number} */a1,/** @type {string} */mode)=>(/** @type {number} */x,/** @type {number} */y)=>{
+  const [i,j]=ground(x,y,z), c=mode==='j'?(j-a0)/(a1-a0):(i-a0)/(a1-a0); return shadeC(GREEN,.95+.25*Math.sin(Math.max(0,Math.min(1,c))*3.1)+.1*vn(i*3,j*3)); };
+/** Carved oak scroll end / arm: block with a volute and studs. */
+function scrollEnd(/** @type {number} */i0,/** @type {number} */j0,/** @type {number} */i1,/** @type {number} */j1,/** @type {number} */top,/** @type {number} */faceI,/** @type {number} */faceJ){
+  slab('i',i0,j0,i1,j1,0,6.4,OAK,{top:oakTop(6.4)});
+  slab('i',i0,j0+(faceJ?0:.25),i1,j1-(faceJ?.25:0),6.4,top+.4,OAK,{top:oakTop(top+.4)});
+  const [sx,sy]=bz(faceI?i1:(i0+i1)/2,faceJ?j1:j0+.06,6.6); blob(sx,sy,2.5,2,rgb('#6a4328')); px(sx,sy,shadeC(OAK,.5)); px(sx+1,sy-1,shadeC(OAK,1.9));
+  const [bx,by]=bz(faceI?i1:i0+.1,faceJ?j1:j0+.45,3.3); px(bx,by,K.brass); px(bx,by+3,K.brass);
+}
+/** The long run of the banquette along the wall j=J: rear (tufted back), rolled top, bay dividers, scroll end at the street. */
+function banquette(){
+  const [i0,j0,i1,j1]=PUB.banquette.box, top=PUB.banquette.back, ei=.24, bx1=i1-ei, bj=j1-.36, leg=PUB.banquette.leg, lw=leg[2];
+  contact(i0,j0,i1,j1,0,.5);
+  slab('i',i0,j0+.03,bx1,j1,0,1.2,OAK,{});
+  slab('i',lw,j0,bx1,j1-.34,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,j0,j1-.34,'j')});
+  quad(i0,j1,1.2,bx1,j1,1.2,bx1,j1,top,i0,j1,top,tuft('j',j1,i0+.17,top));
+  quad(i0,bj,top,bx1,bj,top,bx1,j1,top,i0,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
+  thin(i0,j1,top-.1,bx1,j1,top-.1,shadeC(GREEN,1.9));
   const bays=PUB.dining.map(d=>d.box).sort((a,b)=>a[0]-b[0]);
-  const cuts=[(bays[0][2]+bays[1][0])/2,(bays[1][2]+bays[2][0])/2];
-  void divs;
-  for(const c of cuts){
-    part(c-.07,j0,c+.07,j1,5.6,6.5,oak,{top:oakTop(6.5)}); part(c-.06,j0+.02,c+.06,j0+.16,0,5.6,oak,{});
-    quad(c+.07,j0,5.6,c+.07,j1,5.6,c+.07,j1,top-.5,c+.07,j0,top-.5,()=>shadeC(oak,.0+1.1));
+  for(const c of [(bays[0][2]+bays[1][0])/2,(bays[1][2]+bays[2][0])/2]){
+    slab('i',c-.07,j0,c+.07,j1,5.6,6.5,OAK,{top:oakTop(6.5)}); slab('i',c-.06,j0+.02,c+.06,j0+.16,0,5.6,OAK,{});
   }
-  for(const e of [i0,i1-ei]){
-    part(e,j0,e+ei,j1,0,6.4,oak,{top:oakTop(6.4)});
-    part(e,j0+.25,e+ei,j1,6.4,top+.4,oak,{top:oakTop(top+.4)});
-    // scroll on the arm: a carved volute and a brass stud
-    const [sx,sy]=bz(e+ei,j0+.06,6.6); blob(sx,sy,2.5,2,rgb('#6a4328')); px(sx,sy,shadeC(oak,.5)); px(sx+1,sy-1,shadeC(oak,1.9));
-    const [bx,by]=bz(e+ei,j0+.45,3.3); px(bx,by,K.brass); px(bx,by+3,K.brass);
-  }
+  scrollEnd(bx1,j0,i1,j1,top,1,0);
+}
+/** The L leg along the wall i=0: back against the wall, seat facing +i (the viewer sees the buttoned front). */
+function banquetteLeg(){
+  const [i0,j0,i1,j1]=PUB.banquette.leg, top=PUB.banquette.back, bk=.28, je=PUB.banquette.box[1]+.31, ec=.2;
+  contact(i0,j0,i1,PUB.banquette.box[3],0,.5);
+  slab('i',i0,j0,i1-.03,je+0,0,1.2,OAK,{});
+  slab('i',i0+bk,j0+ec,i1,je,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,i0+bk,i1,'i')});
+  // piped front edge and cushion buttons
+  thin(i1,j0+ec,4.4,i1,je,4.4,shadeC(GREEN,1.9)); thin(i1,j0+ec,3.6,i1,je,3.6,shadeC(GREEN,.55));
+  // buttoned back
+  quad(i0+bk,j0+ec,1.2,i0+bk,je,1.2,i0+bk,je,top,i0+bk,j0+ec,top,tuft('i',i0+bk,j0+ec+.1,top));
+  quad(i0,j0+ec,top,i0+bk,j0+ec,top,i0+bk,je,top,i0,je,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(i-i0)/bk; return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*3,j*2)); });
+  quad(i0+bk,j0+ec,top-.2,i0+bk,je,top-.2,i0+bk,je,top,i0+bk,j0+ec,top,()=>shadeC(GREEN,1.7));
+  // carved scroll end at the free end
+  scrollEnd(i0,j0,i1,j0+ec,top,1,1);
 }
 
 /* ---------- dining tables ---------- */
@@ -472,6 +486,7 @@ export function pubTablesProps(/** @type {number} */t){
   /** @type {{box:number[],draw:()=>void}[]} */
   const L=[], run=(/** @type {()=>void} */f)=>()=>{ begin(); f(); };
   PUB.standing.forEach((s,k)=>{ L.push({box:[s.i-s.r,s.j-s.r,s.i+s.r,s.j+s.r],draw:run(()=>standing(s,k,t))}); });
+  L.push({box:PUB.banquette.leg,draw:run(banquetteLeg)});
   L.push({box:PUB.banquette.box,draw:run(banquette)});
   PUB.dining.forEach((d,k)=>{
     const [i0,j0,i1,j1]=d.box, ax=d.axis, cfg=DINE[k];
