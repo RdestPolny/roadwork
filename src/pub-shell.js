@@ -76,6 +76,7 @@ function floorAt(i,j){
     const n=vn(i*3.3+2,j*3.3)*.55+vn(i*7.1,j*7.1+3)*.45, n2=vn(i*3.3+1.8,j*3.3-.2)*.55+vn(i*7.1-.2,j*7.1+2.8)*.45;
     const s=sd*sm(.46,.7,n); c=mix(c,K.saw,s*.7); k*=1+(n-n2)*s*3;
   }
+  const sp=(1-sm(0,2.8,i))*(1-sm(0,1.2,Math.abs(j-5.0)-.5+i*.18)); if(sp>0){ c=mix(c,rgb('#ffc068'),.45*sp); k*=1+.5*sp; }
   if(fj<.07||fi<.045) return lit(c,.34);
   if(fj<.15) k*=1.12; else if(fj>.93) k*=.9;
   if(fi<.12) k*=1.08;
@@ -423,21 +424,22 @@ function passage(){
   fq(FA,c-hw-aw,0,c+hw+aw,zTop+aw*6+.3,(a,z)=>{
     if(inside(a,z)) return 0; if(!inside(a,z,aw)) return 0;
     const d=(()=>{ if(z<=zs) return Math.min(Math.abs(a-c)-hw,aw)/aw; const r=Math.hypot((a-c)*18,(z-zs)*3)/18; return (r-hw)/aw; })();
-    return lit(K.mahog,(d<.22?1.7:d<.5?1.05:d<.72?.6:1.25)*(.9+.2*vn(a*8,z*.5)));
+    return d<.2?lit(rgb('#e6c58a'),.95+.15*vn(a*6,z)):lit(K.mahog,(d<.5?1.15:d<.72?.6:1.3)*(.9+.2*vn(a*8,z*.5)));
   });
   fq(FA,c-.18,zTop+aw*3.2,c+.18,zTop+aw*3.2+2.2,(a,z)=>{ const e=Math.min((a-c+.18)*18,(c+.18-a)*18,(z-(zTop+aw*3.2))*3); return e<1?lit(K.gold,.8):lit(K.mahogL,1.15); });
   // painted corridor behind the opening: rays run along -i, seen at the camera's slope
   const j0=PAS.j0, j1=PAS.j1, D=2.4;
   fq(F,c-hw-.01,0,c+hw+.01,zTop+.1,(a,z)=>{
     if(!inside(a,z)) return 0;
+    if(a>c+hw-.17||(z>zs&&Math.hypot((a-c)*18,(z-zs)*3)>(hw-.14)*18)) return lit(K.mahogD,.55+.2*vn(a*5,z));
     const tf=z/6, tw=Math.max(0,a-j0), tb=D, t=Math.min(tf,tw,tb);
     let col;
     if(t===tf){ const ii=-tf, jj=a-tf, bd=Math.floor(jj/.5), fb=jj/.5-bd; col=lit(mix(K.oakD,K.oakL,.25+.5*hh(bd+Math.floor(ii/2.2)*9)),(fb<.1?.5:1)); }
     else if(t===tw){ const zz=z-6*tw, ii=-tw; col=zz<7?lit(K.mahog,.7):lit(mix(K.ox,K.nic,.35),.9+.2*vn(ii*3,zz*.3)); if(zz>6.7&&zz<7.3) col=lit(K.mahogL,1.2); }
-    else { const jj=a-D, zz=z-6*D; col=lit(mix(K.ox,K.nic,.4),.8); if(Math.abs(jj-(j0+j1)/2+.2)<.4&&zz>.2&&zz<8.4) col=lit(K.mahog,.55); if(Math.abs(jj-(j0+j1)/2)<.08&&zz>9&&zz<10.4) col=K.flame; }
+    else { const jj=a-D, zz=z-6*D; col=lit(mix(K.ox,K.nic,.4),.8); col=lit(mix(rgb('#c89a5c'),K.ox,.35),1.2); if(Math.abs(jj-(j0+j1)/2+.1)<.42&&zz>.2&&zz<8.6){ const e=Math.min(Math.abs(jj-(j0+j1)/2+.1),.42)*18; col=e>6.4?lit(rgb('#f2d9a0'),1.0):lit(rgb('#7a4a24'),.9+.3*sm(.2,8,zz)); } if(Math.hypot(jj-(j0+j1)/2,zz-10.4)<.5) col=K.flame; }
     // a lamp somewhere down the corridor: warm light falling off with depth, darker near the arch top
-    const lamp=Math.max(0,1-Math.hypot(t-1.2,z-9)/6);
-    return lit(mix(col,rgb('#e0a050'),.3*lamp),.5+.8*lamp+.12*sm(0,D,t));
+    const lamp=Math.max(0,1-Math.hypot(t-1.6,z-8.5)/7);
+    return lit(mix(col,rgb('#ffc060'),.4*lamp+.15),.85+1.3*lamp+.1*sm(0,D,t));
   });
   fq(F,c-hw+.04,zs-1,c+hw-.04,zs+1,(a,z)=>0);
   // portière: velvet curtain drawn back to the left jamb, tied with a gilt cord
@@ -445,7 +447,7 @@ function passage(){
   fq(FA,c+hw-.7,0,c+hw+.12,zs+2.2,(a,z)=>{
     const edge=c+hw+.1, w=wdt(z)+(z>zs?.2:0), d=edge-a; if(d<0||d>w||z>zs+2.2-(d/w)*2.4) return 0;
     const fold=.5+.5*Math.sin(d*55+vn(z*.3,1)*3), sh=.55+.5*fold;
-    return lit(K.green,(sh*1.15+.1)*(z<1?.7:1)*(1-sm(0,.1,d)*.0));
+    return lit(rgb('#2a4f9c'),(sh*1.15+.1)*(z<1?.7:1));
   });
   fq(FA,c+hw-.38,tie-.5,c+hw+.14,tie+.2,(a,z)=>lit(K.gold,.9+.5*Math.sin(a*60)*.2));
   fl(FA,c+hw-.34,tie-.5,c+hw-.32,tie-2.4,K.brassL); fq(FA,c+hw-.4,tie-3.2,c+hw-.26,tie-2.2,()=>lit(K.gold,1.1));
@@ -461,7 +463,7 @@ function galleryDoors(){
   });
 }
 function chalkboard(){
-  const F={k:'I',c:.05}, a0=3.2, a1=4.04, z0=6.6, z1=18.2;
+  const F={k:'I',c:.05}, a0=10.35, a1=11.19, z0=5, z1=16.6;
   fq(F,a0,z0,a1,z1,(a,z)=>{ const e=Math.min((a-a0)*18,(a1-a)*18,(z-z0)*3,(z1-z)*3); if(e<1.6) return lit(K.mahog,e<.9?1.35:.8); const sm_=vn(a*6,z*.5); return lit(rgb('#202b27'),.85+.25*sm_*sm_); });
   const chalk=rgb('#d9d5c4');
   glyphs(F,a1-.1,z1-1.0,'FARE',chalk,1);
@@ -686,8 +688,8 @@ function pictures(){
   framed(J0,4.95,25,.8,8.8,noticeArt,false);
   framed(I0,1.3,8.8,1.7,8,raceArt);
   framed(I0,5.9,14.4,.9,5.6,landscapeArt);
-  framed(I0,10.1,13.2,1.3,13.6,shipArt,false);
-  framed(I0,10.05,31,1.4,8,landscapeArt);
+  framed(I0,10.1,19.4,1.3,13.6,shipArt,false);
+  framed(I0,10.05,35,1.4,7,landscapeArt);
 }
 
 /** Baked layers: floor, walls, doors, fireplace, framed pictures, brackets. */
@@ -705,7 +707,7 @@ export function pubShellStatic(){
   frontCut();
 }
 /* ---------- animated parts ---------- */
-const GASOLIERS=[{i:8.4,j:5.9,z:31},{i:6.4,j:9.4,z:30}];   /* clear of the passage and the fireplace on the screen */
+const GASOLIERS=[{i:8.4,j:5.9,z:31},{i:9.2,j:10.0,z:30}];   /* clear of the passage and the fireplace on the screen */
 /** Where the glass shades of a gasolier hang (world i,j,z). */
 function gasolierShades(/** @type {{i:number,j:number,z:number}} */g,/** @type {number} */t){
   return Array.from({length:5},(_,k)=>{ const an=k*Math.PI*2/5+.3+Math.sin(t*.004)*.015; return [g.i+Math.cos(an)*.78,g.j+Math.sin(an)*.78,g.z+1.1]; });
