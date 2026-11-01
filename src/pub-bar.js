@@ -24,10 +24,10 @@ function faceI(/** @type {number} */I,/** @type {number} */j0,/** @type {number}
   quad(I,j0,z0,I,j1,z0,I,j1,z1,I,j0,z1,(x,y)=>{ const j=(x+.5-K.x0-I*K.ix)/K.jx; return fn(j,(K.y0+I*K.iy+j*K.jy-y-.5)/K.z); });
 }
 /** Fill a rectangle on the horizontal plane z; fn(i,j). */
-function topZ(/** @type {number} */z,/** @type {number} */i0,/** @type {number} */j0,/** @type {number} */i1,/** @type {number} */j1,/** @type {(i:number,j:number)=>number} */fn){
+function topZ(/** @type {number} */z,/** @type {number} */i0,/** @type {number} */j0,/** @type {number} */i1,/** @type {number} */j1,/** @type {(i:number,j:number,x:number)=>number} */fn){
   quad(i0,j0,z,i1,j0,z,i1,j1,z,i0,j1,z,(x,y)=>{
     const dx=x+.5-K.x0, dy=y+.5-K.y0+z*K.z;
-    return fn((dx*K.jy-K.jx*dy)/K.det,(K.ix*dy-K.iy*dx)/K.det);
+    return fn((dx*K.jy-K.jx*dy)/K.det,(K.ix*dy-K.iy*dx)/K.det,x);
   });
 }
 function px(/** @type {number} */x,/** @type {number} */y,/** @type {number} */c){
@@ -143,6 +143,7 @@ function pint(i,j,z,full){
 
 /* ---------------------------------------------------------------- counter */
 const CB=PUB.counter.box, RB=PUB.ret.box;
+const DX=CB[0]-4.0;   // the counter was first drawn at i=4.0; hand-placed items below move with it
 const PIL=[0,1,2,3,4,5,6].map(m=>CB[0]+.1+(CB[2]-CB[0]-.2)/6*m);   // carved pilaster centres along the counter front
 
 /** Polished top: grain along the long axis, a sheen band by the customer edge and lamp highlights. */
@@ -153,7 +154,7 @@ function counterTop(/** @type {number[]} */b,/** @type {boolean} */alongI){
     let k=1.15, c=mahog(u,v*1.3,k);
     if(alongI){
       const sheen=Math.exp(-Math.pow((j-(j1-.28))/.13,2))*.4;
-      let lamp=0; for(const li of [5.5,7.7,9.9]) lamp+=.55*Math.exp(-Math.pow((i-li)/.6,2)-Math.pow((j-(j1-.5))/.17,2));
+      let lamp=0; for(const li of [5.5+DX,7.7+DX,9.9+DX]) lamp+=.55*Math.exp(-Math.pow((i-li)/.6,2)-Math.pow((j-(j1-.5))/.17,2));
       c=mix(c,rgb('#ffd8a0'),Math.min(.7,sheen+lamp));
       if(j>j1-.07) c=mix(c,rgb('#d89a62'),.55);             // bevelled front edge catching the light
       else if(j<j0+.07) c=shadeC(c,.7);
@@ -221,13 +222,13 @@ function footRail(){
 /** Beer engine: brass plate, five tall hand pulls with porcelain handles, drip tray. */
 function beerEngine(){
   const clips=[rgb('#a82a24'),rgb('#2c4f86'),rgb('#2f6a3a'),rgb('#c49a2c'),rgb('#6a2a6a')];
-  const pj=2.72, i0=5.3, i1=8.1;
+  const pj=2.72, i0=5.3+DX, i1=8.1+DX;
   // plate
   topZ(10.75,i0,pj-.2,i1,pj+.2,(i,j)=>{ const e=Math.min(i-i0,i1-i,j-(pj-.2),pj+.2-j); return e<.03?BR.h:shadeC(BR.m,.95+.2*vn(i*2,j*9)+(j<pj?.1:0)); });
   faceJ(pj+.2,i0,10,i1,10.75,(i,z)=>z>10.6?BR.h:shadeC(BR.m,.85+.2*(z-10)/.75+.15*vn(i*3,z)));
   faceI(i1,pj-.2,10,pj+.2,10.75,()=>BR.d);
   for(let m=0;m<5;m++){
-    const i=5.6+.55*m;
+    const i=5.6+DX+.55*m;
     lathe(i,pj,10.75,11.4,h=>.115-.03*h/.65,(h,s)=>brass(s));
     lathe(i,pj,11.4,15.1,h=>.062,(h,s)=>brass(s));
     lathe(i,pj,12.9,13.3,h=>.095,(h,s)=>brass(s,1.05));
@@ -244,7 +245,7 @@ function beerEngine(){
   }
 }
 function drainTray(){
-  const i0=5.3,i1=8.1,j0=3.0,j1=3.16;
+  const i0=5.3+DX,i1=8.1+DX,j0=3.0,j1=3.16;
   topZ(10.03,i0,j0,i1,j1,(i,j)=>{ const e=Math.min(i-i0,i1-i,j-j0,j1-j);
     if(e<.035) return BR.l;
     return (Math.floor(i*14)%2===0)?shadeC(BR.d,.55):shadeC(BR.m,.9+.2*vn(i*3,j*5)); });
@@ -270,10 +271,10 @@ function pickledEggs(i,j){
   });
 }
 function flapAndHinges(){
-  const fi=9.95;
+  const fi=CB[2]-.65;
   topZ(10.05,fi-.02,CB[1],fi+.02,CB[3],()=>rgb('#1a0b06'));
   for(const j of [2.55,3.0]) topZ(10.06,fi-.1,j-.03,fi+.1,j+.03,(i,j2)=>(i-fi)>-.05?BR.l:BR.m);
-  topZ(10.06,10.28,3.0,10.42,3.1,(i,j)=>Math.hypot((i-10.35)*2,(j-3.05)*3)<.12?BR.h:BR.l);
+  topZ(10.06,CB[2]-.32,3.0,CB[2]-.18,3.1,(i,j)=>Math.hypot((i-CB[2]+.25)*2,(j-3.05)*3)<.12?BR.h:BR.l);
   faceI(CB[2],2.4,9.3,3.2,10,(j,z)=>Math.abs(j-2.58)<.03?rgb('#1a0b06'):0);
 }
 function drawCounter(){
@@ -282,11 +283,11 @@ function drawCounter(){
   counterFront(); counterEnd(); footRail(); counterTop(CB,true); flapAndHinges();
   drainTray(); beerEngine();
   // things on the counter, back to front
-  pickledEggs(8.55,2.58);
-  tankard(8.85,2.7,10); tankard(9.28,2.86,10);
-  pint(9.7,3.0,10,true); pint(5.0,2.95,10,false);
-  barCloth(4.3,2.5,4.85,2.95);
-  rummer(10.2,2.6,10);
+  pickledEggs(8.55+DX,2.58);
+  tankard(8.85+DX,2.7,10); tankard(9.28+DX,2.86,10);
+  pint(9.7+DX,3.0,10,true); pint(5.0+DX,2.95,10,false);
+  barCloth(4.3+DX,2.5,4.85+DX,2.95);
+  rummer(CB[2]-.4,2.6,10);
 }
 function j1(/** @type {number[]} */b){ return b[1]; }
 function drawReturn(){
@@ -303,15 +304,15 @@ function drawReturn(){
   faceI(i1,j0,9.3,j1,10,(j,z)=>z<9.42?mahog(j,z,.35):z>9.86?mix(mahog(j,z,1),rgb('#d89a62'),.4):mahog(j,z*1.5,.95));
   topZ(10,i0,j0,i1,j1,(i,j)=>{
     let c=mahog(j,i*1.3,1.15);
-    c=mix(c,rgb('#ffd8a0'),Math.exp(-Math.pow((i-4.5)/.22,2)-Math.pow((j-1.5)/.55,2))*.5);
+    c=mix(c,rgb('#ffd8a0'),Math.exp(-Math.pow((i-RB[0]-.5)/.22,2)-Math.pow((j-1.5)/.55,2))*.5);
     if(i>i1-.07) c=mix(c,rgb('#d89a62'),.5); if(j<j0+.06) c=mix(c,rgb('#d89a62'),.4);
     return c;
   });
   // brass edging on the front of the end and a lamp-lit pewter jug
   topZ(10.02,i1-.05,j0+.03,i1,j1-.02,()=>BR.l);
-  lathe(4.4,1.2,10,12.2,h=>h<1.5?.13-.03*Math.pow(1-h/1.5,2)+.02*Math.sin(h*3):.1+.04*(h-1.5)/.7*0,(h,s)=>shadeC(PEWT,lit(s)*1.1));
-  rod(4.58,1.2,11.9,4.66,1.2,11.2,[shadeC(PEWT,1.2),shadeC(PEWT,.7)]); rod(4.66,1.2,11.2,4.55,1.2,10.5,[shadeC(PEWT,1.2),shadeC(PEWT,.7)]);
-  pint(4.45,1.75,10,true);
+  lathe(RB[0]+.4,1.2,10,12.2,h=>h<1.5?.13-.03*Math.pow(1-h/1.5,2)+.02*Math.sin(h*3):.1+.04*(h-1.5)/.7*0,(h,s)=>shadeC(PEWT,lit(s)*1.1));
+  rod(RB[0]+.58,1.2,11.9,RB[0]+.66,1.2,11.2,[shadeC(PEWT,1.2),shadeC(PEWT,.7)]); rod(RB[0]+.66,1.2,11.2,RB[0]+.55,1.2,10.5,[shadeC(PEWT,1.2),shadeC(PEWT,.7)]);
+  pint(RB[0]+.45,1.75,10,true);
 }
 
 /* ---------------------------------------------------------------- stools and spittoons */
@@ -422,7 +423,7 @@ function backBar(){
     lathe(c+.28,JF+.02,4.1,4.55,h=>.065*Math.sin(h/.45*Math.PI*.9)+.02,(h,s)=>brass(s)); }
   faceI(i1,0,0,j1,8.9,(j,z)=>{ if(z<1.0) return mahog(j,z,.35); if(z>8.55) return mahog(j,z,.55); if(j>.12&&j<j1-.1&&z>1.3&&z<7.8) return fielded(j,z,.12,1.3,j1-.1,7.8,.1,.8,j,z,.62); return mahog(j,z,.35); });
   // --- working shelf
-  topZ(8.9,i0,.28,i1,j1,(i,j)=>{ let c=mahog(i,j*1.5,1.1); c=mix(c,rgb('#ffd8a0'),Math.exp(-Math.pow((i-6.3)/.7,2)-Math.pow((j-.5)/.2,2))*.45+Math.exp(-Math.pow((i-9.3)/.7,2)-Math.pow((j-.5)/.2,2))*.4); if(j>j1-.06) c=mix(c,rgb('#d89a62'),.5); return c; });
+  topZ(8.9,i0,.28,i1,j1,(i,j)=>{ let c=mahog(i,j*1.5,1.1); c=mix(c,rgb('#ffd8a0'),Math.exp(-Math.pow((i-i0-.5)/.7,2)-Math.pow((j-.5)/.2,2))*.45+Math.exp(-Math.pow((i-i0-3.5)/.7,2)-Math.pow((j-.5)/.2,2))*.4); if(j>j1-.06) c=mix(c,rgb('#d89a62'),.5); return c; });
   faceJ(j1,i0,8.55,i1,8.9,(i,z)=>z>8.8?mix(mahog(i,z,1),rgb('#d89a62'),.5):mahog(i,z*2,1.1));
   const SJ=.34, ZB=8.9;
   // --- mirrored lower back panels and pilasters
@@ -430,9 +431,9 @@ function backBar(){
   for(let m=0;m<3;m++) mirrorPanel(LP[m]+.1,ZB,LP[m+1]-.1,18.5,'',1);
   for(const c of LP) faceJ(SJ+.08,c-.1,ZB,c+.1,25.3,(i,z)=>{ const u=(i-c)/.1; if(Math.abs(u)>.8) return mahog(i,z,u<0?1.45:.5); if(Math.abs(u)<.1) return mahog(i,z,.4); return mahog(i*.3,z*.2,1.1-.3*Math.max(0,u)); });
   // --- casks on the working shelf (left two thirds)
-  cask(i0+.78,ZB+3.0,.34,2.7,'GIN',rgb('#6a4326'));
-  cask(i0+1.62,ZB+3.0,.34,2.7,'RUM',rgb('#5b3820'));
-  cask(i0+3.0,ZB+4.6,.74,4.3,'BRANDY',rgb('#744a28'));
+  cask(i0+.7,ZB+3.0,.34,2.7,'GIN',rgb('#6a4326'));
+  cask(i0+1.42,ZB+3.0,.34,2.7,'RUM',rgb('#5b3820'));
+  cask(i0+2.6,ZB+4.4,.68,4.3,'BRANDY',rgb('#744a28'));
   // --- bottles and glass: right panel, two shelves
   const right=LP[2]+.3, rEnd=LP[3]-.25;
   for(const zs of [13.6]) { topZ(zs,right-.1,SJ,rEnd+.1,.62,(i,j)=>mahog(i,j*2,1.0)); faceJ(.62,right-.1,zs-.55,rEnd+.1,zs,(i,z)=>z>zs-.12?mix(mahog(i,z,1),rgb('#d89a62'),.5):mahog(i,z*2,.85)); }
@@ -481,15 +482,15 @@ function crest(/** @type {number} */c){
 }
 
 /* ---------------------------------------------------------------- staircase (static) */
-const ST=PUB.stairs, STEP_N=9, FOOT=3.6, RUN=(FOOT-1.0)/STEP_N, TOP=ST.top, RISE=TOP/STEP_N;
+const ST=PUB.stairs, FOOT=ST.box[2], HEAD=ST.box[0], TOP=ST.top, STEP_N=Math.round(TOP/2), RUN=(FOOT-HEAD)/STEP_N, RISE=TOP/STEP_N;
 /** Stepped tread height over a given i, and the straight line through the nosings. */
 const zStep=(/** @type {number} */i)=>i>=FOOT?0:Math.min(TOP,RISE*(Math.floor((FOOT-i)/RUN)+1));
 const zLine=(/** @type {number} */i)=>i>=FOOT?RISE*0:Math.min(TOP,RISE+(FOOT-i)/RUN*RISE);
-const RAIL_H=9.6;
+const RAIL_H=8.8;
 function stairs(){
   cam();
-  const [,j0,,j1]=ST.box, JO=j1, iEnd=0.02;
-  contact(0.1,j1-.15,FOOT+.1,j1+.1,0,.5);
+  const [,j0,,j1]=ST.box, JO=j1, iEnd=HEAD;
+  contact(HEAD,j1-.15,FOOT+.1,j1+.1,0,.5);
   // --- closed string on the wall: a raking board above the treads
   faceJ(.03,iEnd,0,FOOT,TOP+1.6,(i,z)=>{
     const zs=zStep(i), zl=zLine(i);
@@ -510,7 +511,7 @@ function stairs(){
     if(z>st){ if(z>sb-.7||z<st+.35) return mahog(i,z,z>sb-.7?.5:1.45); return mahog(i*.3,z*.3+2,.95); }
     if(z<1.0) return z>.85?mahog(i,z,1.3):mahog(i,z*.8,.5);
     // spandrel panels between stiles
-    const pw=.7, m=Math.floor((i-.22)/pw), a0=.22+m*pw+.06, a1=.22+(m+1)*pw-.06;
+    const pw=.7, m=Math.floor((i-HEAD-.1)/pw), a0=HEAD+.1+m*pw+.06, a1=HEAD+.1+(m+1)*pw-.06;
     const zt=st-.5;
     if(i>=a0&&i<=a1&&z>1.5&&z<zt-.8) return fielded(i,z,a0,1.5,a1,zt-.8,.12,.8,i,z,1.1);
     return mahog(i,z,.7);
@@ -536,9 +537,6 @@ function stairs(){
       let t=mahog(i*2,j,1.0); if(iF-i<.05) t=mix(t,rgb('#e0a870'),.5); return t;
     });
   }
-  // landing
-  topZ(TOP,iEnd,j0,1.0,j1,(i,j)=>{ const c=carpet(j,i,TOP,1.0); if(c) return c; return mahog(i*2,j,1.05); });
-  faceI(1.0,j0,TOP-.3,j1,TOP,()=>mahog(1,1,.5));
   // stair rods
   for(let k=0;k<STEP_N;k++){
     const i=FOOT-k*RUN-.01, z=RISE*k+.12;
@@ -546,35 +544,102 @@ function stairs(){
     for(const j of [.2,1.12]) lathe(i,j,z-.3,z+.3,h=>.045*Math.sin(h/.6*Math.PI)+.02,(h,s)=>brass(s));
   }
   // --- balustrade on the open side
-  const rz=(/** @type {number} */i)=>zLine(i)+RAIL_H, jb=JO-.08;
-  const bal=(/** @type {number} */i,/** @type {number} */zb,/** @type {number} */zt)=>{
+  const GI=PUB.gallery.box[2]-.08, rz=(/** @type {number} */i)=>zLine(i)+RAIL_H, jb=JO-.08;
+  const bal=(/** @type {number} */i,/** @type {number} */zb,/** @type {number} */zt,jj=jb)=>{
     const H=zt-zb;
-    lathe(i,jb,zb,zt,h=>{ const t=h/H; return t<.12?.034:t<.2?.026:t<.34?.026+.026*Math.sin((t-.2)/.14*Math.PI):t<.5?.024:t<.62?.024+.02*Math.sin((t-.5)/.12*Math.PI):.024; },
+    lathe(i,jj,zb,zt,h=>{ const t=h/H; return t<.12?.034:t<.2?.026:t<.34?.026+.026*Math.sin((t-.2)/.14*Math.PI):t<.5?.024:t<.62?.024+.02*Math.sin((t-.5)/.12*Math.PI):.024; },
       (h,s)=>shadeC(mix(rgb('#6a361b'),rgb('#a45f30'),Math.max(0,-s)),lit(s)*1.05));
   };
   for(let k=0;k<STEP_N;k++){ for(const f of [.5]){ const i=FOOT-(k+f)*RUN; bal(i,RISE*(k+1),rz(i)-.7); } }
-  for(let n=0;n<4;n++){ const i=.95-n*.22; if(i>.2) bal(i,TOP,rz(i)-.7); }
   // handrail: sloped, then level over the landing
   const rail=[shadeC(rgb('#c27a46'),1.15),rgb('#8a4a26'),rgb('#6a3418'),rgb('#2e1409')];
-  rod(FOOT-.05,jb,rz(FOOT-.05),FOOT-9*RUN,jb,rz(FOOT-9*RUN),rail);
-  rod(FOOT-9*RUN,jb,rz(FOOT-9*RUN),.28,jb,TOP+RAIL_H,rail);
+  rod(FOOT-.05,jb,rz(FOOT-.05),HEAD+.1,jb,rz(HEAD+.1),rail);
   
   // newels: big turned post at the foot, smaller ones at the head of the flight and the landing end
-  const newel=(/** @type {number} */i,/** @type {number} */zb,/** @type {number} */H,/** @type {number} */sc)=>{
-    lathe(i,jb,zb,zb+H,h=>{ const t=h/H;
+  const newel=(/** @type {number} */i,/** @type {number} */zb,/** @type {number} */H,/** @type {number} */sc,jj=jb)=>{
+    lathe(i,jj,zb,zb+H,h=>{ const t=h/H;
       if(t<.14) return .15*sc; if(t<.2) return .1*sc; if(t<.5) return (.1+.1*Math.sin((t-.2)/.3*Math.PI))*sc;
       if(t<.54) return .09*sc; if(t<.72) return .1*sc; if(t<.76) return .14*sc; if(t<.8) return .09*sc;
       if(t<.97) return .125*sc*Math.sqrt(Math.max(0,1-Math.pow((t-.88)/.1,2)))+.0; return .04*sc; },
       (h,s)=>{ const t=h/H, l=lit(s)*1.1; const c=Math.abs(t-.15)<.015||Math.abs(t-.52)<.01||Math.abs(t-.75)<.01?rgb('#c0864f'):mix(rgb('#6a361b'),rgb('#a45f30'),Math.max(0,-s*.8)); return shadeC(c,l); });
   };
   newel(FOOT-.05,0,16.5,1.35);
-  newel(FOOT-9*RUN+.02,TOP,RAIL_H+3.4,1.0);
-  newel(.3,TOP,RAIL_H+3.4,1.0);
+  newel(GI,TOP,RAIL_H+3.4,1.0,jb);
+}
+
+/* ---------------------------------------------------------------- hanging gallery (static) */
+const GA=PUB.gallery, GB=GA.box, GZ=GA.z, GT=1.8, GI_EDGE=GB[2];
+/** Slab, moulded fascia, carved wall brackets and the planked, carpeted floor of the gallery. */
+function gallerySlab(){
+  cam();
+  const [i0,j0,i1,j1]=GB, zb=GZ-GT, d=PUB.fire.d;
+  // floor, clipped where the chimney breast stands in front of it
+  const xcut=isoX(d,j1)-1;
+  topZ(GZ,i0,j0,i1,j1,(i,j,x)=>{
+    if(x<xcut) return 0;
+    const run=(i>.33&&i<1.18&&j>.25&&j<j1-.12)||(i>.33&&j>.25&&j<1.08);
+    if(run){ const a=Math.min(i-.33,Math.min(1.18,i1)-i), c=Math.min(j-.25,j1-.12-j);
+      const e=(j<1.08&&i>1.18)?Math.min(j-.25,1.08-j):a;
+      if(e<.02) return rgb('#14090a'); if(e<.06) return rgb('#c2a050'); if(e<.09) return rgb('#2a0f10'); if(e<.14) return shadeC(rgb('#8a2a24'),.95+.1*vn(i*9,j*4));
+      if(c<.03&&i<1.18) return rgb('#c2a050');
+      return shadeC(rgb('#7c2020'),.95+.22*vn(i*6,j*5)); }
+    const plank=Math.floor(i*5); return mix(mahog(j*.8,i*1.5,1.05),rgb('#1a0b06'),Math.abs(i*5-plank-.02)<.05?.5:0)|0;
+  });
+  // skirting along both walls (the doors in wall i=0 stay open)
+  faceI(.03,j0,GZ,j1,GZ+2.2,(j,z)=>{ for(const [a,b] of GA.doors) if(j>a-.05&&j<b+.05) return 0; return z>GZ+1.9?mahog(j,z,1.5):z>GZ+1.6?mahog(j,z,.5):mahog(j*.4,z*.4,.9); });
+  faceJ(.03,i0,GZ,i1,GZ+2.2,(i,z)=>z>GZ+1.9?mahog(i,z,1.5):z>GZ+1.6?mahog(i,z,.5):mahog(i*.4,z*.4,.9));
+  // end of the slab against the chimney breast
+  faceJ(j1,d,zb,i1,GZ,(i,z)=>mahog(i,z,z>GZ-.3?1.3:.7));
+  // brackets: big carved scrolls fixed to the wall, the slab hangs on them
+  for(const jb of [.45,1.7,2.9,4.0,6.0,6.8]){
+    const z0=15.6, zt=zb, w=(/** @type {number} */z)=>1.25*Math.pow(Math.max(0,(z-z0)/(zt-z0)),.55);
+    const prof=(/** @type {number} */i,/** @type {number} */z,/** @type {number} */k)=>{
+      const wz=w(z), back=i<.3&&z>z0-.9;
+      if(!(back||(z>=z0&&i<wz))) return 0;
+      if(z<z0&&Math.hypot((i-.15)*3,(z-z0+.9)*.45)>.45*1.0&&z<z0-.4) return 0;
+      const edge=Math.min(wz-i,z-z0+.3);
+      if(!back&&edge<.07) return mahog(i,z,k*1.5);
+      if(!back&&((wz-i)*9)%1<.14) return mahog(i,z,k*.5);
+      const vo=Math.hypot((i-.62*wz)*4,(z-z0-1.5)*.55);   // volute
+      if(!back&&vo<.5) return mahog(i,z,k*(vo>.35||vo<.12?.5:1.35));
+      return mahog(i*.6,z*.5+jb,k*(back?1.0:1.12));
+    };
+    faceJ(jb,0,z0-1,1.3,zt,(i,z)=>prof(i,z,.7));
+    faceJ(jb+.24,0,z0-1,1.3,zt,(i,z)=>prof(i,z,1.4));
+  }
+  // moulded fascia on the open edge, from the stair head to the chimney breast
+  const f0=PUB.stairs.box[3];
+  faceI(i1,f0,zb,j1,GZ,(j,z)=>{
+    if(z<zb+.3) return mahog(j,z,z<zb+.12?.35:1.5);
+    if(z>GZ-.45) return z>GZ-.1?mix(mahog(j,z,1.4),rgb('#f0b57a'),.5):mahog(j,z,z>GZ-.3?1.3:.6);
+    if(z>GZ-.95) return (Math.floor(j*9)%2===0)?mahog(j,z,1.25):mahog(j,z,.4);         // dentils
+    const u=((j-f0)%.62)/.62, v=(z-zb-.3)/(GT-1.25), dd=Math.hypot((u-.5)*1.7,(v-.5)*1.1);  // carved rosettes
+    if(dd<.25) return mahog(j,z,dd<.1?1.5:.6);
+    return mahog(j*.3,z*.3,1.3);
+  });
+  faceI(i1+.0,f0,GZ-.45,j1,GZ,()=>0);
+}
+/** Turned balusters, handrail and end newel on the gallery's open edge (the stair rail flows into it). */
+function galleryRail(){
+  cam();
+  const [,,,j1]=GB, GI2=GB[2]-.08, jb=PUB.stairs.box[3]-.08, jEnd=j1-.15, top=GZ+RAIL_H;
+  const rail=[shadeC(rgb('#c27a46'),1.15),rgb('#8a4a26'),rgb('#6a3418'),rgb('#2e1409')];
+  for(let j=jb+.3;j<jEnd-.05;j+=.2){
+    lathe(GI2,j,GZ,top-.7,h=>{ const t=h/(top-.7-GZ); return t<.12?.034:t<.2?.026:t<.34?.026+.026*Math.sin((t-.2)/.14*Math.PI):t<.5?.024:t<.62?.024+.02*Math.sin((t-.5)/.12*Math.PI):.024; },
+      (h,s)=>shadeC(mix(rgb('#6a361b'),rgb('#a45f30'),Math.max(0,-s)),lit(s)*1.05));
+  }
+  rod(GI2,jb,top,GI2,jEnd,top,rail);
+  const jj=jEnd;
+  lathe(GI2,jj,GZ,top+3.4,h=>{ const t=h/(top+3.4-GZ);
+    if(t<.14) return .15; if(t<.2) return .1; if(t<.5) return .1+.1*Math.sin((t-.2)/.3*Math.PI);
+    if(t<.54) return .09; if(t<.72) return .1; if(t<.76) return .14; if(t<.8) return .09;
+    if(t<.97) return .125*Math.sqrt(Math.max(0,1-Math.pow((t-.88)/.1,2))); return .04; },
+    (h,s)=>{ const t=h/(top+3.4-GZ), c=Math.abs(t-.15)<.015||Math.abs(t-.52)<.01||Math.abs(t-.75)<.01?rgb('#c0864f'):mix(rgb('#6a361b'),rgb('#a45f30'),Math.max(0,-s*.8)); return shadeC(c,lit(s)*1.1); });
 }
 
 /* ---------------------------------------------------------------- exports */
 /** Static wall-bound parts baked once: back bar, staircase. */
-export function pubBarStatic(){ backBar(); stairs(); }
+export function pubBarStatic(){ backBar(); gallerySlab(); stairs(); galleryRail(); }
 /** Counter, return arm, stools and spittoons, drawn in depth order. @returns {{box:number[],draw:()=>void}[]} */
 export function pubBarProps(/** @type {number} */t){
   const r=PUB.stoolR;
@@ -582,6 +647,6 @@ export function pubBarProps(/** @type {number} */t){
     {box:PUB.counter.box,draw:drawCounter},
     {box:PUB.ret.box,draw:drawReturn},
     ...PUB.stools.map(([i,j])=>({box:[i-r,j-r,i+r,j+r],draw:()=>drawStool(i,j)})),
-    ...[[6.77,3.34],[9.9,3.34]].map(([i,j])=>({box:[i-.16,j-.14,i+.16,j+.14],draw:()=>drawSpittoon(i,j)})),
+    ...[[CB[0]+2.5,3.34],[CB[2]-.6,3.34]].map(([i,j])=>({box:[i-.16,j-.14,i+.16,j+.14],draw:()=>drawSpittoon(i,j)})),
   ];
 }
