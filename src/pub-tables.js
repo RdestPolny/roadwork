@@ -179,9 +179,11 @@ function pipeDish(/** @type {number} */i,/** @type {number} */j,/** @type {numbe
 }
 
 /* ---------- standing drinking tables ---------- */
-/** Tall standing drinking table: iron tripod, plain column with one brass collar, marble or mahogany top with a brass rim; bare top. */
+/** Tall standing drinking table: iron tripod, plain column with one brass collar, mahogany top bound with a brass band; bare top. */
+const OAKTOP=rgb('#6b4a2c');
+/** */
 function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number} */k,/** @type {number} */t){ void t;
-  const {i,j,r}=s, marble=k%2===0, a0=k*.8;
+  const {i,j,r}=s, marble=false, a0=k*.8;   /* all tops are wood with a brass band */
   contact(i-r*.8,j-r*.8,i+r*.8,j+r*.8,0,.58);
   const feet=[0,2.094,4.189].map(a=>a+a0).sort((a,b)=>(Math.cos(a)+Math.sin(a))-(Math.cos(b)+Math.sin(b)));
   const leg=(/** @type {number} */a)=>{
@@ -197,11 +199,11 @@ function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number
   cyl(i,j,.1,7.4,8.4,(zz,sv)=>shadeC(K.brass,roundLit(sv)),null,.4);
   front.forEach(leg);
   // top
-  cyl(i,j,r,9.2,10.05,(zz,sv)=>zz<9.55?shadeC(K.brass,.55+roundLit(sv)):shadeC(marble?rgb('#cfd0c6'):K.mah,roundLit(sv)*(marble?1:.95)),
+  cyl(i,j,r,9.2,10.05,(zz,sv)=>zz<9.55?shadeC(K.brass,.55+roundLit(sv)):shadeC(marble?rgb('#cfd0c6'):OAKTOP,roundLit(sv)*(marble?1:.95)),
     (sv,v)=>{ const rr=Math.hypot(sv,v), x=isoX(i,j)+sv*r*17, y=isoY(i,j,10.05)+v*r*8.5;
-      if(rr>.9) return shadeC(K.brass,rr>.96?.85:1.2+.3*-v);
+      if(rr>.84) return shadeC(K.brass,rr>.95?.8:rr<.87?.7:1.15+.3*-v);
       if(marble){ const n=N(x,y,.16,k*5), vein=Math.abs(N(x,y,.24,7+k)-.5)<.035?1:0; return shadeC(rgb('#dcdcd2'),.88+.2*n+.08*-v-(vein?.28:0)); }
-      return shadeC(K.mah,.85+.35*N(x,y,.14,k)+.13*Math.sin(rr*26+N(x,y,.2)*6)*.5+.12*-v); });
+      const g=Math.sin((sv*.35+v)*22+N(x,y,.18,k)*5); return shadeC(OAKTOP,.8+.25*N(x,y,.12,k)+.12*g+.12*-v); });
 }
 
 /* ---------- chairs and benches ---------- */
