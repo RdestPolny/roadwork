@@ -240,7 +240,7 @@ function chair(/** @type {number} */ci,/** @type {number} */cj,/** @type {number
 /** Captain's chairs pulled up on the room side of a table (axis i). */
 function chairRow(/** @type {number[]} */box,/** @type {number[]} */us,/** @type {number} */k){
   const [i0,j0,i1]=box;
-  us.forEach((u,n)=>chair(i0+(i1-i0)*u,j0-.29,k+n));
+  us.forEach((u,n)=>chair(i0+(i1-i0)*u,j0-.36,k+n));
 }
 /** Bottle-green leather colour of the banquette, tufted: diamond buttons, puffs, rolled lip near the top edge. */
 function tuft(/** @type {string} */plane,/** @type {number} */val,/** @type {number} */u0,/** @type {number} */top){
