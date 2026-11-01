@@ -347,6 +347,35 @@ function shipArt(/** @type {number} */x,/** @type {number} */y,/** @type {number
   if(cap(x,y,mx,3,W*.9,deck+.4,.3)||cap(x,y,mx,3,W*.08,deck+.4,.3)) c=lit(K.ink,1.6);     // stays
   return c;
 }
+/** The big overmantel oil: a three-master standing out to sea at sunset. */
+function oilShip(/** @type {number} */x,/** @type {number} */y,/** @type {number} */W,/** @type {number} */H){
+  const hz=H*.64, u=x/W, v=y/H;
+  if(y<hz){
+    let c=mix(rgb('#3f4f66'),rgb('#e89a48'),sm(0,hz,y)**1.4);
+    c=mix(c,rgb('#ffd9a0'),.5*Math.max(0,1-Math.hypot((x-W*.7)/(W*.35),(y-hz)/(H*.3))));
+    if(((Math.floor(y/2)+Math.floor(x*.17))&3)===0&&y<hz*.5) c=lit(c,.93);     // cloud bands
+    // the ship
+    const hullY=hz-.6, hw=W*.17;
+    for(const [mx,top,k] of [[.4,.1,1],[.5,.04,1.2],[.6,.12,1]]){
+      const X=mx*W, base=hullY, mh=base-top*H;
+      if(Math.abs(x-X)<.5&&y>top*H&&y<base) return K.ink;
+      for(const [a,b,wd] of [[.0,.3,.1],[.34,.64,.14],[.68,.92,.17]]){
+        const y0=top*H+a*mh+1, y1=top*H+b*mh;
+        if(y>y0&&y<y1&&Math.abs(x-X)<W*wd*k*(.85+.25*(y-y0)/(y1-y0))){ const lit_=1-.3*sm(X,X+W*wd,x)+.2*sm(X,X-W*wd,x); return y>y1-1?lit(rgb('#6e5a42'),1):lit(mix(rgb('#f6e2b4'),rgb('#f0a85a'),.35+.4*(1-(y-y0)/(y1-y0))),lit_); }
+        if(Math.abs(y-y0+1)<.5&&Math.abs(x-X)<W*wd*k+1) return K.ink;
+      }
+    }
+    if(y>hullY-1&&y<hullY+1.4&&Math.abs(x-W*.5)<hw-(y-hullY+1)*1.2) return y<hullY-.2?lit(rgb('#c9a56a'),.9):K.ink;
+    if(cap(x,y,W*.5-hw,hullY,W*.5-hw-W*.1,hullY-3,.4)) return K.ink;
+    if(Math.abs(y-(hz-4.5))<.6&&Math.abs(x-W*.88)<3&&y>hz-8) return lit(rgb('#f0d6a0'),.9);
+    return c;
+  }
+  const refl=sm(0,1,1-Math.abs(x-W*.7)/(W*.25))*(1-sm(hz,H,y));
+  let c=mix(rgb('#2a4048'),rgb('#12232a'),sm(hz,H,y));
+  c=mix(c,rgb('#e8a050'),refl*(.35+.35*Math.sin(y*1.7+x*.4)));
+  if(Math.floor(y-hz)%3===1&&((x*.5+y)%7)<4) c=lit(c,1.2);
+  return c;
+}
 /** A gilt-framed oil: river at dusk. */
 function landscapeArt(/** @type {number} */x,/** @type {number} */y,/** @type {number} */W,/** @type {number} */H){
   const hor=H*.52;
@@ -387,7 +416,7 @@ function wallBracket(/** @type {{f:Face,a:number,z:number}} */l){
 const GAL=PUB.gallery, PAS=PUB.passage;
 /** The open arched passage: moulded mahogany architrave with a keystone, a green portière tied back, and a lamplit corridor seen in true perspective. */
 function passage(){
-  const F={k:'I',c:0}, FA={k:'I',c:.07}, c=(PAS.j0+PAS.j1)/2, hw=(PAS.j1-PAS.j0)/2, zs=PAS.h-hw*18/3, zTop=PAS.h, aw=.24;
+  const F={k:'I',c:0}, FA={k:'I',c:.07}, c=(PAS.j0+PAS.j1)/2, hw=(PAS.j1-PAS.j0)/2, zs=PAS.h-hw*18/3, zTop=PAS.h, aw=.3;
   /** inside the arch (opening) test, grown by g units */
   const inside=(/** @type {number} */a,/** @type {number} */z,g=0)=>{ if(z<0) return false; if(z<=zs) return Math.abs(a-c)<=hw+g; const dx=(a-c)*18, dz=(z-zs)*3, r=(hw+g)*18; return dx*dx+dz*dz<=r*r; };
   // architrave: a moulded band around the opening
@@ -408,13 +437,13 @@ function passage(){
     else { const jj=a-D, zz=z-6*D; col=lit(mix(K.ox,K.nic,.4),.8); if(Math.abs(jj-(j0+j1)/2+.2)<.4&&zz>.2&&zz<8.4) col=lit(K.mahog,.55); if(Math.abs(jj-(j0+j1)/2)<.08&&zz>9&&zz<10.4) col=K.flame; }
     // a lamp somewhere down the corridor: warm light falling off with depth, darker near the arch top
     const lamp=Math.max(0,1-Math.hypot(t-1.2,z-9)/6);
-    return lit(mix(col,rgb('#d9964a'),.15*lamp),.34+.5*lamp+.12*sm(0,D,t));
+    return lit(mix(col,rgb('#e0a050'),.3*lamp),.5+.8*lamp+.12*sm(0,D,t));
   });
   fq(F,c-hw+.04,zs-1,c+hw-.04,zs+1,(a,z)=>0);
   // portière: velvet curtain drawn back to the left jamb, tied with a gilt cord
-  const tie=6.4, wdt=(/** @type {number} */z)=>z<tie?.2+.34*(tie-z)/tie:z<zs+.5?.2+.12*(z-tie)/(zs-tie):.34;
+  const tie=6.4, wdt=(/** @type {number} */z)=>z<tie?.24+.4*(tie-z)/tie:.24+.16*Math.min(1,(z-tie)/(zs-tie));
   fq(FA,c+hw-.7,0,c+hw+.12,zs+2.2,(a,z)=>{
-    const edge=c+hw+.1, w=wdt(z)+(z>zs?.2:0), d=edge-a; if(d<0||d>w) return 0; if(z>zs+.5+.55*Math.max(0,1-d/.3)*0+ (zs+2.0-(d/w)*2.2)) return 0;
+    const edge=c+hw+.1, w=wdt(z)+(z>zs?.2:0), d=edge-a; if(d<0||d>w||z>zs+2.2-(d/w)*2.4) return 0;
     const fold=.5+.5*Math.sin(d*55+vn(z*.3,1)*3), sh=.55+.5*fold;
     return lit(K.green,(sh*1.15+.1)*(z<1?.7:1)*(1-sm(0,.1,d)*.0));
   });
@@ -463,8 +492,8 @@ function panelDoor(f,a0,a1,z0,z1,body,knobAt,glassTop=false){
 }
 
 /* ---------- chimney breast, grate, mantel ---------- */
-const FIRE={j0:PUB.fire.j0, j1:PUB.fire.j1, c:PUB.fire.d, o0:7.55, o1:9.25, zO:.6, zT:10.4, mz:14.2};
-const FFIRE={x0:7.75,x1:9.05,z0:.6,z1:10.2};
+const FIRE={j0:PUB.fire.j0, j1:PUB.fire.j1, c:PUB.fire.d, o0:7.4, o1:9.4, zO:.6, zT:11, mz:14.6};
+const FFIRE={x0:7.62,x1:9.18,z0:.6,z1:10.8};
 function tileAt(/** @type {number} */a,/** @type {number} */z){
   const col=Math.floor(a*3.6), row=Math.floor(z/1.7), id=(col+row)&1, fa=(a*3.6-col), fz=z/1.7-row;
   const e=Math.min(fa,1-fa,fz,1-fz); let c=id?rgb('#d0c8a8'):rgb('#305d62');
@@ -528,8 +557,8 @@ function hearth(){
   for(const j of [ja,jb]){ isoLineThin(fi,j,top,1.0,j,top,B); isoLineThin(fi,j,top-.35,1.0,j,top-.35,lit(B,.8)); isoLineThin(fi,j,hz,fi,j,top+.1,K.brassL); isoLineThin(1.0,j,hz,1.0,j,top,B); }
   // copper kettle on a trivet
   cyl(1.2,7.35,.3,hz,hz+.6,(z,s)=>lit(K.iron,roundLit(s)*1.4),(s,v)=>lit(K.ironL,1));
-  cyl(1.2,7.35,.3,hz+.6,hz+3.1,(z,s)=>lit(rgb('#b8642a'),roundLit(s)*(1.1+.3*Math.sin(z*5)*.3)+.1),(s,v)=>lit(rgb('#d98b4a'),1),.12);
-  cyl(1.2,7.35,.12,hz+3.1,hz+3.8,(z,s)=>lit(rgb('#c9733a'),roundLit(s)*1.2),(s,v)=>lit(K.brassL,.9));
+  cyl(1.2,7.35,.24,hz+.6,hz+2.7,(z,s)=>lit(rgb('#b8642a'),roundLit(s)*(1.1+.3*Math.sin(z*5)*.3)+.1),(s,v)=>lit(rgb('#d98b4a'),1),.12);
+  cyl(1.2,7.35,.1,hz+2.7,hz+3.3,(z,s)=>lit(rgb('#c9733a'),roundLit(s)*1.2),(s,v)=>lit(K.brassL,.9));
   isoLineThin(1.45,7.35,hz+2.2,1.75,7.35,hz+3.2,rgb('#c9733a')); isoLineThin(1.2,7.05,hz+2.6,1.2,7.65,hz+2.6,K.iron); isoLineThin(1.2,7.05,hz+2.6,1.2,7.35,hz+4.3,K.iron); isoLineThin(1.2,7.65,hz+2.6,1.2,7.35,hz+4.3,K.iron);
   // fire irons in a stand
   for(const [dj,len,c] of [[-.08,6.2,K.iron],[0,5.7,lit(K.iron,1.5)],[.08,5.9,K.iron]]) { isoLineThin(1.1,9.0+dj,hz,1.1,9.0+dj,hz+len,c); isoLineThin(1.1,9.0+dj,hz+len,1.1,9.0+dj,hz+len+.4,K.brassL); }
@@ -542,13 +571,12 @@ function hearth(){
   fq(BE,9.5,5.2,9.7,9.2,(a,z)=>{ const lx=(a-9.5)*18, ly=(9.2-z)*3, w=Math.sin(Math.min(1,ly/9)*Math.PI)*1.6+.6; if(ly<3||ly>11) return lx>1.2&&lx<2.0&&ly<=3?lit(K.mahog,1.1):lx>1.2&&lx<2.0&&ly>11?K.iron:0; return Math.abs(lx-1.8)<w?lit(rgb('#6a4a2a'),1.1-.35*sm(0,1.6,lx)+(ly%3.2<.6?.25:0)):0; });
   // low things on the rag rug: a log basket and a three-legged stool
   cyl(2.9,9.4,.36,0,2.6,(z,s)=>lit(rgb('#8a6a3a'),roundLit(s)*(.8+.35*Math.sin(z*7+s*3)*.5+.15)),(s,v)=>lit(rgb('#4a3322'),.8+.6*vn(s*6,v*6)),.08);
-  cyl(2.95,7.55,.3,2.8,3.3,(z,s)=>lit(K.mahogL,roundLit(s)*1.2),(s,v)=>lit(K.mahogL,1.1));
-  for(const [di,dj] of [[.3,0],[-.15,.26],[-.15,-.26]]) isoLineThin(2.95+di*.7,7.55+dj*.7,0,2.95+di*.25,7.55+dj*.25,2.8,K.mahog);
 }
 /** Overmantel painting of a ship, mantel clock, candlesticks, Staffordshire spaniels and tankards. */
 function mantelDecor(){
   const P=PUB.fire, mid=(P.j0+P.j1)/2, z0m=FIRE.mz+.9, I2={k:'I',c:FIRE.c+.4};
-  framed({k:'I',c:FIRE.c+.04},mid-1.05,z0m+2.3,2.1,17.5,(x,y,W,H)=>{ const c=shipArt(x*15/W,y*32/H,15,32); return mix(c,rgb('#e0883a'),.2*(1-y/H)); });
+  framed({k:'I',c:FIRE.c+.04},mid-1.4,z0m+2.6,2.8,14,oilShip);
+  fq({k:'I',c:FIRE.c+.06},mid-.5,z0m+16.5,mid+.5,z0m+17.5,(a,z)=>{ const u=Math.abs(a-mid)/.5; return z<z0m+16.5+1.0*(1-u*u)?lit(K.gold,.8+.5*(1-u)):0; });
   { const ca=mid-.3, cb=mid+.3, zt=z0m+4.1;
     fq(I2,ca,z0m,cb,zt,(a,z)=>{ const lx=(a-ca)*18, ly=(zt-z)*3, W2=(cb-ca)*18, d=Math.min(lx,ly,W2-lx,(z-z0m)*3);
       if(ly<2) return lit(rgb('#2c2c30'),1.6-ly*.2);
@@ -677,7 +705,7 @@ export function pubShellStatic(){
   frontCut();
 }
 /* ---------- animated parts ---------- */
-const GASOLIERS=[{i:7,j:7.4,z:30},{i:6,j:9.8,z:30}];
+const GASOLIERS=[{i:8.4,j:5.9,z:31},{i:6.4,j:9.4,z:30}];   /* clear of the passage and the fireplace on the screen */
 /** Where the glass shades of a gasolier hang (world i,j,z). */
 function gasolierShades(/** @type {{i:number,j:number,z:number}} */g,/** @type {number} */t){
   return Array.from({length:5},(_,k)=>{ const an=k*Math.PI*2/5+.3+Math.sin(t*.004)*.015; return [g.i+Math.cos(an)*.78,g.j+Math.sin(an)*.78,g.z+1.1]; });
@@ -708,7 +736,7 @@ function fireAt(/** @type {number} */a,/** @type {number} */z,/** @type {number}
   }
   // flames: three tongues that sway, flicker and merge
   const warp=(vn(hz*.4-tt*2.6,a*2.4+7)-.5)*.7*Math.min(1,hz/3), uu=u+warp;
-  const tongues=.5+.5*Math.abs(Math.sin(u*3.3+1.2+tt*.55)), H=(7+5.5*vn(u*1.8+tt*.8,tt*.6+3))*(.5+.5*tongues)*(1-.3*u*u)*(.88+.12*Math.sin(t*.31+u*6)), r=1-hz/H;
+  const tongues=.5+.5*Math.abs(Math.sin(u*3.3+1.2+tt*.55)), H=(8+6*vn(u*1.8+tt*.8,tt*.6+3))*(.5+.5*tongues)*(1-.3*u*u)*(.88+.12*Math.sin(t*.31+u*6)), r=1-hz/H;
   if(r>0){
     const wd=.3+.75*Math.pow(r,.6), I=Math.min(1,sm(0,.4,r)*(1-sm(.35,1.0,Math.abs(uu)/wd))*1.15);
     if(I>.02){
