@@ -6,7 +6,7 @@ import { state as appearanceState } from './appearance.js';
 import { state as boxingState } from './boxing.js';
 import { withPortView, portHero, contact } from './thames-port.js';
 import { walkJoints } from './port-life.js';
-import { pubShellStatic, pubShellProps, pubShellFX } from './pub-shell.js';
+import { pubShellStatic, pubShellFireplace, pubShellProps, pubShellFX } from './pub-shell.js';
 import { pubBarStatic, pubBarProps } from './pub-bar.js';
 import { pubTablesStatic, pubTablesProps } from './pub-tables.js';
 import { PUB } from './pub-layout.js';
@@ -92,7 +92,7 @@ const BW=432+OX_MAX, BH=Math.ceil((CY_TOP-CY_BOTTOM)*1.5)+288;
 function bake(){
   const A=appearanceState, buf=new Uint32Array(BW*BH), oldW=A.W, oldH=A.H, previous=setFramebuffer(buf);
   A.W=BW; A.H=BH;
-  try{ withPortView(CX,CY_TOP,()=>{ pubShellStatic(); pubBarStatic(); pubTablesStatic(); }); }
+  try{ withPortView(CX,CY_TOP,()=>{ pubShellStatic(); pubBarStatic(); pubTablesStatic(); pubShellFireplace(); }); }
   finally{ A.W=oldW; A.H=oldH; setFramebuffer(previous); }
   return buf;
 }

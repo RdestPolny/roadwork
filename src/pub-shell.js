@@ -529,8 +529,8 @@ function ftile(/** @type {number} */fa,/** @type {number} */fz,/** @type {number
   return lit(TILEN,fz*hpx<1.6?1.5:1);
 }
 function fireplace(){
-  const P=PUB.fire, B={k:'I',c:FIRE.c}, FI={k:'I',c:FIRE.c+.06}, S={k:'J',c:P.j1}, mid=(P.j0+P.j1)/2, H=PUB.H, hwo=(FIRE.o1-FIRE.o0)/2;
-  const s0=P.j0+.12, s1=P.j1-.12, lw=FIRE.o0-s0, my=FIRE.mz-1, mt=FIRE.mz+.9, mi=FIRE.c+.7, ja=s0-.4, jb=s1+.4;
+  const P=PUB.fire, B={k:'I',c:FIRE.c}, FI={k:'I',c:FIRE.c+.12}, S={k:'J',c:P.j1}, mid=(P.j0+P.j1)/2, H=PUB.H, hwo=(FIRE.o1-FIRE.o0)/2;
+  const s0=P.j0+.12, s1=P.j1-.12, lw=FIRE.o0-s0, my=FIRE.mz-1, mt=FIRE.mz+.9, mi=FIRE.c+.32, ja=s0-.2, jb=s1+.2, ci=FIRE.c-.01;
   const soot=(/** @type {number} */a,/** @type {number} */z)=>1-.55*(1-sm(0,14,z-FIRE.zT))*(1-sm(.1,1.6,Math.abs(a-mid)-hwo))*(.8+.4*vn(a*3,z*.4));
   // the whole chimney breast and its side are exposed brick
   fq(S,0,0,FIRE.c,H,(a,z)=>lit(brickAt(a*3+2,z,5),.62));
@@ -545,8 +545,8 @@ function fireplace(){
   // cast-iron surround: fluted legs on plinths, frieze panel with a central ornament
   for(const [la,lb] of [[s0,FIRE.o0],[FIRE.o1,s1]]){
     fq(FI,la,0,lb,my,(a,z)=>{ const lx=(a-la)*18, fl_=.5+.5*Math.sin(lx*1.9), e=Math.min(lx,(lb-a)*18); return castIron(.2+.4*Math.pow(fl_,3)+(lx<1.3?.7:(lb-a)*18<1.1?-.1:0)+((z>my-1)?.3:0)); });
-    fq({k:'I',c:FIRE.c+.1},la-.06,0,lb+.06,1.8,(a,z)=>{ const e=(1.8-z)*3; return castIron(e<1.1?.8:.28+.1*vn(a*5,z)); });
-    fq({k:'I',c:FIRE.c+.1},la-.04,FIRE.zT-.7,lb+.04,FIRE.zT,(a,z)=>castIron((FIRE.zT-z)*3<1?.6:.14));
+    fq({k:'I',c:FIRE.c+.15},la-.05,0,lb+.05,1.8,(a,z)=>{ const e=(1.8-z)*3; return castIron(e<1.1?.8:.28+.1*vn(a*5,z)); });
+    fq({k:'I',c:FIRE.c+.15},la-.03,FIRE.zT-.7,lb+.03,FIRE.zT,(a,z)=>castIron((FIRE.zT-z)*3<1?.6:.14));
   }
   fq(FI,s0,FIRE.zT,s1,my,(a,z)=>{
     const lx=(a-s0)*18, W=(s1-s0)*18, e=Math.min(lx,W-lx,(z-FIRE.zT)*3,(my-z)*3);
@@ -570,9 +570,9 @@ function fireplace(){
   });
   fl(B,FIRE.o0,FIRE.zO,FIRE.o0,tz1,castIron(.7)); fl(B,FIRE.o1,FIRE.zO,FIRE.o1,tz1,castIron(.35));
   // black mantel shelf with a moulded edge
-  quad(0,ja,mt,0,jb,mt,mi,jb,mt,mi,ja,mt,(x,y)=>{ const [i,j]=gnd(x,y,mt); const e=Math.min(mi-i,j-ja,jb-j)*18; return castIron(e<1.4?.7:.18+.1*vn(i*6,j*6)); });
+  quad(ci,ja,mt,ci,jb,mt,mi,jb,mt,mi,ja,mt,(x,y)=>{ const [i,j]=gnd(x,y,mt); const e=Math.min(mi-i,j-ja,jb-j)*18; return castIron(e<1.4?.7:.18+.1*vn(i*6,j*6)); });
   quad(mi,ja,my,mi,jb,my,mi,jb,mt,mi,ja,mt,(x,y)=>{ const j=(x+.5-G.ox-mi*G.ix)/G.jx, z=(G.oy+mi*G.iy+j*G.jy-y-.5)/G.cz, t=(z-my)/(mt-my); return castIron(t>.85?.7:t>.62?.12:t>.5?.5:t>.3?.1:t>.18?.38:.08); });
-  quad(mi,jb,my,mi,jb,mt,0,jb,mt,0,jb,my,()=>castIron(.1));
+  quad(mi,jb,my,mi,jb,mt,ci,jb,mt,ci,jb,my,()=>castIron(.1));
 }
 /** Hearth stone, brass fender, copper kettle, fire irons, bellows, coal scuttle, rag rug furniture. */
 function hearth(){
@@ -608,7 +608,7 @@ function hearth(){
 }
 /** Overmantel painting of a ship, mantel clock, candlesticks, Staffordshire spaniels and tankards. */
 function mantelDecor(){
-  const P=PUB.fire, mid=(P.j0+P.j1)/2, z0m=FIRE.mz+.9, I2={k:'I',c:FIRE.c+.4};
+  const P=PUB.fire, mid=(P.j0+P.j1)/2, z0m=FIRE.mz+.9, I2={k:'I',c:FIRE.c+.2};
   framed({k:'I',c:FIRE.c+.04},mid-.85,z0m+3,1.7,10,oilShip);
   { const ca=mid-.3, cb=mid+.3, zt=z0m+4.1;
     fq(I2,ca,z0m,cb,zt,(a,z)=>{ const lx=(a-ca)*18, ly=(zt-z)*3, W2=(cb-ca)*18, d=Math.min(lx,ly,W2-lx,(z-z0m)*3);
@@ -733,11 +733,12 @@ export function pubShellStatic(){
   quad(0,0,0,P.I,0,0,P.I,0,P.H,0,0,P.H,(x,y)=>{ const i=(x+.5-G.ox)/G.ix, z=(G.oy+i*G.iy-y-.5)/G.cz; return wallAt(i,z,'J',x,y); });
   wallThickness();
   passage(); galleryDoors(); chalkboard();
-  fireplace(); hearth(); mantelDecor();
   longcase(); fascia(); plateRail(); pictures();
   for(const l of LAMPS) wallBracket(l);
   frontCut();
 }
+/** The fireplace, baked after the piano: it stands nearer the camera, so its iron surround and mantel overlap the piano on screen, not the other way round. */
+export function pubShellFireplace(){ cam(); fireplace(); hearth(); mantelDecor(); }
 /* ---------- animated parts ---------- */
 const GASOLIERS=[{i:8.4,j:5.9,z:31},{i:9.2,j:10.0,z:30}];   /* clear of the passage and the fireplace on the screen */
 /** Where the glass shades of a gasolier hang (world i,j,z). */
@@ -836,5 +837,5 @@ export function pubShellFX(/** @type {number} */t){
   spot(isoX(PUB.fire.d,mj),isoY(PUB.fire.d,mj,6),20,18,.1*ff,rgb('#ffb04a'));
   for(let k=0;k<10;k++){ const j=6.95+k*.33; spot(isoX((PUB.fire.hearth-.12),j),isoY((PUB.fire.hearth-.12),j,2.2),3.4,2.4,.5*ff*(.6+.4*Math.sin(t*.2+k*2)),rgb('#ffd890')); }
   // mantel candles
-  for(const j of [mj-.95,mj+.95]) { const f=flick(t,j|0); spot(isoX(PUB.fire.d+.4,j),isoY(PUB.fire.d+.4,j,19.3),9,9,.28*f,WARM); }
+  for(const j of [mj-.95,mj+.95]) { const f=flick(t,j|0); spot(isoX(PUB.fire.d+.2,j),isoY(PUB.fire.d+.2,j,19.3),9,9,.28*f,WARM); }
 }
