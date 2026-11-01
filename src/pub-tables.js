@@ -211,7 +211,7 @@ function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number
  *  low arm-bow with scrolled hand-holds on spindles, and a shaped crest rail on short spindles. */
 function chair(/** @type {number} */ci,/** @type {number} */cj,/** @type {number} */k){
   contact(ci-.24,cj-.24,ci+.24,cj+.24,0,.6);
-  const wood=rgb('#2c1a0f'), hi=shadeC(rgb('#8a5a30'),1.15), mid=shadeC(rgb('#5a3a20'),1), seatZ=4.3, R=.25, bz0=7.1, ang=-Math.PI/2;
+  const wood=rgb('#4a2c16'), hi=shadeC(rgb('#b07a44'),1.15), mid=shadeC(rgb('#7a5030'),1), seatZ=4.3, R=.25, bz0=7.1, ang=-Math.PI/2;
   const at=(/** @type {number} */f,/** @type {number} */z,/** @type {number} */spread=1.9,r=R)=>{ const a=ang+f*spread; return [ci+Math.cos(a)*r,cj+Math.sin(a)*r,z]; };
   const behind=(/** @type {number[]} */p)=>(p[0]-ci)+(p[1]-cj)<0;
   // legs: tapered splay, turned knop, H-stretcher
@@ -240,7 +240,7 @@ function chair(/** @type {number} */ci,/** @type {number} */cj,/** @type {number
 /** Captain's chairs pulled up on the room side of a table (axis i). */
 function chairRow(/** @type {number[]} */box,/** @type {number[]} */us,/** @type {number} */k){
   const [i0,j0,i1]=box;
-  us.forEach((u,n)=>chair(i0+(i1-i0)*u,j0-.36,k+n));
+  us.forEach((u,n)=>chair(i0+(i1-i0)*u,j0-.46,k+n));
 }
 /** Bottle-green leather colour of the banquette, tufted: diamond buttons, puffs, rolled lip near the top edge. */
 function tuft(/** @type {string} */plane,/** @type {number} */val,/** @type {number} */u0,/** @type {number} */top){
