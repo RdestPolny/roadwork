@@ -18,7 +18,7 @@ try {
   const png = await page.evaluate(async ({ scene, steps, at, ev, hero, crop, scale }) => {
     document.querySelector(`[data-dev-scene="${scene}"]`)?.click();
     if (at) { const T = await import('/src/thames-port.js'); const [i, j] = at.split(':').map(Number); T.debugPortView(i, j); }
-    if (hero) { const P = await import('/src/pub.js'); const [i, j] = hero.split(':').map(Number); P.state.i = i; P.state.j = j; P.state.cy = Math.max(46, Math.min(76, 128 - (i + j) * 6)); }
+    if (hero) { const P = await import('/src/pub.js'); const [i, j] = hero.split(':').map(Number); P.pubPlace(i, j); }
     if (ev) await (new Function(`return (async()=>{${ev}})()`))();
     window.__boxer.step(steps);
     const R = await import('/src/renderer.js'); R.render();

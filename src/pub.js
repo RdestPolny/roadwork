@@ -26,6 +26,8 @@ export const state={inside:false,i:12,j:5.75,fi:-1,fj:0,ph:0,moving:false,cy:48,
 export function pubInside(){ return state.inside; }
 /** Step in through the street door. */
 export function enterPub(){ Object.assign(state,{inside:true,i:12.05,j:(PUB.door.j0+PUB.door.j1)/2,fi:-1,fj:0,ph:0,moving:false}); follow(true); }
+/** Debug/art capture: stand the player at (i,j) and snap the camera to him. */
+export function pubPlace(/** @type {number} */i,/** @type {number} */j){ state.i=i; state.j=j; follow(true); }
 /** Leave the room (the port puts its player back on the quay). */
 export function leavePub(){ state.inside=false; }
 /** Forget the baked room: call after changing anything static. */
@@ -36,7 +38,7 @@ const inBox=(/** @type {number} */i,/** @type {number} */j,/** @type {number[]} 
 export function pubBlocked(i,j){
   const P=PUB, D=P.door, atDoor=j>D.j0+R&&j<D.j1-R;
   if(i<R||j<R||j>P.J-R||i>(atDoor?P.I+.1:P.I-R)) return true;
-  if(inBox(i,j,[0,P.fire.j0,.55,P.fire.j1])) return true;
+  if(inBox(i,j,[0,P.fire.j0,P.fire.d,P.fire.j1])) return true;
   for(const b of [P.piano.box,P.stairs.box,P.counter.box,P.ret.box,P.backbar.box,P.servery,P.clock.box,...seatBoxes()]) if(inBox(i,j,b)) return true;
   if(P.stools.some(([si,sj])=>Math.hypot(i-si,j-sj)<P.stoolR+R)) return true;
   if(P.standing.some(s=>Math.hypot(i-s.i,j-s.j)<s.r+R)) return true;
@@ -56,7 +58,7 @@ export function pubTick(/** @type {number} */dx,/** @type {number} */dy){
   follow(false);
 }
 /** Camera height: the room is 432 px wide (fits exactly) and pans vertically; even values keep the bake aligned to whole pixels. */
-const CX=138, CY_TOP=76, CY_BOTTOM=46;
+const CX=138, CY_TOP=2*PUB.H, CY_BOTTOM=46;
 function follow(/** @type {boolean} */snap){
   const want=Math.max(CY_BOTTOM,Math.min(CY_TOP,128-(state.i+state.j)*6));
   state.cy=snap?want:state.cy+(want-state.cy)*.08;

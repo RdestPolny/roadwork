@@ -282,7 +282,7 @@ function settle(/** @type {string} */axis,/** @type {number[]} */box,/** @type {
 
 /* ---------- dining tables ---------- */
 const DINE=[
-  {cloth:true,seed:2,col:rgb('#7a5632'),chairs:[.2,.8],bench:'chairs',cushion:true},   /* chairs, not a settle, on the fire side: a high back would hide the grate */
+  {cloth:true,seed:2,col:rgb('#7a5632'),chairs:[.2,.8],bench:'settle',cushion:true},
   {cloth:false,seed:11,col:rgb('#8a6a44'),chairs:[.17,.5,.83],bench:'settle',cushion:false},
   {cloth:false,seed:23,col:rgb('#7c5a37'),chairs:[.25,.75],bench:'bench',cushion:false},
 ];
