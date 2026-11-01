@@ -35,22 +35,27 @@ export function pubCraftDetails(){
   for(let z=4;z<46;z+=7.5){
     thin(39.11,6.34,z,39.35,6.34,z,RUST);
   }
-  // Small projecting sash bay, built as timber-supported glazed structure.
-  const a=37.45,b=39.08,front=6.95;
-  isoBox(a,5.96,b,front,29,30.2,C.woodLight,OAK,END);
-  isoBox(a-.15,5.85,b+.2,front+.19,42.2,43.8,C.woodLight,OAK,END);
-  // Glass face (warm late-evening silhouettes behind sash).
-  quad(a+.12,front+.02,31.2,b-.12,front+.02,31.2,b-.12,front+.02,41.3,a+.12,front+.02,41.3,
-    (x,y)=>shadeC(C.lit,soft(x,y)*(.7+.15*vn(x*.32,y*.14))));
-  for(const i of [a+.06,(a+b)/2,b-.06])
-    stroke(i,front+.06,31.2,i,front+.06,41.6,END);
-  for(const z of [31.1,36.4,41.6])
-    thin(a,front+.07,z,b,front+.07,z,C.woodLight);
-  // Timbers at diagonal corners; iron pins in the beam.
-  thin(a,front+.04,31.2,a-.28,5.97,29,C.woodLight);
-  thin(b,front+.04,31.2,b+.26,5.97,29,C.woodLight);
-  for(let i=a+.25;i<b;i+=.36)
-    thin(i,front+.16,43.9,i+.02,front+.16,44.1,IRON);
+  // Enclosed bay: front and return glazing meet the wall beneath a cap and sill.
+  const a=37.45,b=39.08,front=6.95,back=5.96;
+  isoBox(a-.08,back,b+.08,front+.1,29,30.5,C.woodLight,OAK,END);
+  isoBox(a-.13,back-.08,b+.13,front+.16,42,42.8,C.woodLight,OAK,END);
+  isoBox(a-.20,back-.12,b+.20,front+.23,42.8,43.5,C.woodLight,OAK,END);
+  const glass=(x,y)=>shadeC(C.lit,.77+.16*vn(x*.25,y*.18));
+  // Side return and front meet at the corner instead of leaving bare wall.
+  quad(a,back,30.6,a,front,30.6,a,front,41.9,a,back,41.9,glass);
+  quad(a+.08,front+.02,30.6,b-.08,front+.02,30.6,b-.08,front+.02,41.9,a+.08,front+.02,41.9,glass);
+  for(const j of [back+.06,(back+front)/2,front]) stroke(a-.02,j,30.5,a-.02,j,42,END);
+  for(const z of [30.6,36.2,41.9]) thin(a-.02,back,z,a-.02,front,z,C.woodLight);
+  for(const i of [a+.05,(a+b)/2,b-.05]) stroke(i,front+.06,30.5,i,front+.06,42,END);
+  for(const z of [30.6,36.2,41.9]) thin(a,front+.07,z,b,front+.07,z,C.woodLight);
+  // Glazing bars, small lower apron and brackets tie the projection to the facade.
+  for(const i of [a+.37,a+.66,a+1.14]) thin(i,front+.08,31,i,front+.08,41.5,shadeC(OAK,.75));
+  for(const z of [33.4,38.9]) thin(a+.07,front+.08,z,b-.07,front+.08,z,shadeC(OAK,.75));
+  for(const i of [a+.18,b-.18]){
+    stroke(i,front,29,i,back+.05,27.2,END);
+    thin(i,front+.03,29.1,i,back+.05,27.3,C.woodLight);
+  }
+  for(let i=a+.2;i<b;i+=.36) thin(i,front+.18,43.5,i+.02,front+.18,43.7,IRON);
   // Protective iron boot scraper beside the door (the steps are cut in port-extension).
   stroke(36.82,6.25,.25,37.16,6.25,2,IRON);
   stroke(37.16,6.25,2,37.05,6.7,.25,IRON);
