@@ -179,7 +179,8 @@ function pipeDish(/** @type {number} */i,/** @type {number} */j,/** @type {numbe
 }
 
 /* ---------- standing drinking tables ---------- */
-function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number} */k,/** @type {number} */t){
+/** Tall standing drinking table: iron tripod, plain column with one brass collar, marble or mahogany top with a brass rim; bare top. */
+function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number} */k,/** @type {number} */t){ void t;
   const {i,j,r}=s, marble=k%2===0, a0=k*.8;
   contact(i-r*.8,j-r*.8,i+r*.8,j+r*.8,0,.58);
   const feet=[0,2.094,4.189].map(a=>a+a0).sort((a,b)=>(Math.cos(a)+Math.sin(a))-(Math.cos(b)+Math.sin(b)));
@@ -193,12 +194,7 @@ function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number
   back.forEach(leg);
   const iron=(/** @type {number} */zz,/** @type {number} */sv)=>shadeC(K.iron,.9+roundLit(sv)*1.1);
   cyl(i,j,.07,.6,9,iron,null);
-  cyl(i,j,.16,1.8,3.1,iron,null,.35); cyl(i,j,.13,5.7,6.8,iron,null,.35);
   cyl(i,j,.1,7.4,8.4,(zz,sv)=>shadeC(K.brass,roundLit(sv)),null,.4);
-  // low shelf ring with spokes
-  const R=r*.78;
-  for(let n=0;n<48;n++){ const a=n/48*Math.PI*2, [x,y]=bz(i+Math.cos(a)*R,j+Math.sin(a)*R,3.9); px(x,y,shadeC(K.brass,.85+.4*Math.max(0,-Math.cos(a-2.3)))); px(x,y+1,K.brassD); }
-  for(const a of [a0+1,a0+3.2,a0+5.3]){ thin(i,j,3.9,i+Math.cos(a)*R,j+Math.sin(a)*R,3.9,K.brassD); }
   front.forEach(leg);
   // top
   cyl(i,j,r,9.2,10.05,(zz,sv)=>zz<9.55?shadeC(K.brass,.55+roundLit(sv)):shadeC(marble?rgb('#cfd0c6'):K.mah,roundLit(sv)*(marble?1:.95)),
@@ -206,15 +202,6 @@ function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number
       if(rr>.9) return shadeC(K.brass,rr>.96?.85:1.2+.3*-v);
       if(marble){ const n=N(x,y,.16,k*5), vein=Math.abs(N(x,y,.24,7+k)-.5)<.035?1:0; return shadeC(rgb('#dcdcd2'),.88+.2*n+.08*-v-(vein?.28:0)); }
       return shadeC(K.mah,.85+.35*N(x,y,.14,k)+.13*Math.sin(rr*26+N(x,y,.2)*6)*.5+.12*-v); });
-  const z=10.05, o=(/** @type {number} */a,/** @type {number} */b)=>[i+r*a,j+r*b];
-  const place=[
-    ()=>{ vessel(...o(-.35,.2),z,'porter'); vessel(...o(.3,-.25),z,'pewter'); pipeDish(...o(.2,.35),z); },
-    ()=>{ vessel(...o(-.4,-.1),z,'pewter'); vessel(...o(.1,.45),z,'porter'); dominoes(...o(.15,-.3),z); vessel(...o(.45,0),z,'gin'); },
-    ()=>{ paper(...o(-.1,.1),z,.5); vessel(...o(.4,-.2),z,'porter'); vessel(...o(-.5,.3),z,'ale'); candle(...o(-.3,-.4),z,t,1.2); },
-    ()=>{ vessel(...o(-.1,-.3),z,'porter'); vessel(...o(.3,.2),z,'pewter'); vessel(...o(-.4,.3),z,'gin'); },
-  ][k%4];
-  // props sit in order of depth: back ones first
-  place();
 }
 
 /* ---------- chairs and benches ---------- */
