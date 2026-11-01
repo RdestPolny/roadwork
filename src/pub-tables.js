@@ -254,12 +254,8 @@ function tuft(/** @type {string} */plane,/** @type {number} */val,/** @type {num
     return shadeC(green,k*1.12*(plane==='i'?1.12:1));
   };
 }
-const OAK=rgb('#3f2616'), GREEN=rgb('#1f4a34');
+const OAK=rgb('#3f2616'), GREEN=rgb('#1f4a34'), SEAT=rgb('#5e3c21');   /* polished oak seat board: only the backrest is upholstered */
 const oakTop=(/** @type {number} */z)=>plankTop(z,'j',OAK,5,6);
-const cushionSide=(/** @type {number} */z0,/** @type {number} */z1)=>(/** @type {string} */pl,/** @type {number} */v,/** @type {number} */kk)=>(/** @type {number} */x,/** @type {number} */y)=>{
-  const [u,z]=fz(pl,v,x,y), e=(z-z0)/(z1-z0); return shadeC(GREEN,kk*(.75+.45*Math.sin(Math.max(0,Math.min(1,e))*3.1)+.1*vn(u*3,z))*(e>.9?1.35:1)); };
-const cushionTop=(/** @type {number} */z,/** @type {number} */a0,/** @type {number} */a1,/** @type {string} */mode)=>(/** @type {number} */x,/** @type {number} */y)=>{
-  const [i,j]=ground(x,y,z), c=mode==='j'?(j-a0)/(a1-a0):(i-a0)/(a1-a0); return shadeC(GREEN,.95+.25*Math.sin(Math.max(0,Math.min(1,c))*3.1)+.1*vn(i*3,j*3)); };
 /** Carved oak scroll end / arm: block with a volute and studs. */
 function scrollEnd(/** @type {number} */i0,/** @type {number} */j0,/** @type {number} */i1,/** @type {number} */j1,/** @type {number} */top,/** @type {number} */faceI,/** @type {number} */faceJ){
   slab('i',i0,j0,i1,j1,0,6.4,OAK,{top:oakTop(6.4)});
@@ -272,10 +268,10 @@ function banquette(){
   const [i0,j0,i1,j1]=PUB.banquette.box, top=PUB.banquette.back, ei=.24, bx1=i1-ei, bj=j1-.36;
   contact(i0,j0,i1,j1,0,.5);
   slab('i',i0,j0+.03,bx1,j1,0,1.2,OAK,{});
-  slab('i',i0,j0,bx1,j1-.34,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,j0,j1-.34,'j')});
+  slab('i',i0,j0,bx1,j1-.34,1.2,4.5,SEAT,{top:plankTop(4.5,'i',SEAT,7,4)}); thin(i0,j0,4.45,bx1,j0,4.45,shadeC(SEAT,1.5));
   /* the backrest starts clear of the corner: from the camera it would stand in front of the L leg's seat; the seat runs on round the corner */
   const ib=Math.max(i0,PUB.banquette.backFrom);
-  quad(i0,j1,1.2,ib,j1,1.2,ib,j1,4.5,i0,j1,4.5,cushionSide(1.2,4.5)('j',j1,1));
+  quad(i0,j1,1.2,ib,j1,1.2,ib,j1,4.5,i0,j1,4.5,woodFace('j',j1,SEAT,.78));
   quad(ib,j1,1.2,bx1,j1,1.2,bx1,j1,top,ib,j1,top,tuft('j',j1,.17,top));
   quad(ib,bj,top,bx1,bj,top,bx1,j1,top,ib,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
   thin(ib,j1,top-.1,bx1,j1,top-.1,shadeC(GREEN,1.9));
@@ -291,8 +287,8 @@ function banquetteLeg(){
   const [i0,j0,i1,j1]=PUB.banquette.leg, top=PUB.banquette.legBack, bk=.28, ec=.15, bj=j1-.36;
   contact(i0,j0,i1,j1,0,.5);
   slab('i',i0,j0,i1-.03,j1,0,1.2,OAK,{});
-  slab('i',i0+bk,j0+ec,i1,j1-.34,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,i0+bk,i1,'i')});
-  thin(i1,j0+ec,4.4,i1,j1-.34,4.4,shadeC(GREEN,1.9)); thin(i1,j0+ec,3.6,i1,j1-.34,3.6,shadeC(GREEN,.55));
+  slab('i',i0+bk,j0+ec,i1,j1-.34,1.2,4.5,SEAT,{top:plankTop(4.5,'j',SEAT,9,4)});
+  thin(i1,j0+ec,4.45,i1,j1-.34,4.45,shadeC(SEAT,1.6)); thin(i1,j0+ec,3.9,i1,j1-.34,3.9,shadeC(SEAT,.6));
   // buttoned back, facing +i
   quad(i0+bk,j0+ec,1.2,i0+bk,bj,1.2,i0+bk,bj,top,i0+bk,j0+ec,top,tuft('i',i0+bk,j0+ec+.12,top));
   quad(i0,j0+ec,top,i0+bk,j0+ec,top,i0+bk,bj,top,i0,bj,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(i-i0)/bk; return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*3,j*2)); });
@@ -300,7 +296,7 @@ function banquetteLeg(){
   // corner block: rear face continues the long run's tufting and its rolled top
   /* corner block at the long run's height: a tall corner would stand between the camera and this seat */
   /* corner: seat cushion only, continuing into the long run's seat (its backrest starts further along) */
-  slab('i',i0+bk,j1-.34,i1,j1,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,i0+bk,i1,'i')});
+  slab('i',i0+bk,j1-.34,i1,j1,1.2,4.5,SEAT,{top:plankTop(4.5,'j',SEAT,9,4)});
   // slim carved arm at the chimney end
   slab('i',i0,j0,i1,j0+ec,0,6.4,OAK,{top:oakTop(6.4)});
   slab('i',i0,j0,i0+bk,j0+ec,6.4,top+.6,OAK,{top:oakTop(top+.6)});
