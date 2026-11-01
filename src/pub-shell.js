@@ -88,7 +88,7 @@ function floorAt(i,j){
 }
 /** Rag rug before the fire: concentric woven bands with a dark fringe edge. */
 function rugAt(/** @type {number} */i,/** @type {number} */j){
-  const u=(i-2.65)/.82, v=(j-8.4)/1.12, q=Math.pow(Math.pow(Math.abs(u),4)+Math.pow(Math.abs(v),4),.25);
+  const u=(i-2.7)/.9, v=(j-(PUB.fire.j0+PUB.fire.j1)/2)/1.35, q=Math.pow(Math.pow(Math.abs(u),4)+Math.pow(Math.abs(v),4),.25);
   if(q>1.04) return 0;
   if(q>1) return rgb('#2a1a12');
   const bands=[rgb('#6e2a2a'),rgb('#d2c299'),rgb('#2f4a5c'),rgb('#9a6a2e'),rgb('#6e2a2a'),rgb('#d2c299')], b=Math.min(5,Math.floor((1-q)*9));
@@ -116,7 +116,7 @@ function thresholdAt(/** @type {number} */i,/** @type {number} */j){
 function moonAt(/** @type {number} */i,/** @type {number} */j){
   const t=PUB.I-i; if(t<.5||t>3.4) return 0;
   let m=0;
-  for(const [ja,jb,n] of [[1.5,4.2,2],[7.4,10.8,3]]){
+  for(const [ja,jb,n] of [[1.5,4.2,2],[7.4,10.8,3],[11.3,13.3,2]]){
     const jj=j-.3*t, w=jb-ja, u=(jj-ja)/w;
     if(u<0||u>1) continue;
     const edge=Math.min(sm(0,.05,u),sm(0,.05,1-u)), zw=t*6, ze=Math.min(sm(5.5,6.5,zw),sm(0,1,17-zw));
@@ -394,7 +394,7 @@ function noticeArt(/** @type {number} */x,/** @type {number} */y,/** @type {numb
 /* ---------- gas light ---------- */
 /** Lit gas globes: brass bracket arm plus a glass shade, returned positions are used by the glow pass. */
 const LAMPS=/** @type {{f:Face,a:number,z:number}[]} */([
-  {f:{k:'I',c:0},a:3.0,z:30},{f:{k:'I',c:0},a:4.8,z:30},{f:{k:'I',c:0},a:10.75,z:27.5},{f:{k:'J',c:0},a:4.35,z:30},{f:{k:'J',c:0},a:7.7,z:27.6},
+  {f:{k:'I',c:0},a:3.0,z:30},{f:{k:'I',c:0},a:4.8,z:30},{f:{k:'I',c:0},a:PUB.gallery.box[3]-.6,z:30},{f:{k:'J',c:0},a:4.35,z:30},{f:{k:'J',c:0},a:7.7,z:27.6},
 ]);
 /** World position of a bracket's shade centre. @param {{f:Face,a:number,z:number}} l */
 function lampPos(l){ const [i,j]=pp(l.f,l.a); return l.f.k==='I'?[i+.55,j,l.z+1.3]:[i,j+.55,l.z+1.3]; }
@@ -463,7 +463,7 @@ function galleryDoors(){
   });
 }
 function chalkboard(){
-  const F={k:'I',c:.05}, a0=PUB.fire.j1+.6, a1=PUB.fire.j1+1.44, z0=13, z1=24.6;   /* hung above the banquette's L leg, clear of the chimney breast */
+  const F={k:'I',c:.05}, a0=PUB.fire.j1+.55, a1=PUB.fire.j1+1.35, z0=13.5, z1=25;   /* hung above the banquette's L leg, clear of the chimney breast */
   fq(F,a0,z0,a1,z1,(a,z)=>{ const e=Math.min((a-a0)*18,(a1-a)*18,(z-z0)*3,(z1-z)*3); if(e<1.6) return lit(K.mahog,e<.9?1.35:.8); const sm_=vn(a*6,z*.5); return lit(rgb('#202b27'),.85+.25*sm_*sm_); });
   const chalk=rgb('#d9d5c4');
   glyphs(F,a1-.1,z1-1.0,'FARE',chalk,1);
@@ -494,8 +494,8 @@ function panelDoor(f,a0,a1,z0,z1,body,knobAt,glassTop=false){
 }
 
 /* ---------- chimney breast, grate, mantel ---------- */
-const FIRE={j0:PUB.fire.j0, j1:PUB.fire.j1, c:PUB.fire.d, o0:7.4, o1:9.4, zO:.6, zT:11, mz:14.6};
-const FFIRE={x0:7.62,x1:9.18,z0:.6,z1:10.8};
+const FIRE={j0:PUB.fire.j0, j1:PUB.fire.j1, c:PUB.fire.d, o0:PUB.fire.j0+.38, o1:PUB.fire.j1-.38, zO:.95, zT:11.6, mz:14.8};
+const FFIRE={x0:PUB.fire.j0+.62,x1:PUB.fire.j1-.62,z0:.95,z1:11.2};
 function tileAt(/** @type {number} */a,/** @type {number} */z){
   const col=Math.floor(a*3.6), row=Math.floor(z/1.7), id=(col+row)&1, fa=(a*3.6-col), fz=z/1.7-row;
   const e=Math.min(fa,1-fa,fz,1-fz); let c=id?rgb('#d0c8a8'):rgb('#305d62');
@@ -511,7 +511,7 @@ function marble(/** @type {number} */a,/** @type {number} */z,/** @type {number}
 }
 function fireplace(){
   const P=PUB.fire, B={k:'I',c:FIRE.c}, S={k:'J',c:P.j1}, mid=(P.j0+P.j1)/2, H=PUB.H;
-  fq(S,0,0,FIRE.c,H,(a,z,x,y)=>lit(wallAt(a*3,z,'I',x,y),.6));
+  fq(S,0,0,FIRE.c,H,(a,z,x,y)=>z<FIRE.mz?lit(marble(a*4,z,9),.62):lit(wallAt(a*3,z,'I',x,y),.6));
   fq(B,P.j0,0,P.j1,H,(a,z,x,y)=>{
     if(z>=FIRE.mz) return lit(wallAt(a,z,'I',x,y),a-P.j0<.1?.5:P.j1-a<.1?1.2:1.04);
     const ed=Math.min(a-P.j0,P.j1-a)*18;
@@ -539,40 +539,52 @@ function fireplace(){
   fq(B,FIRE.o0-.08,FIRE.zT,FIRE.o1+.08,FIRE.zT+.9,(a,z)=>{ const d=(z-FIRE.zT)*3; return lit(K.iron,d<1?2.4:d>1.9?.8:1.2+.4*vn(a*9,z)); });
   fl(B,FIRE.o0,FIRE.zO,FIRE.o0,FIRE.zT,lit(K.iron,2)); fl(B,FIRE.o1,FIRE.zO,FIRE.o1,FIRE.zT,lit(K.iron,.8));
   // heavy mantel shelf on corbels
-  const my=FIRE.mz-.1, mt=FIRE.mz+.9, mi=FIRE.c+.6, ja=P.j0-.35, jb=P.j1+.35;
+  const my=FIRE.mz-.9, mt=FIRE.mz+.9, mi=FIRE.c+.8, ja=P.j0-.5, jb=P.j1+.5;
   quad(0,ja,mt,0,jb,mt,mi,jb,mt,mi,ja,mt,(x,y)=>{ const [i,j]=gnd(x,y,mt); return lit(rgb('#6a3a22'),1.0+.3*sm(.2,1.4,i)+.1*vn(j*3,i*4)); });
   quad(mi,ja,my,mi,jb,my,mi,jb,mt,mi,ja,mt,(x,y)=>{ const j=(x+.5-G.ox-mi*G.ix)/G.jx, z=(G.oy+mi*G.iy+j*G.jy-y-.5)/G.cz; return lit(K.mahogL,.8+.6*sm(my,mt,z)); });
   quad(mi,jb,my,mi,jb,mt,0,jb,mt,0,jb,my,()=>lit(K.mahog,.55));
-  for(const a of [P.j0-.05,P.j1+.05,mid-.55,mid+.55]) fq({k:'I',c:FIRE.c+.3},a-.14,FIRE.mz-2.4,a+.14,my,(x_,z)=>lit(K.mahog,.7+.6*sm(FIRE.mz-2.4,my,z)));
+  // egg-and-dart band on the shelf front, carved corbels with gilt volutes
+  fq({k:'I',c:mi+.02},ja,my+.15,jb,mt-.15,(a,z)=>{ const u=((a*4)%1+1)%1; return lit(K.mahogL,u<.5?1.25+.3*Math.sin(u*Math.PI*2):.7); });
+  for(const a of [P.j0-.2,P.j0+.55,P.j1-.55,P.j1+.2,mid]) { const zl=FIRE.mz-3.6, c=FIRE.c+.5;
+    fq({k:'I',c},a-.17,zl,a+.17,my,(x_,z)=>{ const t=(z-zl)/(my-zl), hw=.05+.12*t**.8; return Math.abs(x_-a)<hw?lit(K.mahog,.6+.7*t*(1-.5*Math.abs(x_-a)/hw)):0; });
+    fq({k:'I',c:c+.02},a-.04,zl+.1,a+.04,zl+.8,()=>lit(K.gold,1)); }
+  // stepped cornice over the breast: it shows how far the chimney stands out
+  const cz0=PUB.H-5.6, cz1=PUB.H-3.9, cc=FIRE.c+.3, cj0=P.j0-.15, cj1=P.j1+.15;
+  quad(0,cj0,cz1,0,cj1,cz1,cc,cj1,cz1,cc,cj0,cz1,(x,y)=>{ const [i,j]=gnd(x,y,cz1); return lit(mix(K.plaster,K.nic,.4),1.1+.1*vn(i*3,j*3)); });
+  fq({k:'I',c:cc},cj0,cz0,cj1,cz1,(a,z)=>{ const d=((a*6)%1+1)%1; return lit(mix(K.plaster,K.nic,.4),z>cz1-.5?1.2:z<cz0+.5?(d<.5?.95:.45):.8); });
+  quad(cc,cj1,cz0,cc,cj1,cz1,0,cj1,cz1,0,cj1,cz0,()=>lit(mix(K.plaster,K.nic,.4),.5));
 }
 /** Hearth stone, brass fender, copper kettle, fire irons, bellows, coal scuttle, rag rug furniture. */
 function hearth(){
-  const P=PUB.fire, h=P.hearth, hz=.5, j0=P.j0-.3, j1=P.j1+.3;
+  const P=PUB.fire, h=P.hearth, hz=.9, j0=P.j0-.45, j1=P.j1+.45, mid=(P.j0+P.j1)/2, km=mid-1.15;
   flo(0,j0,h,j1,hz,(i,j)=>{ const sl=Math.floor(i*.9), seam=Math.min(((i*.9)%1+1)%1,((j*.7)%1+1)%1); return lit(rgb('#6a665c'),(seam<.04?.55:1)*(.85+.3*vn(i*3+sl,j*3))*(.75+.4*sm(0,h,i))); });
   quad(h,j0,0,h,j1,0,h,j1,hz,h,j0,hz,(x,y)=>{ const j=(x+.5-G.ox-h*G.ix)/G.jx; return lit(rgb('#7a766b'),.8+.3*vn(j*5,3)); });
   quad(0,j1,0,h,j1,0,h,j1,hz,0,j1,hz,()=>lit(rgb('#4a4741'),.8));
+  // tiled kerb along the front edge of the raised hearth
+  flo(h-.32,j0,h,j1,hz,(i,j)=>tileAt(j*.75,i*2.4));
+  quad(h,j0,hz-.45,h,j1,hz-.45,h,j1,hz,h,j0,hz,(x,y)=>{ const j=(x+.5-G.ox-h*G.ix)/G.jx; return tileAt(j*.75,3.4); });
   // brass fender
-  const fi=h-.12, B=K.brass, top=2.2, ja=P.j0-.2, jb=P.j1+.2, n=Math.round((jb-ja)/.2);
+  const fi=h-.5, B=K.brass, top=2.2, ja=P.j0-.2, jb=P.j1+.2, n=Math.round((jb-ja)/.2);
   for(let k=0;k<=n;k++){ const j=ja+(jb-ja)*k/n; isoLineThin(fi,j,hz,fi,j,top,k%3===0?lit(B,1.3):B); }
   isoLineThin(fi,ja,top,fi,jb,top,K.brassL); isoLineThin(fi,ja,top-.35,fi,jb,top-.35,lit(B,1.1));
   isoLineThin(fi,ja,1.1,fi,jb,1.1,B); isoLineThin(fi,ja,hz+.5,fi,jb,hz+.5,lit(B,.8));
   for(const j of [ja,jb]){ isoLineThin(fi,j,top,1.0,j,top,B); isoLineThin(fi,j,top-.35,1.0,j,top-.35,lit(B,.8)); isoLineThin(fi,j,hz,fi,j,top+.1,K.brassL); isoLineThin(1.0,j,hz,1.0,j,top,B); }
   // copper kettle on a trivet
-  cyl(1.2,7.35,.3,hz,hz+.6,(z,s)=>lit(K.iron,roundLit(s)*1.4),(s,v)=>lit(K.ironL,1));
-  cyl(1.2,7.35,.24,hz+.6,hz+2.7,(z,s)=>lit(rgb('#b8642a'),roundLit(s)*(1.1+.3*Math.sin(z*5)*.3)+.1),(s,v)=>lit(rgb('#d98b4a'),1),.12);
-  cyl(1.2,7.35,.1,hz+2.7,hz+3.3,(z,s)=>lit(rgb('#c9733a'),roundLit(s)*1.2),(s,v)=>lit(K.brassL,.9));
-  isoLineThin(1.45,7.35,hz+2.2,1.75,7.35,hz+3.2,rgb('#c9733a')); isoLineThin(1.2,7.05,hz+2.6,1.2,7.65,hz+2.6,K.iron); isoLineThin(1.2,7.05,hz+2.6,1.2,7.35,hz+4.3,K.iron); isoLineThin(1.2,7.65,hz+2.6,1.2,7.35,hz+4.3,K.iron);
+  cyl(1.2,km,.3,hz,hz+.6,(z,s)=>lit(K.iron,roundLit(s)*1.4),(s,v)=>lit(K.ironL,1));
+  cyl(1.2,km,.24,hz+.6,hz+2.7,(z,s)=>lit(rgb('#b8642a'),roundLit(s)*(1.1+.3*Math.sin(z*5)*.3)+.1),(s,v)=>lit(rgb('#d98b4a'),1),.12);
+  cyl(1.2,km,.1,hz+2.7,hz+3.3,(z,s)=>lit(rgb('#c9733a'),roundLit(s)*1.2),(s,v)=>lit(K.brassL,.9));
+  isoLineThin(1.45,km,hz+2.2,1.75,km,hz+3.2,rgb('#c9733a')); isoLineThin(1.2,(km-.3),hz+2.6,1.2,(km+.3),hz+2.6,K.iron); isoLineThin(1.2,(km-.3),hz+2.6,1.2,km,hz+4.3,K.iron); isoLineThin(1.2,(km+.3),hz+2.6,1.2,km,hz+4.3,K.iron);
   // fire irons in a stand
-  for(const [dj,len,c] of [[-.08,6.2,K.iron],[0,5.7,lit(K.iron,1.5)],[.08,5.9,K.iron]]) { isoLineThin(1.1,9.0+dj,hz,1.1,9.0+dj,hz+len,c); isoLineThin(1.1,9.0+dj,hz+len,1.1,9.0+dj,hz+len+.4,K.brassL); }
-  cyl(1.1,9.0,.17,hz,hz+.7,(z,s)=>lit(K.brass,roundLit(s)*1.2),(s,v)=>lit(K.brassL,.9));
+  for(const [dj,len,c] of [[-.08,6.2,K.iron],[0,5.7,lit(K.iron,1.5)],[.08,5.9,K.iron]]) { isoLineThin(1.1,mid+.6+dj,hz,1.1,mid+.6+dj,hz+len,c); isoLineThin(1.1,mid+.6+dj,hz+len,1.1,mid+.6+dj,hz+len+.4,K.brassL); }
+  cyl(1.1,mid+.6,.17,hz,hz+.7,(z,s)=>lit(K.brass,roundLit(s)*1.2),(s,v)=>lit(K.brassL,.9));
   // coal scuttle
-  cyl(1.15,9.65,.28,hz,hz+3.5,(z,s)=>lit(z>hz+3.1?K.brass:rgb('#1d1d20'),roundLit(s)*(z>hz+3.1?1.1:1.6)*(.9+.1*Math.sin(z*5))),(s,v)=>lit(rgb('#26252a'),1+.5*(vn(s*5+9,v*5))),.12);
-  isoLineThin(1.15,9.37,hz+3.2,1.15,9.93,hz+3.2,lit(K.brass,1.1));
+  cyl(1.15,mid+1.3,.28,hz,hz+3.5,(z,s)=>lit(z>hz+3.1?K.brass:rgb('#1d1d20'),roundLit(s)*(z>hz+3.1?1.1:1.6)*(.9+.1*Math.sin(z*5))),(s,v)=>lit(rgb('#26252a'),1+.5*(vn(s*5+9,v*5))),.12);
+  isoLineThin(1.15,mid+1.02,hz+3.2,1.15,mid+1.58,hz+3.2,lit(K.brass,1.1));
   // bellows hung on the right pilaster
   const BE={k:'I',c:FIRE.c+.05};
-  fq(BE,9.5,5.2,9.7,9.2,(a,z)=>{ const lx=(a-9.5)*18, ly=(9.2-z)*3, w=Math.sin(Math.min(1,ly/9)*Math.PI)*1.6+.6; if(ly<3||ly>11) return lx>1.2&&lx<2.0&&ly<=3?lit(K.mahog,1.1):lx>1.2&&lx<2.0&&ly>11?K.iron:0; return Math.abs(lx-1.8)<w?lit(rgb('#6a4a2a'),1.1-.35*sm(0,1.6,lx)+(ly%3.2<.6?.25:0)):0; });
+  fq(BE,P.j1-.3,5.2,P.j1-.1,9.2,(a,z)=>{ const lx=(a-(P.j1-.3))*18, ly=(9.2-z)*3, w=Math.sin(Math.min(1,ly/9)*Math.PI)*1.6+.6; if(ly<3||ly>11) return lx>1.2&&lx<2.0&&ly<=3?lit(K.mahog,1.1):lx>1.2&&lx<2.0&&ly>11?K.iron:0; return Math.abs(lx-1.8)<w?lit(rgb('#6a4a2a'),1.1-.35*sm(0,1.6,lx)+(ly%3.2<.6?.25:0)):0; });
   // low things on the rag rug: a log basket and a three-legged stool
-  cyl(2.9,9.4,.36,0,2.6,(z,s)=>lit(rgb('#8a6a3a'),roundLit(s)*(.8+.35*Math.sin(z*7+s*3)*.5+.15)),(s,v)=>lit(rgb('#4a3322'),.8+.6*vn(s*6,v*6)),.08);
+  cyl(2.95,mid+1.1,.36,0,2.6,(z,s)=>lit(rgb('#8a6a3a'),roundLit(s)*(.8+.35*Math.sin(z*7+s*3)*.5+.15)),(s,v)=>lit(rgb('#4a3322'),.8+.6*vn(s*6,v*6)),.08);
 }
 /** Overmantel painting of a ship, mantel clock, candlesticks, Staffordshire spaniels and tankards. */
 function mantelDecor(){
@@ -688,8 +700,8 @@ function pictures(){
   framed(J0,4.95,25,.8,8.8,noticeArt,false);
   framed(I0,1.3,8.8,1.7,8,raceArt);
   framed(I0,5.9,14.4,.9,5.6,landscapeArt);
-  framed(I0,10.1,19.4,1.3,13.6,shipArt,false);
-  framed(I0,10.05,35,1.4,7,landscapeArt);
+  framed(I0,PUB.J-1.5,13.5,1.3,13.6,shipArt,false);
+  framed(I0,PUB.fire.j1+.6,31.5,PUB.J-PUB.fire.j1-1.1,8,landscapeArt);
 }
 
 /** Baked layers: floor, walls, doors, fireplace, framed pictures, brackets. */
@@ -756,7 +768,7 @@ function fireProp(/** @type {number} */t){
   for(let a=F.x0+.06;a<F.x1;a+=.16) fl(BR,a,F.z0,a,2.9,lit(K.iron,.9));
   fl(BR,F.x0,3.0,F.x1,3.0,lit(K.ironL,.9)); fl(BR,F.x0,F.z0+.2,F.x1,F.z0+.2,lit(K.ironL,.9));
   // embers flung up the chimney
-  for(let k=0;k<4;k++){ const age=((t*.011+k*.27)%1), x=isoX(.6,8.4+Math.sin(k*5.1+t*.003)*.5+age*.2)+Math.sin(age*9+k)*2, y=isoY(.6,8.4,3+age*11);
+  for(let k=0;k<4;k++){ const age=((t*.011+k*.27)%1), x=isoX(.6,(PUB.fire.j0+PUB.fire.j1)/2+Math.sin(k*5.1+t*.003)*.6+age*.2)+Math.sin(age*9+k)*2, y=isoY(.6,(PUB.fire.j0+PUB.fire.j1)/2,3.5+age*12);
     if(age<.9) spot(x,y,1.3,1.3,.9*(1-age),rgb('#ffb04a')); }
 }
 /** Free-standing shell props drawn in depth order (e.g. hanging lamps): {box,draw}. */
@@ -804,5 +816,5 @@ export function pubShellFX(/** @type {number} */t){
   spot(isoX(PUB.fire.d,mj),isoY(PUB.fire.d,mj,5),44,34,.16*ff,rgb('#ffb04a'));
   for(let k=0;k<10;k++){ const j=6.95+k*.33; spot(isoX((PUB.fire.hearth-.12),j),isoY((PUB.fire.hearth-.12),j,2.2),3.4,2.4,.5*ff*(.6+.4*Math.sin(t*.2+k*2)),rgb('#ffd890')); }
   // mantel candles
-  for(const j of [7.45,9.35]) { const f=flick(t,j|0); spot(isoX(PUB.fire.d+.4,j),isoY(PUB.fire.d+.4,j,19.3),9,9,.28*f,WARM); }
+  for(const j of [mj-.95,mj+.95]) { const f=flick(t,j|0); spot(isoX(PUB.fire.d+.4,j),isoY(PUB.fire.d+.4,j,19.3),9,9,.28*f,WARM); }
 }
