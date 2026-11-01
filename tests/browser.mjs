@@ -420,6 +420,9 @@ try {
       const collision=await page.evaluate(async()=>{const P=await import('/src/pub.js'); const start=P.pubPlayer(); P.pubKey({code:'ArrowUp'},true); window.__boxer.step(40); P.pubKey({code:'ArrowUp'},false); const moved=P.pubPlayer(); return {start,moved,bar:P.pubBlocked(1.5,1),door:P.pubBlocked(7.5,.2),floor:P.pubBlocked(3.3,4.5)};});
       assert.ok(Math.hypot(collision.start.i-collision.moved.i,collision.start.j-collision.moved.j)>.5,'player can explore the interior');
       assert.deepEqual([collision.bar,collision.door,collision.floor],[true,true,false],'counter and rear door are solid and the aisle is clear');
+      const edges=await page.evaluate(async()=>{const P=await import('/src/pub.js');return [P.pubBlocked(3.08,1.45),P.pubBlocked(6,.8),P.pubBlocked(5.3,6.35)];});
+      assert.deepEqual(edges,[true,false,true],'bar edge and open door leaf block movement, but the empty rear floor does not');
+
       await page.evaluate(async()=>{const P=await import('/src/pub.js'); P.startPub();});
       const pubBefore=await page.evaluate(async()=>(await import('/src/pub.js')).pubPlayer());
       await page.keyboard.down('ArrowUp');
