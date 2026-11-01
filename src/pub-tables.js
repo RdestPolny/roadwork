@@ -207,21 +207,35 @@ function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number
 }
 
 /* ---------- chairs and benches ---------- */
-/** Dark oak captain's (smoker's-bow) chair at (ci,cj): spindle bow and top hoop behind, facing +j toward the table. */
+/** Dark oak captain's (smoker's-bow) chair at (ci,cj), facing +j toward the table: splayed turned legs with an H-stretcher, saddle seat,
+ *  low arm-bow with scrolled hand-holds on spindles, and a shaped crest rail on short spindles. */
 function chair(/** @type {number} */ci,/** @type {number} */cj,/** @type {number} */k){
-  contact(ci-.22,cj-.22,ci+.22,cj+.22,0,.62);
-  const wood=rgb('#3f2616'), hi=shadeC(wood,1.9), seatZ=4.5, ang=-Math.PI/2, R=.24;
-  const arc=(/** @type {number} */f,/** @type {number} */z,r=R)=>{ const a=ang+f*1.5; return [ci+Math.cos(a)*r,cj+Math.sin(a)*r,z]; };
-  const legs=[[.17,.17],[.17,-.17],[-.17,.17],[-.17,-.17]].sort((p,q)=>(p[0]+p[1])-(q[0]+q[1]));
-  for(const [a,b] of legs){ rod([ci+a,cj+b,seatZ-.2],[ci+a*1.3,cj+b*1.3,0],wood,hi); const m=[ci+a*1.12,cj+b*1.12,2.3]; const [x,y]=bz(m[0],m[1],m[2]); px(x,y,hi); px(x+1,y,wood); }
-  // bow arm-rail on spindles, top hoop on a fan of spindles
-  const rz=7.4, hz=9.6;
-  for(let n=0;n<=8;n++){ const f=n/4-1, p=arc(f,seatZ+.4,R-.02); thin(p[0],p[1],p[2],p[0],p[1],rz,shadeC(wood,1.35)); }
-  for(let n=0;n<=5;n++){ const f=(n/5-.5)*1.1, p=arc(f,rz); thin(p[0],p[1],p[2],p[0],p[1],hz-.5*f*f,shadeC(wood,1.35)); }
-  for(let n=0;n<8;n++){ const a=arc(n/4-1,rz), b=arc((n+1)/4-1,rz); rod(a,b,wood,hi); }
-  for(let n=0;n<5;n++){ const a=arc((n/5-.5)*1.1,hz-.5*Math.pow((n/5-.5)*1.1,2)), b=arc(((n+1)/5-.5)*1.1,hz-.5*Math.pow(((n+1)/5-.5)*1.1,2)); rod(a,b,wood,hi); }
-  for(const f of [-1,1]){ const p=arc(f,rz), [x,y]=bz(p[0],p[1],rz); blob(x,y,1.6,1.3,rgb('#5a3a22')); }
-  cyl(ci,cj,.26,seatZ,seatZ+.55,(zz,s)=>shadeC(wood,roundLit(s)),(s,v)=>{ const x=isoX(ci,cj)+s*4.4, y=isoY(ci,cj,seatZ+.55)+v*2.2; return shadeC(rgb('#5a3a21'),.85+.35*N(x,y,.5,k)+.14*-v+(Math.hypot(s,v)>.84?.2:0)); },.02);
+  contact(ci-.24,cj-.24,ci+.24,cj+.24,0,.6);
+  const wood=rgb('#2c1a0f'), hi=shadeC(rgb('#8a5a30'),1.15), mid=shadeC(rgb('#5a3a20'),1), seatZ=4.3, R=.25, bz0=7.1, ang=-Math.PI/2;
+  const at=(/** @type {number} */f,/** @type {number} */z,/** @type {number} */spread=1.9,r=R)=>{ const a=ang+f*spread; return [ci+Math.cos(a)*r,cj+Math.sin(a)*r,z]; };
+  const behind=(/** @type {number[]} */p)=>(p[0]-ci)+(p[1]-cj)<0;
+  // legs: tapered splay, turned knop, H-stretcher
+  const leg=[[.17,.17],[.17,-.17],[-.17,.17],[-.17,-.17]];
+  const foot=(/** @type {number} */a,/** @type {number} */b,/** @type {number} */z)=>{ const t=(seatZ-.2-z)/(seatZ-.2); return [ci+a*(1+.32*t),cj+b*(1+.32*t),z]; };
+  for(const [a,b] of leg){ rod(foot(a,b,seatZ-.2),foot(a,b,0),wood,mid); const [x,y]=bz(...foot(a,b,2.7).slice(0,3)); px(x,y,hi); px(x+1,y,mid); px(x,y+1,wood); }
+  const L=(/** @type {number} */a,/** @type {number} */b)=>foot(a,b,1.7);
+  rod(L(-.17,-.17),L(-.17,.17),wood,mid); rod(L(.17,-.17),L(.17,.17),wood,mid); rod(L(-.17,0),L(.17,0),wood,mid);
+  // rear half of the bow, crest and their spindles go behind the seat
+  const bowN=14, bow=Array.from({length:bowN+1},(_,n)=>at(n/bowN*2-1,bz0));
+  const crestAt=(/** @type {number} */f)=>at(f,9.3+.55*(1-(f/.5)*(f/.5)),.95);
+  for(const f of [-.33,0,.33]){ const p=at(f*.95/.5*.5,bz0,1.9), c=crestAt(f); rod([p[0],p[1],bz0],[c[0],c[1],c[2]-.9],wood,mid); }
+  for(const f of [-.5,.5]){ const p=at(f,bz0,.95), c=crestAt(f); rod([p[0],p[1],bz0],[c[0],c[1],c[2]],wood,hi); }
+  for(let n=0;n<10;n++){ const a=crestAt(n/10-.5), b=crestAt((n+1)/10-.5); quad(a[0],a[1],a[2]-.9,b[0],b[1],b[2]-.9,b[0],b[1],b[2],a[0],a[1],a[2],()=>shadeC(wood,1.1+.25*(n<5?1:0))); thin(a[0],a[1],a[2],b[0],b[1],b[2],hi); thin(a[0],a[1],a[2]-.9,b[0],b[1],b[2]-.9,shadeC(wood,.55)); }
+  for(const f of [-.5,.5]){ const c=crestAt(f), [x,y]=bz(c[0],c[1],c[2]+.2); px(x,y,hi); px(x+1,y,mid); px(x,y-1,mid); }
+  for(let n=0;n<bowN;n++) if(behind(bow[n])&&behind(bow[n+1])) rod(bow[n],bow[n+1],wood,hi);
+  for(const f of [-.6,-.3,0,.3,.6]){ const p=at(f,seatZ+.5,1.9,R-.03); thin(p[0],p[1],p[2],p[0],p[1],bz0,mid); }
+  // saddle seat with a visible front edge
+  cyl(ci,cj,.27,seatZ,seatZ+.6,(zz,s)=>shadeC(wood,roundLit(s)*(zz>seatZ+.45?1.25:.95)),(s,v)=>{ const x=isoX(ci,cj)+s*4.6, y=isoY(ci,cj,seatZ+.6)+v*2.3, rr=Math.hypot(s,v);
+    return shadeC(rgb('#5b3a20'),.8+.35*N(x,y,.5,k)+.14*-v+(rr>.84?.28:0)-(rr<.5?.1:0)); },.05);
+  // front: bow ends with scrolled hand-holds on turned posts, then the bow's front half
+  for(let n=0;n<bowN;n++) if(!(behind(bow[n])&&behind(bow[n+1]))) rod(bow[n],bow[n+1],wood,hi);
+  for(const f of [-1,1]){ const p=at(f,bz0), q=at(f*.9,seatZ+.5,1.9,R-.03); thin(p[0],p[1],bz0-.2,q[0],q[1],q[2],mid);
+    const [x,y]=bz(p[0],p[1],bz0+.3); blob(x,y,1.9,1.5,rgb('#6a4326')); px(x,y,shadeC(wood,.55)); px(x-1,y-1,hi); }
 }
 /** Captain's chairs pulled up on the room side of a table (axis i). */
 function chairRow(/** @type {number[]} */box,/** @type {number[]} */us,/** @type {number} */k){
@@ -294,9 +308,9 @@ function banquetteLeg(){
 
 /* ---------- dining tables ---------- */
 const DINE=[
-  {cloth:true,seed:2,col:rgb('#4a2f1a'),chairs:[.25,.75]},
-  {cloth:false,seed:11,col:rgb('#523520'),chairs:[.17,.5,.83]},
-  {cloth:false,seed:23,col:rgb('#4a301b'),chairs:[.2,.5,.8]},
+  {cloth:true,seed:2,col:rgb('#4a2f1a'),chairs:[.28,.72]},
+  {cloth:false,seed:11,col:rgb('#523520'),chairs:[.28,.72]},
+  {cloth:false,seed:23,col:rgb('#4a301b'),chairs:[.28,.72]},
 ];
 function diningTable(/** @type {{box:number[],axis:string}} */d,/** @type {number} */k,/** @type {number} */t){
   const [i0,j0,i1,j1]=d.box, ax=d.axis, cfg=DINE[k];
