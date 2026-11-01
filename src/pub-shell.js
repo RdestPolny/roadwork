@@ -9,13 +9,13 @@ import { spot, vn, cyl, roundLit } from './thames-port.js';
 
 /* ---------- palette ---------- */
 const K={
-  oakD:rgb('#4e341e'), oakL:rgb('#8a6439'), oakPale:rgb('#b18d5c'), saw:rgb('#c2a46e'), sawD:rgb('#7a5c35'),
+  oakD:rgb('#4e341e'), oakL:rgb('#8a6439'), oakPale:rgb('#b18d5c'), saw:rgb('#b39663'), sawD:rgb('#7a5c35'),
   mahog:rgb('#5e2c1b'), mahogD:rgb('#2a120b'), mahogL:rgb('#8f4c2c'), brass:rgb('#c9a24a'), brassD:rgb('#6e4f1e'), brassL:rgb('#f4dc8e'),
   gold:rgb('#c9a04a'), ox:rgb('#56121a'), oxF:rgb('#72202a'), green:rgb('#12372a'), greenF:rgb('#1d5240'),
   plaster:rgb('#a89678'), nic:rgb('#6a4818'), coal:rgb('#120f0e'), iron:rgb('#18191a'), ironL:rgb('#4a4d4f'), slate:rgb('#25262a'),
   glassW:rgb('#ffe9a8'), flame:rgb('#ffd27a'), moon:rgb('#86a6d6'), paper:rgb('#cdbb92'), ink:rgb('#2a1b13'), stone:rgb('#8c8678'), black:rgb('#0b0a0a'),
 };
-const FONT={V:'101101101101010',A:'010101111101101',P:'110101110100100',I:'111010010010111',N:'101111111101101',H:'101101111101101',R:'110101110101101',F:'111100110100100',C:'011100100100011',D:'110101101101110',E:'111100110100111',K:'101101110101101',L:'100100100100111',M:'101111111101101',O:'010101101101010',S:'011100010001110',T:'111010010010010',U:'101101101101111',Y:'101101010010010','&':'010101010101011',' ':'000000000000000','1':'010110010010111','4':'101101111001001','6':'011100110101010'};
+const FONT={G:'011100101101011',B:'110101110101110',W:'101101111111101',V:'101101101101010',A:'010101111101101',P:'110101110100100',I:'111010010010111',N:'101111111101101',H:'101101111101101',R:'110101110101101',F:'111100110100100',C:'011100100100011',D:'110101101101110',E:'111100110100111',K:'101101110101101',L:'100100100100111',M:'101111111101101',O:'010101101101010',S:'011100010001110',T:'111010010010010',U:'101101101101111',Y:'101101010010010','&':'010101010101011',' ':'000000000000000','1':'010110010010111','4':'101101111001001','6':'011100110101010'};
 const hh=(/** @type {number} */n)=>{ const s=Math.sin(n*12.9898)*43758.5453; return s-Math.floor(s); };
 const sm=(/** @type {number} */a,/** @type {number} */b,/** @type {number} */x)=>{ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); };
 const lit=(/** @type {number} */c,/** @type {number} */k)=>shadeC(c,k);
@@ -74,7 +74,7 @@ function floorAt(i,j){
   if(sd>0){
     c=mix(c,K.sawD,sd*.3);
     const n=vn(i*3.3+2,j*3.3)*.55+vn(i*7.1,j*7.1+3)*.45, n2=vn(i*3.3+1.8,j*3.3-.2)*.55+vn(i*7.1-.2,j*7.1+2.8)*.45;
-    const s=sd*sm(.48,.62,n); c=mix(c,K.saw,s*.85); k*=1+(n-n2)*s*3;
+    const s=sd*sm(.46,.7,n); c=mix(c,K.saw,s*.7); k*=1+(n-n2)*s*3;
   }
   if(fj<.07||fi<.045) return lit(c,.34);
   if(fj<.15) k*=1.12; else if(fj>.93) k*=.9;
@@ -131,7 +131,7 @@ function paperAt(/** @type {number} */a,/** @type {number} */z,/** @type {{g:num
   c=mix(c,pal.n,Math.max(ring*.8,bud*.9,node*.85,leaf*.75,sprig));
   c=mix(c,pal.g,core*.8);
   // faint embossed pinstripe and large damp stains
-  return lit(c,(.93+.08*Math.sin(a*Math.PI*2/W*1)*.0+.07*vn(a*.7+seed,z*.12))*(1-.0));
+  return lit(c,(.93+.07*vn(a*.7+seed,z*.12)));
 }
 /** Mahogany dado: moulded panels between stiles, raised fields with a bevel, varnish sheen. */
 function dadoAt(/** @type {number} */a,/** @type {number} */z,/** @type {number} */seed){
@@ -167,7 +167,7 @@ function wallAt(/** @type {number} */a,/** @type {number} */z,/** @type {'I'|'J'
     else c=dadoAt(a,z,seed);
     if(z<8.3&&z>7.8) c=lit(c,.9);
     // lamp-smoke stains and wall-foot grime
-    c=lit(c,(.84+.2*sm(0,10,z)*0+.0)*(.95+.1*vn(a*.5,z*.3)));
+    c=lit(c,.84*(.95+.1*vn(a*.5,z*.3)));
     return c;
   }
   if(z<30){
@@ -175,7 +175,7 @@ function wallAt(/** @type {number} */a,/** @type {number} */z,/** @type {'I'|'J'
     c=lit(c,.78+.22*sm(10.4,12.8,z));
     c=mix(c,K.nic,Math.min(.5,nic*.55*nicN));
     c=lit(c,1-.3*nic*nicN);
-    if(z>29) c=lit(c,.85+.15*sm(29.9,29,z)*0+.15*(1-sm(29,29.9,z)));
+    if(z>29) c=lit(c,.85+.15*(1-sm(29,29.9,z)));
     return c;
   }
   if(z<30.9){ c=lit(K.mahog,z<30.15?.45:z>30.6?1.55:1.0); return lit(mix(c,K.nic,.2),.9); }
@@ -268,7 +268,7 @@ function framed(f,a0,z0,w,h,art,gilt=true){
     if(d<1) return lit(fc,.5);
     if(d<2.7) return gilt?lit(fc,d<1.9?1.3:.85):lit(fc,d<1.9?2.2:1.2);
     if(d<4.3) return d<3.5?lit(K.paper,.85+.1*Math.min(1,ly/H*3)):lit(K.ink,.8);
-    return art(lx-4.3,ly-4.3,W-8.6,H-8.6);
+    return art(Math.floor(lx-4.3),Math.floor(ly-4.3),Math.floor(W-8.6),Math.floor(H-8.6));
   });
 }
 /** Outlines a union-of-capsules figure: pale body with dark edge. */
@@ -277,27 +277,21 @@ function inkFigure(/** @type {number} */x,/** @type {number} */y,/** @type {(x:n
   const edge=!(body(x-1,y)&&body(x+1,y)&&body(x,y-1)&&body(x,y+1));
   return edge||dark(x,y)?K.ink:flesh;
 }
-/** Prize-fight engraving: two bare-knuckle boxers squared up inside the ropes before a crowd. */
+/** Prize-fight engraving: two bare-knuckle boxers squared up inside the ropes before a crowd, dark silhouettes on aged paper. */
 function fightArt(/** @type {number} */x,/** @type {number} */y,/** @type {number} */W,/** @type {number} */H){
-  let c=lit(K.paper,.92-.05*sm(0,H,y)); const hatch=(Math.floor(y)&1)&&y<H*.45;
-  if(hatch) c=lit(c,.88);
-  // crowd heads
-  if(y<H*.2&&[2,5.5,9,12.5,16,19].some((cx,k)=>disc(x,y,cx+(k&1),3.8+(k%3),1.6))) c=K.ink;
-  // ropes and corner posts
-  if((Math.abs(y-H*.4)<.6||Math.abs(y-H*.52)<.6)&&x>1) c=lit(K.ink,1.4);
-  if(Math.abs(x-1)<.8&&y>H*.32&&y<H*.9) c=K.ink;
-  // ring floor
-  if(y>H*.84) c=lit(K.paper,.68+.12*((Math.floor(y)&1)?1:0));
-  const mid=W/2;
-  const fig=(/** @type {number} */xx,/** @type {number} */yy,/** @type {number} */lead)=>{
-    const body=(/** @type {number} */a,/** @type {number} */b)=>disc(a,b,8,6.4,2.4)||cap(a,b,8,10,8.2,17.5,2.5)||cap(a,b,8.2,17,6.2,23,1.6)||cap(a,b,6.2,23,4.2,28.5,1.3)||cap(a,b,8.4,17,10.6,23,1.6)||cap(a,b,10.6,23,12.4,28.5,1.3)||
-      cap(a,b,8.6,10.5,12.2,11.5+lead,1.2)||cap(a,b,12.2,11.5+lead,14.8,9+lead,1.1)||disc(a,b,15.4,8.6+lead,1.5)||cap(a,b,8,11,10.4,14.5,1.2)||cap(a,b,10.4,14.5,11.2,10.5,1.1)||disc(a,b,11.4,9.8,1.4);
-    const dark=(/** @type {number} */a,/** @type {number} */b)=>b>17&&b<21.4&&a>5.5&&a<11||(b<4.3);
-    return inkFigure(xx,yy,body,dark,lit(K.paper,1.12));
-  };
-  const ox=2.5, f1=fig(x-ox,y-1,0); if(f1) return f1;
-  const f2=fig(W-x-ox+.5,y-2,2.2); if(f2) return f2;
-  return c;
+  const mid=W/2, ink=K.ink, c=mid-8.4;
+  const man=(/** @type {number} */a,/** @type {number} */b,/** @type {number} */lead)=>
+    disc(a,b,c+.6,5.4,1.9)||cap(a,b,c+.4,7,c,8.8,.9)||cap(a,b,c-2.2,9.9,c+2.2,9.9,1.4)||cap(a,b,c,10,c,14.4,1.9)||cap(a,b,c,14.4,c-3.2,17.8,1.3)||cap(a,b,c-3.2,17.8,c-4.8,H-.8,1.2)||
+    cap(a,b,c,14.4,c+3,17.8,1.3)||cap(a,b,c+3,17.8,c+4.2,H-.8,1.2)||
+    cap(a,b,c+2,10.2,c+3.8,12.4,.95)||cap(a,b,c+3.8,12.4,c+5.8,9.6+lead,.95)||disc(a,b,c+6,8.8+lead,1.6)||cap(a,b,c-1.8,10.4,c-.4,13.2,.95)||cap(a,b,c-.4,13.2,c+2.2,10.4,.95)||disc(a,b,c+2.6,9.6,1.3);
+  const body=(/** @type {number} */xx,/** @type {number} */yy)=>man(xx,yy,0)||man(W-1-xx,yy,1.5);
+  if(body(x,y)) return !body(x-1,y)&&y<16?lit(K.paper,.5):(y>13.6&&y<15.4&&body(x,y)&&Math.abs(x-c)<3.4)||(W-1-x>c-3.4&&W-1-x<c+3.4&&y>13.6&&y<15.4)?lit(K.paper,.9):ink;
+  if(y<5&&[2,6,10,14,18,22,26,30,34,38].some((cx,k)=>disc(x,y,cx+.4*(k%3),2.2+(k%2)*.9,1.9))) return lit(ink,1.25);
+  if(y>H-1.6) return lit(ink,1.5);
+  if(y>H-3.4) return lit(K.paper,.7);
+  if(Math.abs(y-8.5)<.5||Math.abs(y-12)<.5||Math.abs(y-15.2)<.5) return lit(ink,2.0);
+  if(x<1.6||x>W-2.6) return lit(ink,1.5);
+  return lit(K.paper,.97-.15*sm(0,H,y)+.05*vn(x*.3,y*.3));
 }
 /** A gentleman's racing print: two horses at full gallop, jockeys in colours, over a green rise. */
 function raceArt(/** @type {number} */x,/** @type {number} */y,/** @type {number} */W,/** @type {number} */H){
@@ -314,18 +308,26 @@ function raceArt(/** @type {number} */x,/** @type {number} */y,/** @type {number
   };
   return horse(11,H*.52,rgb('#3a2418'),rgb('#a22b2b'))||horse(5.6,H*.4,rgb('#8a4a22'),rgb('#2c4f93'))||c;
 }
-/** A tall ship in full sail on a swell, black-and-cream like a chandler's engraving. */
+/** A tall ship in full sail on a swell, in the manner of a chandler's engraving. */
 function shipArt(/** @type {number} */x,/** @type {number} */y,/** @type {number} */W,/** @type {number} */H){
-  let c=mix(rgb('#b9b9a0'),rgb('#dbd0aa'),sm(0,H*.7,y));
-  const sea=H*.8; if(y>sea) c=lit(rgb('#3f5a5c'),.85+.3*Math.sin(x*1.3+y*2.4)*.5+.15);
-  const mx=W/2;
-  if(y>sea-3.2&&y<sea+.8&&Math.abs(x-mx)<W*.42-(sea+.8-y)*-.0&&y>sea-3.2+Math.abs(x-mx)*.28) c=y<sea-2.2?lit(rgb('#6b4a2a'),.9):K.ink;       // hull
-  const masts=[mx-.3];
-  for(const m of masts) if(Math.abs(x-m)<.45&&y>2&&y<sea-2.5) c=K.ink;
-  const sails=[[3.5,7.5,3],[8,13.5,4.4],[14.2,19.4,5.4]];
-  for(const [y0,y1,hw] of sails) if(y>y0&&y<y1&&Math.abs(x-(mx-.3))<hw*(1+(y-y0)/(y1-y0)*.15)){ const ed=Math.min(y-y0,y1-y,hw-Math.abs(x-mx+.3)); c=ed<.8?K.ink:lit(rgb('#eadfb8'),.85+.18*Math.cos((x-mx)*.6)+.0); if(Math.abs(y-(y0+y1)/2)<.4) c=lit(c,.78); }
-  if(disc(x,y,mx-.3+1,2.2,.9)||(y>1.4&&y<2.8&&x>mx&&x<mx+3.3&&y<2+(x-mx)*.05+1)) c=rgb('#9a2a2a');
-  if(cap(x,y,mx+2,sea-2.8,mx+6.5,sea-5,.35)) c=K.ink;     // bowsprit
+  const mx=W/2, sea=H*.74;
+  let c=mix(rgb('#a9b0a0'),rgb('#e0d4ac'),sm(0,H*.7,y));
+  if(y>sea) c=lit(mix(rgb('#2f4d52'),rgb('#47686a'),.5+.5*Math.sin(x*1.1+y*2.2)),.8+.3*sm(sea,H,y)*0+(((Math.floor(y)+Math.floor(x*.5))%3)?0:.2));
+  // hull
+  const deck=sea-1.6, keel=sea+1.2;
+  if(y>deck&&y<keel){ const hw=W*.46-(y-deck)*1.3; if(Math.abs(x-mx)<hw) c=y<deck+1.1?lit(rgb('#d9c79a'),.9):(Math.floor(y)===Math.floor(deck+2.2)?lit(K.paper,1):K.ink); }
+  // masts, yards, sails
+  const sails=[[4.5,9.5,3.2],[10.4,15.8,4.7],[16.6,deck-.4,6]];
+  for(const [y0,y1,hw] of sails){
+    if(y>y0&&y<y1&&Math.abs(x-mx)<hw){
+      const seam=Math.abs(((x-mx+hw)/2.4)%1)<.08, belly=.9+.14*Math.cos((x-mx)/hw*1.4)*(1-(y-y0)/(y1-y0)*.3);
+      c=y>y1-.9?lit(rgb('#8a7e5e'),1):seam?lit(rgb('#c8bb92'),1):lit(rgb('#f1e8c6'),belly);
+    }
+    if(Math.abs(y-y0)<.5&&Math.abs(x-mx)<hw+1) c=K.ink;
+  }
+  if(Math.abs(x-mx)<.5&&y>2&&y<deck) c=K.ink;
+  if(y>1.4&&y<3.4&&x>mx&&x<mx+(3.4-y)*1.6+.4) c=rgb('#a62d2d');           // pennant
+  if(cap(x,y,mx,3,W*.9,deck+.4,.3)||cap(x,y,mx,3,W*.08,deck+.4,.3)) c=lit(K.ink,1.6);     // stays
   return c;
 }
 /** A gilt-framed oil: river at dusk. */
@@ -345,7 +347,7 @@ function noticeArt(/** @type {number} */x,/** @type {number} */y,/** @type {numb
 /* ---------- gas light ---------- */
 /** Lit gas globes: brass bracket arm plus a glass shade, returned positions are used by the glow pass. */
 const LAMPS=/** @type {{f:Face,a:number,z:number}[]} */([
-  {f:{k:'I',c:0},a:3.1,z:23},{f:{k:'I',c:0},a:9.9,z:23},{f:{k:'J',c:0},a:3.15,z:22.5},{f:{k:'J',c:0},a:7.7,z:27.6},
+  {f:{k:'I',c:0},a:3.1,z:26.2},{f:{k:'I',c:0},a:9.9,z:23},{f:{k:'J',c:0},a:3.15,z:22.5},{f:{k:'J',c:0},a:7.7,z:27.6},
 ]);
 /** World position of a bracket's shade centre. @param {{f:Face,a:number,z:number}} l */
 function lampPos(l){ const [i,j]=pp(l.f,l.a); return l.f.k==='I'?[i+.55,j,l.z+1.3]:[i,j+.55,l.z+1.3]; }
@@ -411,8 +413,8 @@ function chalkboard(){
 }
 
 /* ---------- chimney breast, grate, mantel ---------- */
-const FIRE={a0:PUB.fire.j0, a1:PUB.fire.j1, c:.55, o0:7.62, o1:9.18, zO:.55, zT:8.7};
-const FFIRE={x0:7.95,x1:8.85,z0:.55,z1:8.6};
+const FIRE={a0:PUB.fire.j0, a1:PUB.fire.j1, c:.55, o0:7.8, o1:9.0, zO:.55, zT:8.7};
+const FFIRE={x0:7.92,x1:8.88,z0:.55,z1:8.6};
 function tileAt(/** @type {number} */a,/** @type {number} */z){
   const col=Math.floor(a*3.6), row=Math.floor(z/1.7), id=(col+row)&1, fa=(a*3.6-col), fz=z/1.7-row;
   const e=Math.min(fa,1-fa,fz,1-fz); let c=id?rgb('#d0c8a8'):rgb('#305d62');
@@ -424,7 +426,7 @@ function fireplace(){
   // side of the breast (faces +j), darker
   fq(S,0,0,FIRE.c,38,(a,z,x,y)=>lit(wallAt(a*3,z,'I',x,y),.62));
   // the front: paper above, black slate chimney-piece below the mantel
-  fq(B,P.j0,0,P.j1,38,(a,z,x,y)=>z>=11.4?lit(wallAt(a,z,'I',x,y),1.0+.05*sm(P.j0,P.j0+.15,a)):0);
+  fq(B,P.j0,0,P.j1,38,(a,z,x,y)=>z>=11.4?lit(wallAt(a,z,'I',x,y),a-P.j0<.1?.5:P.j1-a<.1?1.2:1.04):0);
   fq(B,P.j0,0,P.j1,11.5,(a,z)=>{
     const vein=Math.abs(vn(a*2.6+3,z*.24)-.5), edge=Math.min(a-P.j0,P.j1-a)*18, k=.8+.3*vn(a*3,z*.5);
     let c=mix(K.slate,rgb('#6d6e72'),Math.max(0,1-vein*14)*.6);
@@ -447,12 +449,12 @@ function fireplace(){
   fq(B,FIRE.o0-.06,FIRE.zT,FIRE.o1+.06,FIRE.zT+.95,(a,z)=>{ const d=(z-FIRE.zT)*3; return lit(K.iron,d<1?2.4:d>2.1?.8:1.2+.4*vn(a*9,z)); });
   fl(B,FIRE.o0,FIRE.zO,FIRE.o0,FIRE.zT,lit(K.iron,2)); fl(B,FIRE.o1,FIRE.zO,FIRE.o1,FIRE.zT,lit(K.iron,.8));
   // mantel shelf: top face, front edge, underside shadow
-  const my=11.45, mt=12.55, mi=.98;
-  quad(.0,P.j0-.4,mt,.0,P.j1+.5,mt,mi,P.j1+.5,mt,mi,P.j0-.4,mt,(x,y)=>{ const [i,j]=gnd(x,y,mt); return lit(rgb('#4a2a1a'),1.0+.35*sm(.2,.9,i)+.1*vn(j*3,i*4)); });
+  const my=11.5, mt=12.4, mi=.86;
+  quad(.0,P.j0-.4,mt,.0,P.j1+.5,mt,mi,P.j1+.5,mt,mi,P.j0-.4,mt,(x,y)=>{ const [i,j]=gnd(x,y,mt); return lit(rgb('#6a3a22'),1.0+.3*sm(.2,.9,i)+.1*vn(j*3,i*4)); });
   quad(mi,P.j0-.4,my,mi,P.j1+.5,my,mi,P.j1+.5,mt,mi,P.j0-.4,mt,(x,y)=>{ const j=(x+.5-G.ox-mi*G.ix)/G.jx, z=(G.oy+mi*G.iy+j*G.jy-y-.5)/G.cz; return lit(K.mahogL,.8+.7*sm(my,mt,z)*sm(mt,my+.5,z+.0)+.2*sm(my+.7,mt,z)); });
   quad(mi,P.j1+.5,my,mi,P.j1+.5,mt,.0,P.j1+.5,mt,.0,P.j1+.5,my,(x,y)=>lit(K.mahog,.55));
-  // shadow under the shelf on the breast
-  fq(B,P.j0,10.6,P.j1,11.45,(a,z)=>0);
+  // the breast stands proud of the wall: lit left edge, shadowed right edge, shadow under the shelf
+  fq(B,P.j0,10.6,P.j1,11.5,(a,z)=>0);
   // corbels
   for(const a of [P.j0-.15,P.j1+.15]) fq({k:'I',c:FIRE.c+.2},a-.12,8.6,a+.12,11.45,(x_,z)=>lit(K.mahog,.7+.6*sm(8.6,11.45,z)));
 }
@@ -583,7 +585,7 @@ function fascia(){
   const F={k:'J',c:.03}, a0=4.65, a1=10.75, z0=30.95, z1=35;
   fq(F,a0,z0,a1,z1,(a,z)=>{ const e=Math.min((a-a0)*18,(a1-a)*18,(z-z0)*3,(z1-z)*3); if(e<1) return lit(K.gold,.6); if(e<2.2) return e<1.6?lit(K.brassL,.9):lit(K.gold,.55);
     return lit(K.green,.55+.15*vn(a*3,z*.4)); });
-  glyphs(F,(a0+a1)/2-2.83,z1-1.35,'ROPE & ANCHOR',lit(K.gold,1.15),2);
+  glyphs(F,(a0+a1)/2-2.83,z1-1.35,'ALES & PORTER',lit(K.gold,1.15),2);
   for(const a of [a0+.12,a1-.12]) { const [x,y]=fpt(F,a,(z0+z1)/2); psetK(Math.round(x),Math.round(y),K.brassL); }
 }
 /** A plate rail over the back bar, hung with plates and stood with tankards and jugs. */
@@ -602,8 +604,8 @@ function plateRail(){
 }
 function pictures(){
   const I0={k:'I',c:.04}, J0={k:'J',c:.04};
-  framed(I0,1.42,14,1.42,14,fightArt,false);
-  framed(J0,.55,19.5,2.1,8.4,raceArt);
+  framed(J0,.45,19,2.7,10.4,fightArt,false);
+  framed(I0,1.38,15,1.9,8,raceArt);
   framed(I0,5.98,19.4,1.3,8,landscapeArt);
   framed(I0,10.05,13.2,1.3,13.6,shipArt,false);
   framed(J0,3.78,16.6,.8,8.8,noticeArt,false);
@@ -613,17 +615,112 @@ function pictures(){
 export function pubShellStatic(){
   cam();
   const P=PUB;
-  flo(0,0,P.I,P.J,0,(i,j)=>{ const c=floorAt(i,j), m=moonAt(i,j); return m>0?mix(lit(c,1.18),K.moon,.2*m):c; });
+  flo(0,0,P.I,P.J,0,(i,j)=>{ const c=floorAt(i,j), m=moonAt(i,j); return m>0?mix(lit(c,1.25),K.moon,.3*m):c; });
   quad(0,0,0,0,P.J,0,0,P.J,P.H,0,0,P.H,(x,y)=>{ const j=(x+.5-G.ox)/G.jx, z=(G.oy+j*G.jy-y-.5)/G.cz; return wallAt(j,z,'I',x,y); });
   quad(0,0,0,P.I,0,0,P.I,0,P.H,0,0,P.H,(x,y)=>{ const i=(x+.5-G.ox)/G.ix, z=(G.oy+i*G.iy-y-.5)/G.cz; return wallAt(i,z,'J',x,y); });
   wallThickness();
   kitchenDoor(); landingDoor(); chalkboard();
   fireplace(); hearth(); mantelDecor();
-  longcase(); shipsBell(); fascia(); plateRail(); pictures();
+  longcase(); fascia(); plateRail(); pictures();
   for(const l of LAMPS) wallBracket(l);
   frontCut();
 }
+/* ---------- animated parts ---------- */
+const GASOLIERS=[{i:7,j:7.4,z:28.6},{i:6,j:9.8,z:28.6}];
+/** Where the glass shades of a gasolier hang (world i,j,z). */
+function gasolierShades(/** @type {{i:number,j:number,z:number}} */g,/** @type {number} */t){
+  return Array.from({length:5},(_,k)=>{ const an=k*Math.PI*2/5+.3+Math.sin(t*.004)*.015; return [g.i+Math.cos(an)*.78,g.j+Math.sin(an)*.78,g.z+1.1]; });
+}
+/** A brass five-arm gasolier on a chain, glass tulips lit. */
+function gasolier(/** @type {{i:number,j:number,z:number}} */g,/** @type {number} */t){
+  const {i,j,z}=g, sh=gasolierShades(g,t).sort((a,b)=>(a[0]+a[1])-(b[0]+b[1])), back=sh.filter(s=>s[0]+s[1]<i+j), front=sh.filter(s=>s[0]+s[1]>=i+j);
+  for(let zz=z+4;zz<z+12;zz+=.9) isoLineThin(i,j,zz,i,j,zz+.55,((zz/.9|0)&1)?K.brass:K.brassD);
+  const arm=(/** @type {number[]} */s)=>{ isoLineThin(i,j,z+.3,(i+s[0])/2,(j+s[1])/2,z-.2,K.brass); isoLineThin((i+s[0])/2,(j+s[1])/2,z-.2,s[0],s[1],s[2]-.6,lit(K.brass,1.2)); isoLineThin(i,j,z+.5,(i+s[0])/2,(j+s[1])/2,z+.1,K.brassD); };
+  const bulb=(/** @type {number[]} */s)=>{ arm(s); shade(s[0],s[1],s[2]-.6,.16); };
+  back.forEach(bulb);
+  cyl(i,j,.07,z+.5,z+4.1,(zz,s)=>lit(K.brass,roundLit(s)*1.4),(s,v)=>K.brassL);
+  cyl(i,j,.3,z-.5,z+1.1,(zz,s)=>lit(K.brass,roundLit(s)*1.35*(.85+.15*Math.sin(zz*7))),(s,v)=>lit(K.brassL,1),.35);
+  cyl(i,j,.1,z-1.4,z-.5,(zz,s)=>lit(K.brass,roundLit(s)*1.3),(s,v)=>K.brassL,.5);
+  front.forEach(bulb);
+}
+/** Per-pixel fire in the opening: a coal bed and licking flames; returns a colour or 0 to leave the soot. */
+function fireAt(/** @type {number} */a,/** @type {number} */z,/** @type {number} */t,/** @type {number} */x,/** @type {number} */y){
+  const W=appearanceState.W, F=FFIRE, hz=z-F.z0, u=(a-(F.x0+F.x1)/2)/((F.x1-F.x0)/2), tt=t*.055;
+  if(Math.abs(u)>1||hz<-.05||z>F.z1) return 0;
+  const under=rendererState.fb[y*W+x];
+  let c=0;
+  const ln=vn(a*5+3,hz*2.2)*.7+vn(a*10,hz*4+9)*.3, heap=1.5+ln*1.7*(1-u*u*.6);
+  if(hz<heap){
+    const g=sm(.3,.9,vn(a*6+tt*.3,hz*3+tt*.15)*.7+vn(a*13+tt*.5,hz*6)*.3)*(.8+.2*Math.sin(t*.08+a*9));
+    c=g<.4?mix(rgb('#241008'),rgb('#8a260e'),g/.4):mix(rgb('#c23a12'),rgb('#ff9a34'),(g-.4)/.6);
+    c=lit(c,(hz<.4?.6:1)*(.85+.3*ln));
+  }
+  // flames: three tongues that sway, flicker and merge
+  const warp=(vn(hz*.4-tt*2.6,a*2.4+7)-.5)*.7*Math.min(1,hz/3), uu=u+warp;
+  const tongues=.5+.5*Math.abs(Math.sin(u*3.3+1.2+tt*.55)), H=(5.2+4.2*vn(u*1.8+tt*.8,tt*.6+3))*(.5+.5*tongues)*(1-.3*u*u)*(.88+.12*Math.sin(t*.31+u*6)), r=1-hz/H;
+  if(r>0){
+    const wd=.3+.75*Math.pow(r,.6), I=Math.min(1,sm(0,.4,r)*(1-sm(.35,1.0,Math.abs(uu)/wd))*1.15);
+    if(I>.02){
+      const col=I>.82?mix(rgb('#ffcf5a'),rgb('#fff0b8'),(I-.82)/.18):I>.45?mix(rgb('#f2761a'),rgb('#ffcf5a'),(I-.45)/.37):mix(rgb('#a8260a'),rgb('#f2761a'),I/.45);
+      c=mix(c||under,col,Math.min(1,sm(0,.3,I)));
+    }
+  }
+  return c;
+}
+function fireProp(/** @type {number} */t){
+  const B={k:'I',c:FIRE.c}, F=FFIRE;
+  fq(B,F.x0,F.z0,F.x1,F.z1,(a,z,x,y)=>fireAt(a,z,t,x,y));
+  // register bars in front of the coals
+  const BR={k:'I',c:FIRE.c+.03};
+  for(let a=F.x0+.06;a<F.x1;a+=.16) fl(BR,a,F.z0,a,2.3,lit(K.iron,.9));
+  fl(BR,F.x0,2.4,F.x1,2.4,lit(K.ironL,.9)); fl(BR,F.x0,F.z0+.2,F.x1,F.z0+.2,lit(K.ironL,.9));
+  // embers flung up the chimney
+  for(let k=0;k<4;k++){ const age=((t*.011+k*.27)%1), x=isoX(.5,8.4+Math.sin(k*5.1+t*.003)*.3+age*.15)+Math.sin(age*9+k)*2, y=isoY(.5,8.4,3+age*8);
+    if(age<.9) spot(x,y,1.3,1.3,.9*(1-age),rgb('#ffb04a')); }
+}
 /** Free-standing shell props drawn in depth order (e.g. hanging lamps): {box,draw}. */
-export function pubShellProps(/** @type {number} */t){ return []; }
+export function pubShellProps(/** @type {number} */t){
+  cam();
+  const P=PUB.fire;
+  return [{box:[0,P.j0,.55,P.j1],draw:()=>{ cam(); fireProp(t); }},
+    ...GASOLIERS.map(g=>({box:[g.i-.3,g.j-.3,g.i+.3,g.j+.3],draw:()=>{ cam(); gasolier(g,t); }}))];
+}
+
+/* ---------- light and air ---------- */
+const flick=(/** @type {number} */t,/** @type {number} */k)=>.86+.14*vn(t*.045+k*13,k*5)+.05*Math.sin(t*.37+k*2);
+const WARM=rgb('#ffb05a'), HAZE=rgb('#7d6a50');
 /** Per-frame effects after all props: fire, lamp glow, tobacco haze, vignette. */
-export function pubShellFX(/** @type {number} */t){}
+export function pubShellFX(/** @type {number} */t){
+  cam();
+  const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, hr=HAZE&255, hg=(HAZE>>8)&255, hb=(HAZE>>16)&255;
+  // tobacco haze in two drifting layers + vignette, 2×2 blocks, camera-relative so it does not swim when the room pans
+  for(let y=0;y<H;y+=2){ const wy=y-G.oy; for(let x=0;x<W;x+=2){
+    if(!fb[y*W+x]) continue;
+    const wx=x-G.ox, n1=fbm(wx*.014-t*.0009,wy*.03+Math.sin(t*.0007)*.4), n2=fbm(wx*.03+t*.0021+9,wy*.06-t*.0005);
+    const a=Math.min(.26,.03+.16*n1*n1+.12*Math.max(0,n2-.4))*(.6+.55*Math.max(0,Math.min(1,(.62-y/H)*1.6+.5)));
+    for(let yy=y;yy<y+2&&yy<H;yy++) for(let xx=x;xx<x+2;xx++){
+      const k=yy*W+xx, c=fb[k]; if(!c) continue;
+      const dx=xx/W-.5, dy=yy/H-.5, v=1-.5*(dx*dx+dy*dy)*1.7;
+      fb[k]=(0xff000000|((((c>>16)&255)*(1-a)+hb*a)*v<<16)|((((c>>8)&255)*(1-a)+hg*a)*v<<8)|(((c&255)*(1-a)+hr*a)*v))>>>0;
+    }
+  } }
+  // gasolier halos and light pools on the floor
+  GASOLIERS.forEach((g,n)=>{
+    const f=flick(t,n+1), px=isoX(g.i,g.j), py=isoY(g.i,g.j,0);
+    spot(px,py,95,48,.11*f,WARM); spot(px,py,55,28,.08*f,WARM);
+    for(const s of gasolierShades(g,t)){ const x=isoX(s[0],s[1]), y=isoY(s[0],s[1],s[2]+.8); spot(x,y,13,11,.16*f,WARM); spot(x,y,5,4,.3*f,rgb('#fff1c4')); }
+  });
+  // wall brackets
+  LAMPS.forEach((l,n)=>{ const [i,j,z]=lampPos(l), f=flick(t,n+5), x=isoX(i,j), y=isoY(i,j,z+.9);
+    spot(x,y,26,22,.2*f,WARM); spot(x,y,8,7,.4*f,rgb('#fff1c4'));
+    const [wx,wy]=l.f.k==='I'?[i+.5,j]:[i,j+.5]; spot(isoX(wx,wy),isoY(wx,wy,z-8),42,30,.06*f,WARM); });
+  // the fire: flickering glow on the wall, the hearth and the floor in front, brass fender glints
+  const ff=.78+.22*vn(t*.09,1.3)+.1*Math.sin(t*.43)+.06*Math.sin(t*.91+2);
+  spot(isoX(.9,8.4),isoY(.9,8.4,.5),60,26,.2*ff,rgb('#ff7a22'));
+  spot(isoX(2.4,8.6),isoY(2.4,8.6,0),130,64,.12*ff,rgb('#ff7a22'));
+  spot(isoX(.55,8.4),isoY(.55,8.4,4),22,18,.13*ff,rgb('#ffb04a'));
+  
+  for(let k=0;k<6;k++){ const j=7.5+k*.36; spot(isoX(.96,j),isoY(.96,j,2.1),3.4,2.4,.5*ff*(.6+.4*Math.sin(t*.2+k*2)),rgb('#ffd890')); }
+  // mantel candles
+  for(const j of [7.62,9.18]) { const f=flick(t,j|0); spot(isoX(.74,j),isoY(.74,j,16.6),9,9,.28*f,WARM); }
+}

@@ -282,7 +282,7 @@ function settle(/** @type {string} */axis,/** @type {number[]} */box,/** @type {
 
 /* ---------- dining tables ---------- */
 const DINE=[
-  {cloth:true,seed:2,col:rgb('#7a5632'),chairs:[.2,.8],bench:'settle',cushion:true},
+  {cloth:true,seed:2,col:rgb('#7a5632'),chairs:[.2,.8],bench:'chairs',cushion:true},   /* chairs, not a settle, on the fire side: a high back would hide the grate */
   {cloth:false,seed:11,col:rgb('#8a6a44'),chairs:[.17,.5,.83],bench:'settle',cushion:false},
   {cloth:false,seed:23,col:rgb('#7c5a37'),chairs:[.25,.75],bench:'bench',cushion:false},
 ];
@@ -472,7 +472,7 @@ export function pubTablesProps(/** @type {number} */t){
     const [i0,j0,i1,j1]=d.box, ax=d.axis, cfg=DINE[k];
     L.push({box:d.box,draw:run(()=>diningTable(d,k,t))});
     const back=ax==='i'?[i0,j0-.55,i1,j0-.05]:[i0-.55,j0,i0-.05,j1], frontB=ax==='i'?[i0,j1+.05,i1,j1+.55]:[i1+.05,j0,i1+.55,j1];
-    L.push({box:back,draw:run(()=>settle(ax,d.box,k,cfg.bench==='settle',cfg.cushion))});
+    L.push({box:back,draw:run(()=>cfg.bench==='chairs'?chairRow(ax,d.box,0,[.3,.7],k*2+1):settle(ax,d.box,k,cfg.bench==='settle',cfg.cushion))});
     L.push({box:frontB,draw:run(()=>chairRow(ax,d.box,1,cfg.chairs,k*2))});
   });
   L.push({box:[PUB.pianoStool.i-PUB.pianoStool.r,PUB.pianoStool.j-PUB.pianoStool.r,PUB.pianoStool.i+PUB.pianoStool.r,PUB.pianoStool.j+PUB.pianoStool.r],draw:run(pianoStool)});
