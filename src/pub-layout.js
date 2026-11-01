@@ -25,7 +25,8 @@ export const PUB={
   servery:[5.8,.75,11.0,2.4],                             // where the barman works (no player access)
   stools:[[5.6,4.0],[6.9,4.0],[8.2,4.0],[9.5,4.0],[10.8,4.0]], stoolR:.28,
   standing:[{i:4.4,j:7.4,r:.45},{i:6.1,j:7.4,r:.6},{i:8.0,j:7.4,r:.6},{i:9.9,j:7.4,r:.5}],
-  dining:[{box:[10.2,9.9,12.2,10.9],axis:'i'},{box:[3.9,9.9,6.4,10.9],axis:'i'},{box:[7.1,9.9,9.6,10.9],axis:'i'}],
+  dining:[{box:[10.2,9.75,12.2,10.75],axis:'i'},{box:[3.9,9.75,6.4,10.75],axis:'i'},{box:[7.1,9.75,9.6,10.75],axis:'i'}], // chairs only on the room side (j0-.55..j0)
+  banquette:{box:[3.4,10.85,12.45,11.5],back:9.5},        // one continuous buttoned leather banquette along the front-left wall j=J behind the dining tables; back top z (low enough not to hide the table tops)
   coatStand:{i:11.95,j:8.1,r:.3},
   clock:{box:[11.6,0,12.3,.55]},                          // longcase clock against wall j=0 beyond the bar end
 };

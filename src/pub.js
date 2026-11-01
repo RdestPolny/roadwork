@@ -14,10 +14,8 @@ export { PUB };
 
 /** Walking margin round furniture and walls (half the body's width). */
 const R=.24;
-/** Seating round the dining tables: chairs and benches a diner pulls out (1 unit out from the long sides). */
-function seatBoxes(){
-  return PUB.dining.map(({box:[a,b,c,d],axis})=>axis==='j'?[a-.55,b,c+.55,d]:[a,b-.55,c,d+.55]);
-}
+/** Chairs pulled up to the dining tables on the room side (the banquette runs along the wall behind them). */
+function seatBoxes(){ return PUB.dining.map(({box:[a,b,c]})=>[a,b-.55,c,b]); }
 
 /** Runtime values owned by the pub. */
 export const state={inside:false,i:12,j:5.75,fi:-1,fj:0,ph:0,moving:false,cy:48,bake:/** @type {Uint32Array|null} */(null)};
@@ -39,7 +37,7 @@ export function pubBlocked(i,j){
   const P=PUB, D=P.door, atDoor=j>D.j0+R&&j<D.j1-R;
   if(i<R||j<R||j>P.J-R||i>(atDoor?P.I+.1:P.I-R)) return true;
   if(inBox(i,j,[0,P.fire.j0,P.fire.d,P.fire.j1])) return true;
-  for(const b of [P.piano.box,P.stairs.box,P.counter.box,P.ret.box,P.backbar.box,P.servery,P.clock.box,...seatBoxes()]) if(inBox(i,j,b)) return true;
+  for(const b of [P.piano.box,P.stairs.box,P.counter.box,P.ret.box,P.backbar.box,P.servery,P.clock.box,P.banquette.box,...seatBoxes()]) if(inBox(i,j,b)) return true;
   if(P.stools.some(([si,sj])=>Math.hypot(i-si,j-sj)<P.stoolR+R)) return true;
   if(P.standing.some(s=>Math.hypot(i-s.i,j-s.j)<s.r+R)) return true;
   return [P.coatStand,P.pianoStool].some(c=>Math.hypot(i-c.i,j-c.j)<c.r+R);
