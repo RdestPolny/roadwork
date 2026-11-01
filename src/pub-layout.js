@@ -13,8 +13,8 @@ export const PUB={
   I:12.5, J:13.8, H:46,
   door:{j0:4.9,j1:6.6},                                   // street door in the front wall i=I
   passage:{j0:3.9,j1:5.3,h:14},                           // open arched passage in wall i=0 to the next room (built later; not walkable yet)
-  piano:{box:[0,5.75,.8,6.95]},                           // cottage piano against wall i=0, right beside the passage
-  pianoStool:{i:1.2,j:6.35,r:.22},                        // round piano stool in front of it
+  piano:{box:[0,5.45,.8,6.65]},                           // cottage piano against wall i=0, right beside the passage
+  pianoStool:{i:1.2,j:6.05,r:.22},                        // round piano stool in front of it
   fire:{j0:7.6,j1:10.4,d:.9,hearth:1.75},                  // wide chimney breast in wall i=0 (projects to i=d), hearth stone out to i=hearth
   fireside:{box:[1.75,7.6,3.6,10.4]},                      // open floor before the fire: rug and low things only (z<=5), so the fire reads from the camera
   gallery:{box:[0,0,1.4,7.6],z:22,doors:[[1.6,2.6],[3.4,4.4],[5.2,6.2]]}, // hanging gallery along wall i=0 from the stair head to the chimney breast; floor top at z, room doors [j0,j1] in wall i=0
