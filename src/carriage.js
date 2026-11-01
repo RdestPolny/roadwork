@@ -47,9 +47,9 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
     const trunk=pass=>{
       const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, x0=isoX(11.42,jc+offset), y0=isoY(11.42,jc+offset,11.55-.2*Math.max(...rest)), x1=isoX(13.33,jc+offset), y1=isoY(13.33,jc+offset,11.25);
       const r0=5.9*breath, r1=4.8, bl=.9, dx=x1-x0, dy=y1-y0, l2=dx*dx+dy*dy, L=Math.sqrt(l2); let nx=-dy/L, ny=dx/L; if(ny>0){ nx=-nx; ny=-ny; }
-      const R=r0+bl+2, xa=isoX(11.6,jc+offset), xb=isoX(13,jc+offset);
+      const R=r0+bl+3, xa=isoX(11.6,jc+offset), xb=isoX(13,jc+offset);
       for(let y=Math.max(0,Math.floor(Math.min(y0,y1)-R));y<=Math.min(H-1,Math.ceil(Math.max(y0,y1)+R));y++) for(let x=Math.max(0,Math.floor(Math.min(x0,x1)-R));x<=Math.min(W-1,Math.ceil(Math.max(x0,x1)+R));x++){
-        const tr=((x-x0)*dx+(y-y0)*dy)/l2, tt=tr<0?0:tr>1?1:tr, ex=x-(x0+dx*tt), ey=y-(y0+dy*tt), r=r0+(r1-r0)*tt+bl*4*tt*(1-tt), d=Math.hypot(ex,ey);
+        const tr=((x-x0)*dx+(y-y0)*dy)/l2, tt=tr<0?0:tr>1?1:tr, ex=x-(x0+dx*tt), ey=y-(y0+dy*tt), r=r0+(r1-r0)*tt+bl*4*tt*(1-tt)+.85*Math.exp(-(((tt-.17)/.23)**2))+.42*Math.exp(-(((tt-.87)/.19)**2))-.38*Math.exp(-(((tt-.55)/.19)**2)), d=Math.hypot(ex,ey);
         if(pass===0){ if(d<=r+1) fb[y*W+x]=appearanceState.C_OUT; continue; } if(d>r) continue;
         const up=(ex*nx+ey*ny)/r, shade=.5+.42*up-.18*(d/r)**2+.08*(vn((x-x0)*.35+offset*9,(y-y0)*.35)-.5);
         const ru=(x-xa+.6*Math.sin((y-y0)*.7+ph))/(xb-xa), hem=-.5+.06*Math.sin(ru*11+ph)+.03*Math.sin(ru*29);
@@ -62,9 +62,9 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
     const leg=(i,j,fore,cock,lift,pass,part='all')=>{
       const col=j>jc?coat:far, up=part!=='lower', low=part!=='upper';
       if(fore){ const knee=[i+.06+.32*lift,j,5.6+1.5*lift], fet=[i+.02-.12*lift,j,1.6+2*lift], hoof=[i+.08-.2*lift,j,.35+1.5*lift];
-        if(up) limb([i-.05,j,10.4],knee,1.2,.62,pass,col); if(low){ limb([i+.03+.2*lift,j,7.2+.9*lift],knee,.85,.62,pass,col); limb(knee,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
-      else { const hock=[i-.48+.1*cock,j,5.8-.3*cock], fet=[i-.12+.25*cock,j,1.5+.55*cock], hoof=[i-.02+.42*cock,j,.35+.15*cock];
-        if(up) limb([i+.05,j,10.8],[i-.12,j,8],1.6,1,pass,col); if(low){ limb([i-.12,j,8],hock,1,.58,pass,col); limb(hock,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
+        if(up) limb([i-.05,j,10.4],knee,1.45,.82,pass,col); if(low){ limb([i+.03+.2*lift,j,7.2+.9*lift],knee,.98,.82,pass,col); limb(knee,fet,.67,.52,pass,hair); limb(fet,hoof,.56,.66,pass,hair); } }
+      else { const hock=[i-.20+.08*cock,j,5.8-.3*cock], fet=[i-.06+.12*cock,j,1.5+.55*cock], hoof=[i+.02+.18*cock,j,.35+.15*cock];
+        if(up) limb([i+.05,j,10.8],[i+.08,j,7.9],1.95,1.25,pass,col); if(low){ limb([i+.08,j,7.9],hock,1.25,.78,pass,col); limb(hock,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
     };
     for(let pass=0;pass<2;pass++){
       leg(11.85,jc-.34,false,rest[0],0,pass); leg(13.2,jc-.34,true,0,ph?paw:0,pass);
@@ -72,11 +72,14 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
       limb([11.05,jc+.04,9.6],[11.1+swish*.4,jc+.08+swish*.3,6.2],.6,.42,pass,hair);
       leg(11.75,jc+.34,false,rest[1],0,pass,'upper'); leg(13.3,jc+.34,true,0,ph?0:paw,pass,'upper');
       trunk(pass);
+      // Visible muscular near haunch and shoulder blend into the barrel.
+      limb([11.75,jc+.36,11.1],[11.83,jc+.36,7.8],2.05,1.24,pass);
+      limb([13.20,jc+.36,11.4],[13.28,jc+.36,8.2],1.65,1.05,pass);
       limb([13.05,jc,12.6],[13.5,jc,15.6+nod*.4],2.6,1.95,pass);
-      limb([13.5,jc,15.6+nod*.4],poll,1.8,1.25,pass);
-      limb([poll[0]+.04,jc,poll[2]-.5],[poll[0]+.22,jc,poll[2]-1.9],1.25,1,pass);
-      limb(poll,muzzle,1.23,.87,pass);
-      limb([muzzle[0]-.12,jc,muzzle[2]+.35],[muzzle[0]+.06,jc,muzzle[2]-.1],.82,.72,pass);
+      limb([13.5,jc,15.6+nod*.4],poll,1.95,1.48,pass);
+      limb([poll[0]+.04,jc,poll[2]-.5],[poll[0]+.22,jc,poll[2]-1.9],1.48,1.18,pass);
+      limb(poll,muzzle,1.48,1.07,pass);
+      limb([muzzle[0]-.12,jc,muzzle[2]+.35],[muzzle[0]+.06,jc,muzzle[2]-.1],1.02,.90,pass);
       limb([poll[0]-.06,jc-.12,poll[2]+.6],[poll[0]-.02-flick*.3,jc-.14,poll[2]+1.9],.42,.15,pass,hair);
       limb([poll[0]+.05,jc+.12,poll[2]+.6],[poll[0]+.12,jc+.14,poll[2]+1.85],.42,.15,pass,hair);
       leg(11.75,jc+.34,false,rest[1],0,pass,'lower'); leg(13.3,jc+.34,true,0,ph?0:paw,pass,'lower');
