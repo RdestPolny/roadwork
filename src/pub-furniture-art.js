@@ -66,28 +66,20 @@ export function pubFurnitureItems({box, ln, c}) {
     ln(i + .035, j + .155, z + .35, i + .035, j + .155, z + 1.2, c.cool);
   }
 
+  /** A sturdy four-legged stool placed beside a table. */
+  function stool(a,b,d,e){
+    for(const i of [a+.06,d-.12]) for(const j of [b+.06,e-.12])
+      box(i,j,i+.06,j+.06,0,3.3,c.wood,c.bar,c.dark);
+    box(a,b,d,e,3.3,3.7,c.top,c.wood,c.bar);
+    ln(a+.05,b+.06,3.71,d-.05,b+.06,3.71,c.trim);
+  }
   return [
-    [5.8, () => {
-      table(1.1, 2.25, 2.45, 3.35);
-      tankard(1.35, 2.5, 5.7);
-      // A small wooden plate and crumbs catch the light on the other end.
-      box(1.87, 2.8, 2.15, 3.03, 5.7, 5.82, c.trim, c.wood, c.bar);
-      box(1.94, 2.86, 2.07, 2.96, 5.82, 5.95, c.paper, c.trim, c.wood);
-    }],
-    [8.6, () => {
-      table(4.05, 2.1, 5.55, 3.05);
-      bottle(4.35, 2.4, 5.7);
-      box(4.9, 2.65, 5.15, 2.87, 5.7, 5.83, c.paper, c.stone, c.dark);
-      ln(4.94, 2.7, 5.84, 5.1, 2.7, 5.84, c.wood);
-      ln(4.94, 2.76, 5.84, 5.07, 2.76, 5.84, c.wood);
-      tankard(5.22, 2.28, 5.7);
-    }],
-    [12.05, () => {
-      table(6.35, 4, 7.25, 4.8);
-      tankard(6.65, 4.25, 5.7);
-      box(6.92, 4.5, 7.1, 4.65, 5.7, 5.8, c.paper, c.trim, c.wood);
-    }],
-    [6.85, () => bench(.1, 4.2, .7, 6.15)],
-    [11.8, () => bench(7.65, 1.05, 8.55, 3.25)],
+    [7.2, () => {table(1,4.15,2.05,5.15);tankard(1.22,4.45,5.7);box(1.65,4.7,1.9,4.95,5.7,5.83,c.paper,c.wood,c.bar);}],
+    [10.45, () => {table(6.4,2.2,7.3,3.15);bottle(6.65,2.5,5.7);tankard(6.95,2.7,5.7);}],
+    [8.7, () => {table(3.8,3.1,4.8,3.9);tankard(4,3.3,5.7);box(4.4,3.5,4.62,3.7,5.7,5.83,c.paper,c.wood,c.bar);}],
+    [6.4, () => bench(.1,3.7,.7,5.7)],
+    [12.2, () => bench(7.75,1.8,8.55,3.65)],
+    [7.4, () => stool(3.1,3.4,3.55,3.85)],
+    [9.28, () => stool(4.98,3.4,5.43,3.85)],
   ];
 }

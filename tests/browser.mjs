@@ -417,11 +417,41 @@ try {
       await page.keyboard.press('e');
       assert.equal(await page.evaluate(()=>window.__boxer.gstate),'pub','E at the front door enters the pub');
       assert.equal(await page.locator('#prompt').isVisible(),true,'exit prompt is visible inside');
-      const collision=await page.evaluate(async()=>{const P=await import('/src/pub.js'); const start=P.pubPlayer(); P.pubKey({code:'ArrowUp'},true); window.__boxer.step(40); P.pubKey({code:'ArrowUp'},false); const moved=P.pubPlayer(); return {start,moved,bar:P.pubBlocked(1.5,1),door:P.pubBlocked(7.5,.2),floor:P.pubBlocked(3.3,4.5)};});
+      const collision=await page.evaluate(async()=>{const P=await import('/src/pub.js'); const start=P.pubPlayer(); P.pubKey({code:'ArrowUp'},true); window.__boxer.step(40); P.pubKey({code:'ArrowUp'},false); const moved=P.pubPlayer(); return {start,moved,bar:P.pubBlocked(1.5,2),door:P.pubBlocked(7.5,.2),floor:P.pubBlocked(3.3,4.5)};});
       assert.ok(Math.hypot(collision.start.i-collision.moved.i,collision.start.j-collision.moved.j)>.5,'player can explore the interior');
       assert.deepEqual([collision.bar,collision.door,collision.floor],[true,true,false],'counter and rear door are solid and the aisle is clear');
-      const edges=await page.evaluate(async()=>{const P=await import('/src/pub.js');return [P.pubBlocked(3.08,1.45),P.pubBlocked(6,.8),P.pubBlocked(5.3,6.35)];});
+      const edges=await page.evaluate(async()=>{const P=await import('/src/pub.js');return [P.pubBlocked(3.08,2.3),P.pubBlocked(3.7,1),P.pubBlocked(5.3,6.35)];});
       assert.deepEqual(edges,[true,false,true],'bar edge and open door leaf block movement, but the empty rear floor does not');
+      const route=await page.evaluate(async()=>{
+        const P=await import('/src/pub.js'), start=P.pubPlayer(), unit=.1;
+        const origin=[Math.round(start.i/unit),Math.round(start.j/unit)], target=[20,10];
+        const key=(i,j)=>i+','+j, queue=[origin], seen=new Set([key(...origin)]);
+        for(let n=0;n<queue.length;n++){
+          const [i,j]=queue[n]; if(i===target[0]&&j===target[1]) return true;
+          for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){
+            const x=i+di,y=j+dj,k=key(x,y); if(!seen.has(k)&&!P.pubBlocked(x*unit,y*unit)){seen.add(k);queue.push([x,y]);}
+          }
+        }
+        return false;
+      });
+      assert.equal(route,true,'the service aisle behind the bar is reachable from the public room');
+      await page.evaluate(async()=>{(await import('/src/pub.js')).startPub();});
+      const behind=await page.evaluate(async()=>{
+        const P=await import('/src/pub.js');
+        for(const [axis,target] of [['j',5.5],['i',5.8],['j',2.7],['i',3.45],['j',1.1],['i',2]]){
+          for(let n=0;n<100;n++){
+            const p=P.pubPlayer(),delta=target-p[axis]; if(Math.abs(delta)<.045) break;
+            const keys=axis==='i'?(delta>0?['ArrowRight','ArrowDown']:['ArrowLeft','ArrowUp']):(delta>0?['ArrowDown','ArrowLeft']:['ArrowRight','ArrowUp']);
+            for(const code of keys) P.pubKey({code},true);
+            window.__boxer.step(1);
+            for(const code of keys) P.pubKey({code},false);
+          }
+        }
+        return P.pubPlayer();
+      });
+      assert.ok(Math.hypot(behind.i-2,behind.j-1.1)<.12,'player can physically walk into the aisle behind the bar');
+
+
 
       await page.evaluate(async()=>{const P=await import('/src/pub.js'); P.startPub();});
       const pubBefore=await page.evaluate(async()=>(await import('/src/pub.js')).pubPlayer());

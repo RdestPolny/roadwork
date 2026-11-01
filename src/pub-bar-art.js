@@ -5,7 +5,8 @@
  * @param {{box: Function, ln: Function, panel: Function, c: Object}} api
  * Drawing primitives and palette supplied by pub.js; all heights are world heights.
  */
-export function drawPubBar({box, ln, panel, c}) {
+export function drawPubBar({box: wallBox, ln: wallLine, panel: wallPanel, c}) {
+ let box=wallBox, ln=wallLine, panel=wallPanel;
  // A dark backing makes the glass and the shelf edges legible against the plaster.
  panel(.24,.035,8.4,2.83,.035,8.4,2.83,.035,18.4,.24,.035,18.4,c.bar);
  for (const i of [.24,1.08,1.94,2.83]) ln(i,.04,8.4,i,.04,18.4,c.wood);
@@ -40,7 +41,12 @@ export function drawPubBar({box, ln, panel, c}) {
  ];
  for (const args of bottles) bottle(...args);
 
- // The carcass and overhanging worktop retain the original counter footprint.
+ // The worktop stands away from the wall, leaving a service aisle behind it.
+ const offset=.95;
+ box=(a,b,d,e,...rest)=>wallBox(a,b+offset,d,e+offset,...rest);
+ ln=(a,b,z,d,e,Z,col)=>wallLine(a,b+offset,z,d,e+offset,Z,col);
+ panel=(a,b,z,d,e,Z,g,h,k,i,j,l,col)=>wallPanel(a,b+offset,z,d,e+offset,Z,g,h+offset,k,i,j+offset,l,col);
+ // Counter and worktop; the gap at the right end provides access for staff.
  box(.1,.7,2.9,1.32,0,7.2,c.wood,c.bar,c.dark);
  box(.1,1.315,2.9,1.34,.45,1.05,c.trim,c.wood,c.dark);
  box(.1,1.315,2.9,1.34,6.3,6.85,c.trim,c.wood,c.dark);

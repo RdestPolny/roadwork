@@ -15,7 +15,13 @@ const P={i:4.9,j:6.05,fi:0,fj:-1,ph:.25,moving:false}, keys=new Set();
 const cam={x:200,y:79,ix:18,jx:-18,iy:9,jy:9,z:3,figureScale:3};
 const c={void:rgb('#171411'),floor:rgb('#66503a'),floor2:rgb('#735a40'),seam:rgb('#433427'),wall:rgb('#75634d'),wall2:rgb('#60503e'),dark:rgb('#2a211a'),wood:rgb('#513625'),trim:rgb('#94724c'),bar:rgb('#34251c'),top:rgb('#805d3c'),stone:rgb('#746452'),soot:rgb('#221c18'),fire:rgb('#dc8034'),gold:rgb('#d2a666'),glass:rgb('#527066'),cool:rgb('#788581'),paper:rgb('#bcaa83')};
 // Furniture footprints include a small margin for the figure's feet.
-const obstacles=[[.02,.1,3,1.4],[3.05,.1,4.55,.75],[7.65,1.05,8.55,3.25],[1.1,2.25,2.45,3.35],[4.05,2.1,5.55,3.05],[6.35,4,7.25,4.8],[.1,4.2,.7,6.15],[5.13,6.18,5.65,6.72]];
+const obstacles=[
+  [.02,1.57,3,2.35], [4.75,.03,6.32,.75],
+  [.1,3.7,.7,5.7], [1,4.15,2.05,5.15],
+  [7.75,1.8,8.55,3.65], [6.4,2.2,7.3,3.15],
+  [3.8,3.1,4.8,3.9], [3.1,3.4,3.55,3.85], [4.98,3.4,5.43,3.85],
+  [5.13,6.18,5.65,6.72]
+];
 /** Solid walls and furniture, expressed in the same ground units as the port. */
 export function pubBlocked(i,j){ return i<.34||i>8.26||j<.34||j>6.56||obstacles.some(([a,b,d,e])=>i>a-.19&&i<d+.19&&j>b-.19&&j<e+.19); }
 /** Reset only the temporary interior player; the port state stays with its owner. */
@@ -36,13 +42,13 @@ function ln(i,j,z,I,J,Z,col){isoLineThin(i,j,z,I,J,Z,col);}
 function box(a,b,d,e,z,h,top=c.top,front=c.wood,side=c.bar){isoBox(a,b,d,e,z,h,top,front,side);}
 /** Draw the room fixtures before the movable foreground furnishings. */
 function fixed(){
-  drawPubBar({box,ln,panel,c});
   drawPubFireplace(boxingState.tick);
   drawPubLamp(boxingState.tick);
 }
 /** Sort the player with each piece of furniture by ground depth. */
 function furnishings(){
   const items=pubFurnitureItems({box,ln,c});
+  items.push([5.35,()=>drawPubBar({box,ln,panel,c})]);
   items.push([P.i+P.j,()=>{
     const A=appearanceState, side=P.fi-P.fj>=0?1:-1;
     const J=walkJoints(P.moving?P.ph%1:.25,false,side);
@@ -67,8 +73,8 @@ function lightMap(w,h){
   const fall=(x,y,cx,cy,rx,ry)=>Math.max(0,1-Math.hypot((x-cx)/rx,(y-cy)/ry));
   for(let y=0;y<h;y++) for(let x=0;x<w;x++){
     const k=(y*w+x)*3;
-    data[k]=fall(x,y,260,106,85,65);
-    data[k+1]=fall(x,y,304,80,105,86);
+    data[k]=fall(x,y,291,121,85,65);
+    data[k+1]=fall(x,y,274,65,105,86);
     data[k+2]=fall(x,y,167,188,70,53);
   }
   return lights={w,h,data};
