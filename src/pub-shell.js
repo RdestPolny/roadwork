@@ -549,7 +549,7 @@ function fireplace(){
     fq({k:'I',c},a-.17,zl,a+.17,my,(x_,z)=>{ const t=(z-zl)/(my-zl), hw=.05+.12*t**.8; return Math.abs(x_-a)<hw?lit(K.mahog,.6+.7*t*(1-.5*Math.abs(x_-a)/hw)):0; });
     fq({k:'I',c:c+.02},a-.04,zl+.1,a+.04,zl+.8,()=>lit(K.gold,1)); }
   // stepped cornice over the breast: it shows how far the chimney stands out
-  const cz0=PUB.H-5.6, cz1=PUB.H-3.9, cc=FIRE.c+.3, cj0=P.j0-.15, cj1=P.j1+.15;
+  const cz0=PUB.H-5.6, cz1=PUB.H-3.9, cc=FIRE.c+.12, cj0=P.j0-.15, cj1=P.j1+.15;
   quad(0,cj0,cz1,0,cj1,cz1,cc,cj1,cz1,cc,cj0,cz1,(x,y)=>{ const [i,j]=gnd(x,y,cz1); return lit(mix(K.plaster,K.nic,.4),1.1+.1*vn(i*3,j*3)); });
   fq({k:'I',c:cc},cj0,cz0,cj1,cz1,(a,z)=>{ const d=((a*6)%1+1)%1; return lit(mix(K.plaster,K.nic,.4),z>cz1-.5?1.2:z<cz0+.5?(d<.5?.95:.45):.8); });
   quad(cc,cj1,cz0,cc,cj1,cz1,0,cj1,cz1,0,cj1,cz0,()=>lit(mix(K.plaster,K.nic,.4),.5));
