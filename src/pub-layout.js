@@ -26,7 +26,7 @@ export const PUB={
   stools:[[5.6,4.0],[6.9,4.0],[8.2,4.0],[9.5,4.0],[10.8,4.0]], stoolR:.28,
   standing:[{i:4.4,j:7.4,r:.45},{i:6.1,j:7.4,r:.6},{i:8.0,j:7.4,r:.6},{i:9.9,j:7.4,r:.5}],
   dining:[{box:[10.2,9.75,12.2,10.75],axis:'i'},{box:[3.9,9.75,6.4,10.75],axis:'i'},{box:[7.1,9.75,9.6,10.75],axis:'i'}], // chairs only on the room side (j0-.55..j0)
-  banquette:{box:[.7,10.85,12.45,11.5],leg:[0,9.85,.7,11.5],back:8}, // one continuous buttoned leather banquette: the long run along the front-left wall j=J from wall i=0 to the front, and an L leg along wall i=0 (beside the fireplace) whose padded front faces the camera; back top z kept low so table tops stay visible
+  banquette:{box:[.7,10.85,12.45,11.5],leg:[0,9.85,.7,11.5],back:8,legBack:11}, // one continuous buttoned leather banquette: the long run along the front-left wall j=J from wall i=0 to the front, and an L leg along wall i=0 (beside the fireplace) whose padded front faces the camera; back top z kept low so table tops stay visible, the leg against the back wall stands taller (legBack)
   coatStand:{i:11.95,j:8.1,r:.3},
   clock:{box:[11.6,0,12.3,.55]},                          // longcase clock against wall j=0 beyond the bar end
 };

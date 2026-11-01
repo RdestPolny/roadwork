@@ -269,11 +269,11 @@ function scrollEnd(/** @type {number} */i0,/** @type {number} */j0,/** @type {nu
 }
 /** The long run of the banquette along the wall j=J: rear (tufted back), rolled top, bay dividers, scroll end at the street. */
 function banquette(){
-  const [i0,j0,i1,j1]=PUB.banquette.box, top=PUB.banquette.back, ei=.24, bx1=i1-ei, bj=j1-.36, leg=PUB.banquette.leg, lw=leg[2];
+  const [i0,j0,i1,j1]=PUB.banquette.box, top=PUB.banquette.back, ei=.24, bx1=i1-ei, bj=j1-.36;
   contact(i0,j0,i1,j1,0,.5);
   slab('i',i0,j0+.03,bx1,j1,0,1.2,OAK,{});
-  slab('i',lw,j0,bx1,j1-.34,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,j0,j1-.34,'j')});
-  quad(i0,j1,1.2,bx1,j1,1.2,bx1,j1,top,i0,j1,top,tuft('j',j1,i0+.17,top));
+  slab('i',i0,j0,bx1,j1-.34,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,j0,j1-.34,'j')});
+  quad(i0,j1,1.2,bx1,j1,1.2,bx1,j1,top,i0,j1,top,tuft('j',j1,.17,top));
   quad(i0,bj,top,bx1,bj,top,bx1,j1,top,i0,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
   thin(i0,j1,top-.1,bx1,j1,top-.1,shadeC(GREEN,1.9));
   const bays=PUB.dining.map(d=>d.box).sort((a,b)=>a[0]-b[0]);
@@ -282,20 +282,25 @@ function banquette(){
   }
   scrollEnd(bx1,j0,i1,j1,top,1,0);
 }
-/** The L leg along the wall i=0: back against the wall, seat facing +i (the viewer sees the buttoned front). */
+/** The L leg along the wall i=0 from the chimney breast to the corner: buttoned back and piped seat face the camera. */
 function banquetteLeg(){
-  const [i0,j0,i1,j1]=PUB.banquette.leg, top=PUB.banquette.back, bk=.28, je=PUB.banquette.box[1]+.31, ec=.2;
-  contact(i0,j0,i1,PUB.banquette.box[3],0,.5);
-  slab('i',i0,j0,i1-.03,je+0,0,1.2,OAK,{});
-  slab('i',i0+bk,j0+ec,i1,je,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,i0+bk,i1,'i')});
-  // piped front edge and cushion buttons
-  thin(i1,j0+ec,4.4,i1,je,4.4,shadeC(GREEN,1.9)); thin(i1,j0+ec,3.6,i1,je,3.6,shadeC(GREEN,.55));
-  // buttoned back
-  quad(i0+bk,j0+ec,1.2,i0+bk,je,1.2,i0+bk,je,top,i0+bk,j0+ec,top,tuft('i',i0+bk,j0+ec+.1,top));
-  quad(i0,j0+ec,top,i0+bk,j0+ec,top,i0+bk,je,top,i0,je,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(i-i0)/bk; return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*3,j*2)); });
-  quad(i0+bk,j0+ec,top-.2,i0+bk,je,top-.2,i0+bk,je,top,i0+bk,j0+ec,top,()=>shadeC(GREEN,1.7));
-  // carved scroll end at the free end
-  scrollEnd(i0,j0,i1,j0+ec,top,1,1);
+  const [i0,j0,i1,j1]=PUB.banquette.leg, top=PUB.banquette.legBack, bk=.28, ec=.15, bj=j1-.36;
+  contact(i0,j0,i1,j1,0,.5);
+  slab('i',i0,j0,i1-.03,j1,0,1.2,OAK,{});
+  slab('i',i0+bk,j0+ec,i1,j1-.34,1.2,4.5,GREEN,{side:cushionSide(1.2,4.5),top:cushionTop(4.5,i0+bk,i1,'i')});
+  thin(i1,j0+ec,4.4,i1,j1-.34,4.4,shadeC(GREEN,1.9)); thin(i1,j0+ec,3.6,i1,j1-.34,3.6,shadeC(GREEN,.55));
+  // buttoned back, facing +i
+  quad(i0+bk,j0+ec,1.2,i0+bk,bj,1.2,i0+bk,bj,top,i0+bk,j0+ec,top,tuft('i',i0+bk,j0+ec+.12,top));
+  quad(i0,j0+ec,top,i0+bk,j0+ec,top,i0+bk,bj,top,i0,bj,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(i-i0)/bk; return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*3,j*2)); });
+  thin(i0+bk,j0+ec,top-.1,i0+bk,bj,top-.1,shadeC(GREEN,1.9));
+  // corner block: rear face continues the long run's tufting and its rolled top
+  quad(i0,j1,1.2,i1,j1,1.2,i1,j1,top,i0,j1,top,tuft('j',j1,.17,top));
+  quad(i0,bj,top,i1,bj,top,i1,j1,top,i0,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(GREEN,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
+  quad(i1,bj,1.2,i1,j1,1.2,i1,j1,top,i1,bj,top,tuft('i',i1,bj,top));
+  // slim carved arm at the chimney end
+  slab('i',i0,j0,i1,j0+ec,0,6.4,OAK,{top:oakTop(6.4)});
+  slab('i',i0,j0,i0+bk,j0+ec,6.4,top+.6,OAK,{top:oakTop(top+.6)});
+  const [sx,sy]=bz(i1,j0+ec,6.5); blob(sx,sy,2.4,1.8,rgb('#6a4328')); px(sx,sy,shadeC(OAK,.5)); px(sx+1,sy-1,shadeC(OAK,1.9));
 }
 
 /* ---------- dining tables ---------- */
