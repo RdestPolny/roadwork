@@ -828,14 +828,13 @@ export function pubShellFX(/** @type {number} */t){
   LAMPS.forEach((l,n)=>{ const [i,j,z]=lampPos(l), f=flick(t,n+5), x=isoX(i,j), y=isoY(i,j,z+.9);
     spot(x,y,26,22,.2*f,WARM); spot(x,y,8,7,.4*f,rgb('#fff1c4'));
     const [wx,wy]=l.f.k==='I'?[i+.5,j]:[i,j+.5]; spot(isoX(wx,wy),isoY(wx,wy,z-8),42,30,.06*f,WARM); });
-  // the fire: flickering glow on the wall, the hearth and the floor in front, brass fender glints
+  // the fire: flickering glow on the wall, the hearth and the floor in front
   const ff=.78+.22*vn(t*.09,1.3)+.1*Math.sin(t*.43)+.06*Math.sin(t*.91+2);
   const mj=(PUB.fire.j0+PUB.fire.j1)/2;
   spot(isoX(1.5,mj),isoY(1.5,mj,.5),70,28,.2*ff,rgb('#ff7a22'));
   spot(isoX(2.7,mj),isoY(2.7,mj,0),170,82,.15*ff,rgb('#ff7a22'));
   spot(isoX(2.7,mj),isoY(2.7,mj,0),80,38,.1*ff,rgb('#ffa040'));
   spot(isoX(PUB.fire.d,mj),isoY(PUB.fire.d,mj,6),20,18,.1*ff,rgb('#ffb04a'));
-  for(let k=0;k<10;k++){ const j=6.95+k*.33; spot(isoX((PUB.fire.hearth-.12),j),isoY((PUB.fire.hearth-.12),j,2.2),3.4,2.4,.5*ff*(.6+.4*Math.sin(t*.2+k*2)),rgb('#ffd890')); }
   // mantel candles
   for(const j of [mj-.95,mj+.95]) { const f=flick(t,j|0); spot(isoX(PUB.fire.d+.2,j),isoY(PUB.fire.d+.2,j,19.3),9,9,.28*f,WARM); }
 }
