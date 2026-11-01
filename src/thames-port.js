@@ -11,10 +11,11 @@ import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTic
 import { portSurface, districtBlocked } from './port-district.js';
 import { walkJoints } from './port-life.js';
 import { DEBUG } from './config.js';
+import { pubInside, enterPub, leavePub, pubTick, renderPub } from './pub.js';
 import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX } from './port-extension.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
-export function startThamesPort(){ Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; invalidateBackground(); clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
+export function startThamesPort(){ leavePub(); Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; invalidateBackground(); clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
 
 const C={black:rgb('#080a0a'), mortar:rgb('#211e1a'), brick:[rgb('#42322a'),rgb('#49372c'),rgb('#382d27'),rgb('#524034')],
   stock:[rgb('#4d4636'),rgb('#564d3b'),rgb('#443e31'),rgb('#5d523e')], brickC:[rgb('#3b2a25'),rgb('#45302a'),rgb('#33261f'),rgb('#4c362d')],
@@ -105,6 +106,11 @@ export function tickThamesPort(){
     else { portJob.entry=null; player.moving=false; clearThamesInput(); if(portJob.delivered===2&&!portJob.finished) beginScene(()=>beginBefore(boxingState.tick)); }
     return;
   }
+  if(pubInside()){
+    const dx=Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA')), dy=Number(keys.has('ArrowDown')||keys.has('KeyS'))-Number(keys.has('ArrowUp')||keys.has('KeyW'));
+    if(pubTick(dx,dy)==='exit'){ leavePub(); Object.assign(player,{i:PUB_ENTRY.i,j:PUB_ENTRY.j+.35,fi:0,fj:1,moving:false}); followPortCamera(); setInfo(); }
+    return;
+  }
   if(player.lift>=0){ if(++player.lift>=120){ player.lift=-1; player.carrying=true; } return; }
   const dx=Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA'));
   const dy=Number(keys.has('ArrowDown')||keys.has('KeyS'))-Number(keys.has('ArrowUp')||keys.has('KeyW'));
@@ -119,8 +125,11 @@ export function tickThamesPort(){
     portJob.entry={tick:0,i:player.i,j:player.j}; clearThamesInput();
   }
   player.fi=di; player.fj=dj; player.ph+=player.carrying?speed/TRIP.cycle:.045;
+  if(!player.carrying&&dj<-.3&&Math.abs(player.i-PUB_ENTRY.i)<.55&&player.j<PUB_ENTRY.j){ enterPub(); player.moving=false; setInfo(); return; }
   followPortCamera();
 }
+/** In front of the pub's street door: walking into it from here steps inside. */
+const PUB_ENTRY={i:35.8,j:6.2};
 /** Position-preserving camera follow; only new terrain relaxes the old bounds. */
 function followPortCamera(){
   const ext=Math.max(0,Math.min(1,(player.i-29.5)/13));
@@ -1219,7 +1228,11 @@ export function withThamesCamera(fn){ return withPortPixels(()=>{ const previous
 export function resumeThamesPort(){ setGstate('port'); setPanelMode(); portStory(); setInfo(); }
 /** Outfit shared by the port opponent and his fight figure. */
 export function portFightOutfit(fn){ const A=appearanceState; withCellOutfit(()=>{ setRamp(A.R_HSH,['#797974','#b7b4a7','#e1dbca'],false); setRamp(A.R_HSHF,['#797974','#b7b4a7','#e1dbca'],true); setRamp(A.R_HPT,['#181b1d','#2a2e31','#454a4a'],false); setRamp(A.R_HPTF,['#181b1d','#2a2e31','#454a4a'],true); fn(); }); }
-export function renderThamesPort(fighters=null){ return withPortPixels(()=>renderPortFrame(fighters)); }
+export function renderThamesPort(fighters=null){ if(!fighters&&pubInside()){ setPortSackPrompt(false,0,0); return renderPub(); } return withPortPixels(()=>renderPortFrame(fighters)); }
+/** Run fn in the port's projection with the camera moved to (x,y) (2× units), as the pub interior draws with the same helpers and scale. */
+export function withPortView(x,y,fn){ const ox=camera.x, oy=camera.y; camera.x=x; camera.y=y; try{ return withThamesCamera(fn); } finally { camera.x=ox; camera.y=oy; } }
+/** The port's hero figure at P (i,j,fi,fj) in joints J, as he walks the quay. */
+export function portHero(P,J){ const A=appearanceState; withCellOutfit(()=>figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true},{noShadow:true})); }
 /** A Thames frame after selecting the native-resolution camera. */
 function renderPortFrame(fighters){
   const t=boxingState.tick, previous=setPropCamera(camera), fb=rendererState.fb;

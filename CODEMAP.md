@@ -48,6 +48,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | Karaluchy | `src/roaches.js`, `src/roach-rules.js` | `src/roach-scene.js`; `KARALUCHY.md` |
 | Korba | `src/crank.js`, `src/crank-rules.js` | `src/crank-scene.js`, `src/prison.js`; `CRANK.md` |
 | Siłowanie, praca w rzeźni | `src/armwrestle.js` lub `src/work.js` | `src/prison.js`, `src/cast.js` |
+| Pub nad Tamizą — wnętrze (podtryb portu, drzwi frontowe) | `src/pub.js`, `src/pub-layout.js` | `src/pub-shell.js`, `src/pub-bar.js`, `src/pub-tables.js`, `tests/pub-browser.mjs`, `scripts/shot-scene.mjs` |
 | Port / prolog / dorożka | `src/thames-port.js`, `src/port-story.js` | `src/carriage.js`, `src/iso-fight.js` |
 | XP, statystyki, Profesor, drzewka, Cechy | `src/progression.js`, `src/stats.js`, `src/profesor.js` | `src/skill-tree.js`, `src/card-data.js`, `src/perk-rules.js`, `src/char-sheet.js`; `PROGRESSION.md`, `PERKI.md` |
 | Zapis, sloty, migracje, odporność na błędy | `src/save-store.js`, `src/progression.js` | `src/legacy-save-data.js`, `tests/save-store.test.js`; `ARCHITECTURE.md` § Zapis |
