@@ -12,6 +12,7 @@ export function pubShellStatic(){
   quad(0,0,0,P.I,0,0,P.I,0,P.H,0,0,P.H,(x,y)=>wallJ);
   quad(.03,0,0,.03,P.J,0,.03,P.J,9,.03,0,9,()=>dado);
   quad(0,.03,0,P.I,.03,0,P.I,.03,9,0,.03,9,()=>dado);
+  const [a,b,c,d]=P.clock.box; quad(c,b,0,c,d,0,c,d,24,c,b,24,()=>rgb('#3a2418'));
   quad(.04,P.fire.j0,0,.04,P.fire.j1,0,.04,P.fire.j1,14,.04,P.fire.j0,14,()=>rgb('#5a5048'));
 }
 /** Free-standing shell props drawn in depth order (e.g. hanging lamps): {box,draw}. */

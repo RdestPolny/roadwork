@@ -40,7 +40,7 @@ export function pubBlocked(i,j){
   for(const b of [P.piano.box,P.stairs.box,P.counter.box,P.ret.box,P.backbar.box,P.servery,P.clock.box,...seatBoxes()]) if(inBox(i,j,b)) return true;
   if(P.stools.some(([si,sj])=>Math.hypot(i-si,j-sj)<P.stoolR+R)) return true;
   if(P.standing.some(s=>Math.hypot(i-s.i,j-s.j)<s.r+R)) return true;
-  return Math.hypot(i-P.coatStand.i,j-P.coatStand.j)<P.coatStand.r+R;
+  return [P.coatStand,P.pianoStool].some(c=>Math.hypot(i-c.i,j-c.j)<c.r+R);
 }
 
 /** Walk one tick; dx,dy are the held screen directions. Returns 'exit' when the player walks out of the street door. */

@@ -15,7 +15,6 @@ function block(/** @type {number[]} */b,/** @type {number} */z0,/** @type {numbe
 export function pubBarStatic(){
   block(PUB.backbar.box,0,26,rgb('#3a2418'));
   block(PUB.stairs.box,0,PUB.stairs.top,rgb('#4a3020'));
-  block(PUB.clock.box,0,24,rgb('#3a2418'));
 }
 /** Counter and stools, drawn in depth order. @returns {{box:number[],draw:()=>void}[]} */
 export function pubBarProps(/** @type {number} */t){

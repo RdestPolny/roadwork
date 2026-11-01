@@ -13,6 +13,7 @@ export const PUB={
   door:{j0:4.9,j1:6.6},                                   // street door in the front wall i=I
   kitchen:{j0:4.3,j1:5.7},                                // door to the kitchen in wall i=0
   piano:{box:[0,5.85,.8,7.15]},                           // cottage piano against wall i=0
+  pianoStool:{i:1.2,j:6.5,r:.22},                         // round piano stool in front of it
   fire:{j0:7.3,j1:9.5,hearth:1.15},                       // chimney breast in wall i=0, hearth stone out to i=hearth
   stairs:{box:[.2,0,3.6,1.3],top:18},                     // straight flight along wall j=0, foot at i=3.6, landing at the back, z=top
   landingDoor:{j0:.15,j1:1.15},                           // door to the upstairs rooms in wall i=0 at the stair landing
