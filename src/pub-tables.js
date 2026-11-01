@@ -295,7 +295,7 @@ function banquetteLeg(){
   thin(i0+bk,j0+ec,top-.1,i0+bk,bj,top-.1,shadeC(GREEN,1.9));
   // corner block: rear face continues the long run's tufting and its rolled top
   /* corner block at the long run's height: a tall corner would stand between the camera and this seat */
-  /* corner: seat cushion only, continuing into the long run's seat (its backrest starts further along) */
+  /* corner: oak seat only, continuing into the long run's seat (its backrest starts further along) */
   slab('i',i0+bk,j1-.34,i1,j1,1.2,4.5,SEAT,{top:plankTop(4.5,'j',SEAT,9,4)});
   // slim carved arm at the chimney end
   slab('i',i0,j0,i1,j0+ec,0,6.4,OAK,{top:oakTop(6.4)});
