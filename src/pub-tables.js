@@ -218,73 +218,77 @@ function standing(/** @type {{i:number,j:number,r:number}} */s,/** @type {number
 }
 
 /* ---------- chairs and benches ---------- */
-/** Bentwood / Windsor chair at (ci,cj) with its back toward (bi,bj). */
-function chair(/** @type {number} */ci,/** @type {number} */cj,/** @type {number} */bi,/** @type {number} */bj,/** @type {number} */k){
+/** Dark oak captain's (smoker's-bow) chair at (ci,cj): spindle bow and top hoop behind, facing +j toward the table. */
+function chair(/** @type {number} */ci,/** @type {number} */cj,/** @type {number} */k){
   contact(ci-.22,cj-.22,ci+.22,cj+.22,0,.62);
-  const bent=k%2===0, wood=bent?rgb('#4a2a17'):rgb('#7a5430'), hi=shadeC(wood,1.5), seatZ=4.4, ang=Math.atan2(bj,bi);
-  const legs=[[.17,.17],[.17,-.17],[-.17,.17],[-.17,-.17]].map(([a,b])=>[a,b]).sort((p,q)=>(p[0]+p[1])-(q[0]+q[1]));
-  for(const [a,b] of legs){ rod([ci+a,cj+b,seatZ-.2],[ci+a*1.45,cj+b*1.45,0],wood,hi); }
-  const arc=(/** @type {number} */f,/** @type {number} */z)=>{ const a=ang+f*1.35, R=f===0?.23:.23; return [ci+Math.cos(a)*R,cj+Math.sin(a)*R,z]; };
-  const back=()=>{
-    const top=9.2, pts=[];
-    for(let n=0;n<=6;n++){ const f=n/3-1; pts.push(arc(f,top-.5*Math.abs(f)*Math.abs(f)-(bent?0:0))); }
-    for(let n=0;n<6;n++) rod(pts[n],pts[n+1],wood,hi);
-    for(const f of [-1,-.66,-.33,0,.33,.66,1]){ const b=arc(f,seatZ+.3), tz=top-.5*f*f; thin(b[0],b[1],b[2],b[0],b[1],tz,shadeC(wood,1.25)); }
-    if(bent){ const m=arc(0,6.8); const a=arc(-.6,6.6), b=arc(.6,6.6); thin(a[0],a[1],a[2],b[0],b[1],b[2],wood); thin(m[0],m[1],m[2],m[0],m[1],m[2]+1.7,hi); }
-    else { const m=arc(0,8); thin(m[0],m[1],m[2],m[0],m[1],m[2]+1,hi); }
+  const wood=rgb('#3f2616'), hi=shadeC(wood,1.9), seatZ=4.5, ang=-Math.PI/2, R=.24;
+  const arc=(/** @type {number} */f,/** @type {number} */z,r=R)=>{ const a=ang+f*1.5; return [ci+Math.cos(a)*r,cj+Math.sin(a)*r,z]; };
+  const legs=[[.17,.17],[.17,-.17],[-.17,.17],[-.17,-.17]].sort((p,q)=>(p[0]+p[1])-(q[0]+q[1]));
+  for(const [a,b] of legs){ rod([ci+a,cj+b,seatZ-.2],[ci+a*1.3,cj+b*1.3,0],wood,hi); const m=[ci+a*1.12,cj+b*1.12,2.3]; const [x,y]=bz(m[0],m[1],m[2]); px(x,y,hi); px(x+1,y,wood); }
+  // bow arm-rail on spindles, top hoop on a fan of spindles
+  const rz=7.4, hz=9.6;
+  for(let n=0;n<=8;n++){ const f=n/4-1, p=arc(f,seatZ+.4,R-.02); thin(p[0],p[1],p[2],p[0],p[1],rz,shadeC(wood,1.35)); }
+  for(let n=0;n<=5;n++){ const f=(n/5-.5)*1.1, p=arc(f,rz); thin(p[0],p[1],p[2],p[0],p[1],hz-.5*f*f,shadeC(wood,1.35)); }
+  for(let n=0;n<8;n++){ const a=arc(n/4-1,rz), b=arc((n+1)/4-1,rz); rod(a,b,wood,hi); }
+  for(let n=0;n<5;n++){ const a=arc((n/5-.5)*1.1,hz-.5*Math.pow((n/5-.5)*1.1,2)), b=arc(((n+1)/5-.5)*1.1,hz-.5*Math.pow(((n+1)/5-.5)*1.1,2)); rod(a,b,wood,hi); }
+  for(const f of [-1,1]){ const p=arc(f,rz), [x,y]=bz(p[0],p[1],rz); blob(x,y,1.6,1.3,rgb('#5a3a22')); }
+  cyl(ci,cj,.26,seatZ,seatZ+.55,(zz,s)=>shadeC(wood,roundLit(s)),(s,v)=>{ const x=isoX(ci,cj)+s*4.4, y=isoY(ci,cj,seatZ+.55)+v*2.2; return shadeC(rgb('#5a3a21'),.85+.35*N(x,y,.5,k)+.14*-v+(Math.hypot(s,v)>.84?.2:0)); },.02);
+}
+/** Captain's chairs pulled up on the room side of a table (axis i). */
+function chairRow(/** @type {number[]} */box,/** @type {number[]} */us,/** @type {number} */k){
+  const [i0,j0,i1]=box;
+  us.forEach((u,n)=>chair(i0+(i1-i0)*u,j0-.29,k+n));
+}
+/** Deep-buttoned bottle-green leather banquette with oak plinth, scroll ends and bay dividers (the viewer sees its rear and the near end). */
+function banquette(){
+  const [i0,j0,i1,j1]=PUB.banquette.box, top=PUB.banquette.back, oak=rgb('#3f2616'), green=rgb('#1f4a34'), ei=.24;
+  contact(i0,j0,i1,j1,0,.5);
+  const part=(/** @type {number} */a0,/** @type {number} */b0,/** @type {number} */a1,/** @type {number} */b1,/** @type {number} */z0,/** @type {number} */z1,/** @type {number} */c,o={})=>slab('i',a0,b0,a1,b1,z0,z1,c,o);
+  const oakTop=(/** @type {number} */z)=>plankTop(z,'j',oak,5,6);
+  // seat cushion and plinth
+  part(i0+ei,j0,i1-ei,j1-.34,1.2,4.5,green,{side:(pl,v,kk)=>(x,y)=>{ const [u,z]=fz(pl,v,x,y); return shadeC(green,kk*(.8+.35*Math.sin((z-1.2)/3.3*3.1)+.1*vn(u*3,z)));},top:(x,y)=>{ const [i,j]=ground(x,y,4.5); return shadeC(green,.95+.25*Math.sin((j-j0)/(j1-.34-j0)*3.1)+.1*vn(i*3,j*3)); }});
+  part(i0+ei,j0+.03,i1-ei,j1,0,1.2,oak,{});
+  // the back: tufted leather, seen from behind
+  const bx0=i0+ei, bx1=i1-ei, bj=j1-.36;
+  const rear=(/** @type {number} */x,/** @type {number} */y)=>{
+    const [u,z]=onJ(j1,x,y);
+    if(z<1.2) return oak;
+    if(z<3.6) return shadeC(green,.7+.12*vn(u*3,z)+(z<1.5?-.15:0)+(z>3.3?.12:0));
+    const gx=(u-bx0)/.5, gz=(z-3.6)/1.5, fp=frac((gx+gz)/2), fq=frac((gx-gz)/2), dp=Math.min(fp,1-fp), dq=Math.min(fq,1-fq);
+    const crease=Math.min(dp,dq), btn=Math.hypot(dp,dq)<.1;
+    if(btn) return shadeC(rgb('#0c1f16'),1+.6*(z>6));
+    const puff=.52+1.15*Math.min(1,crease*3.4), lit=.88+.35*(.5-Math.abs(fp-.5))*(fq<.5?1:.6);
+    let k=puff*lit*(.94+.14*vn(u*4,z*2));
+    if(z>top-.8) k*=1.12+.2*Math.sin((top-z)/.8*1.57);
+    return shadeC(green,k*1.12);
   };
-  const behind=(bi+bj)<0; if(behind) back();
-  cyl(ci,cj,.26,seatZ,seatZ+.55,(zz,s)=>shadeC(wood,roundLit(s)*.95),(s,v)=>{ const x=isoX(ci,cj)+s*4.4, y=isoY(ci,cj,seatZ+.55)+v*2.2; return shadeC(bent?rgb('#a1763e'):wood,.9+.3*N(x,y,.5,k)+.12*-v+(bent&&Math.hypot(s,v)<.82&&Math.hypot(s,v)>.7?.18:0)); },.02);
-  if(!behind) back();
-}
-/** Row of chairs (or a backless bench) along an axis. */
-function chairRow(/** @type {string} */axis,/** @type {number[]} */box,/** @type {number} */side,/** @type {number[]} */us,/** @type {number} */k){
-  const [i0,j0,i1,j1]=box;
-  const list=us.map(u=>{ const a=axis==='i'?i0+(i1-i0)*u:j0+(j1-j0)*u; return axis==='i'?[a,side>0?j1+.28:j0-.28,0,side]:[side>0?i1+.28:i0-.28,a,side,0]; });
-  list.forEach((c,n)=>chair(c[0],c[1],c[2],c[3],k+n));
-}
-/** High-backed settle (or a plain bench) on the back side of a table. */
-function settle(/** @type {string} */axis,/** @type {number[]} */box,/** @type {number} */k,/** @type {boolean} */high,/** @type {boolean} */cushion){
-  const [i0,j0,i1,j1]=box, long0=axis==='i'?i0:j0, long1=axis==='i'?i1:j1, bb=axis==='i'?j0:i0;
-  const a0=long0+.02, a1=long1-.02, b0=bb-.55, b1=bb-.08, wood=high?rgb('#4a2d19'):rgb('#6b4a2b');
-  contact(axis==='i'?a0:b0,axis==='i'?b0:a0,axis==='i'?a1:b1,axis==='i'?b1:a1,0,.55);
-  const m=axis==='i'?(/** @type {number} */a,/** @type {number} */b)=>[a,b]:(/** @type {number} */a,/** @type {number} */b)=>[b,a];
-  const pa=axis==='i'?'j':'i', pe=axis==='i'?'i':'j';
-  // high back
-  if(high) slab(axis,a0,b0,a1,b0+.16,0,13.2,wood,{side:(pl,v,kk)=>(x,y)=>{
-    const [u,z]=fz(pl,v,x,y), pu=(u-a0)/(a1-a0), cell=frac(pu*3.0), cz=frac((z-4.6)/4.2);
-    const raised=z>4.8&&z<12.6&&cell>.07&&cell<.93&&cz>.06&&cz<.94&&pl===pa;
-    const edge=raised&&(cell<.14||cell>.86||cz<.14||cz>.86);
-    return shadeC(wood,kk*(raised?(edge?1.12:.9):.72)*(.84+.3*vn(u*2.3+k,z*.2)));
-  }});
-  // end pieces
-  for(const a of [a0,a1-.14]){
-    slab(axis,a,b0,a+.14,b1,0,high?8.6:4.2,wood,{});
+  quad(bx0,j1,1.2,bx1,j1,1.2,bx1,j1,top,bx0,j1,top,rear);
+  // rolled top: highlight across the roll
+  quad(bx0,bj,top,bx1,bj,top,bx1,j1,top,bx0,j1,top,(x,y)=>{ const [i,j]=ground(x,y,top), c=(j-bj)/(j1-bj); return shadeC(green,.65+1.05*Math.sin(Math.max(0,Math.min(1,c))*3.14)+.12*vn(i*2,j*3)); });
+  thin(bx0,j1,top-.1,bx1,j1,top-.1,shadeC(green,1.9));
+  // dividers between the table bays and carved scroll ends
+  const divs=[(PUB.dining[1].box[2]+PUB.dining[2].box[0])/2,(PUB.dining[0].box[0]+PUB.dining[2].box[2])/2].map(v=>v);
+  const bays=PUB.dining.map(d=>d.box).sort((a,b)=>a[0]-b[0]);
+  const cuts=[(bays[0][2]+bays[1][0])/2,(bays[1][2]+bays[2][0])/2];
+  void divs;
+  for(const c of cuts){
+    part(c-.07,j0,c+.07,j1,5.6,6.5,oak,{top:oakTop(6.5)}); part(c-.06,j0+.02,c+.06,j0+.16,0,5.6,oak,{});
+    quad(c+.07,j0,5.6,c+.07,j1,5.6,c+.07,j1,top-.5,c+.07,j0,top-.5,()=>shadeC(oak,.0+1.1));
   }
-  // seat
-  const sz=4.0;
-  slab(axis,a0+.14,b0+(high?.16:0),a1-.14,b1,sz-.7,sz,wood,{top:plankTop(sz,axis,wood,9+k,3)});
-  if(cushion){
-    const c0=a0+.22, c1=a1-.22;
-    // @ts-ignore
-    quad(...m(c0,b0+.22),sz+.05,...m(c1,b0+.22),sz+.05,...m(c1,b1-.04),sz+.05,...m(c0,b1-.04),sz+.05,(x,y)=>{ const [u,v]=ground(x,y,sz+.05), a=axis==='i'?u:v; return shadeC(rgb('#365a3c'),.85+.3*vn(a*4,(axis==='i'?v:u)*4)+(frac(a*3.2)<.06?-.25:0)); });
-    // @ts-ignore
-    quad(...[...m(c0,b1-.04),sz+.05],...[...m(c1,b1-.04),sz+.05],...[...m(c1,b1-.04),sz+.75],...[...m(c0,b1-.04),sz+.75],()=>rgb('#2c4a33'));
-  }
-  if(high){ // carved crest on top of the back
-    const top=13.2;
-    // @ts-ignore
-    quad(...[...m(a0-.04,b0-.03),top],...[...m(a1+.04,b0-.03),top],...[...m(a1+.04,b0+.19),top],...[...m(a0-.04,b0+.19),top],()=>shadeC(wood,1.5));
-    // @ts-ignore
-    quad(...[...m(a0-.04,b0+.19),top],...[...m(a1+.04,b0+.19),top],...[...m(a1+.04,b0+.19),top-.9],...[...m(a0-.04,b0+.19),top-.9],()=>shadeC(wood,1.05));
+  for(const e of [i0,i1-ei]){
+    part(e,j0,e+ei,j1,0,6.4,oak,{top:oakTop(6.4)});
+    part(e,j0+.25,e+ei,j1,6.4,top+.4,oak,{top:oakTop(top+.4)});
+    // scroll on the arm: a carved volute and a brass stud
+    const [sx,sy]=bz(e+ei,j0+.06,6.6); blob(sx,sy,2.5,2,rgb('#6a4328')); px(sx,sy,shadeC(oak,.5)); px(sx+1,sy-1,shadeC(oak,1.9));
+    const [bx,by]=bz(e+ei,j0+.45,3.3); px(bx,by,K.brass); px(bx,by+3,K.brass);
   }
 }
 
 /* ---------- dining tables ---------- */
 const DINE=[
-  {cloth:true,seed:2,col:rgb('#7a5632'),chairs:[.2,.8],bench:'settle',cushion:true},
-  {cloth:false,seed:11,col:rgb('#8a6a44'),chairs:[.17,.5,.83],bench:'settle',cushion:false},
-  {cloth:false,seed:23,col:rgb('#7c5a37'),chairs:[.25,.75],bench:'bench',cushion:false},
+  {cloth:true,seed:2,col:rgb('#4a2f1a'),chairs:[.25,.75]},
+  {cloth:false,seed:11,col:rgb('#523520'),chairs:[.17,.5,.83]},
+  {cloth:false,seed:23,col:rgb('#4a301b'),chairs:[.2,.5,.8]},
 ];
 function diningTable(/** @type {{box:number[],axis:string}} */d,/** @type {number} */k,/** @type {number} */t){
   const [i0,j0,i1,j1]=d.box, ax=d.axis, cfg=DINE[k];
@@ -295,7 +299,7 @@ function diningTable(/** @type {{box:number[],axis:string}} */d,/** @type {numbe
   const wood=cfg.col;
   const corners=[[a0+.17,b0+.17],[a1-.17,b0+.17],[a0+.17,b1-.17],[a1-.17,b1-.17]];
   const ordered=corners.map(c=>m(c[0],c[1])).sort((p,q)=>(p[0]+p[1])-(q[0]+q[1]));
-  for(const [ci,cj] of ordered) cyl(ci,cj,.095,0,6.1,(zz,s)=>{ const b=(zz>1.1&&zz<1.6)||(zz>3.4&&zz<3.9)||zz<.5; return shadeC(wood,roundLit(s)*(b?.7:1.05)*(zz>5.4?1.1:1)); },null,.32);
+  for(const [ci,cj] of ordered) cyl(ci,cj,.095,0,6.1,(zz,s)=>{ const b=(zz>1.1&&zz<1.6)||(zz>3.4&&zz<3.9)||zz<.5; return shadeC(wood,roundLit(s)*(b?.7:1.05)*(zz>5.4?1.1:1)); },null,.5);
   // apron and top
   slab(ax,a0+.06,b0+.06,a1-.06,b1-.06,5.7,6.9,wood,{side:(pl,v,kk)=>woodFace(pl,v,shadeC(wood,.8),kk,k*3)});
   slab(ax,a0,b0,a1,b1,6.9,7.5,wood,{top:plankTop(7.5,ax,wood,cfg.seed,4)});
@@ -468,12 +472,11 @@ export function pubTablesProps(/** @type {number} */t){
   /** @type {{box:number[],draw:()=>void}[]} */
   const L=[], run=(/** @type {()=>void} */f)=>()=>{ begin(); f(); };
   PUB.standing.forEach((s,k)=>{ L.push({box:[s.i-s.r,s.j-s.r,s.i+s.r,s.j+s.r],draw:run(()=>standing(s,k,t))}); });
+  L.push({box:PUB.banquette.box,draw:run(banquette)});
   PUB.dining.forEach((d,k)=>{
     const [i0,j0,i1,j1]=d.box, ax=d.axis, cfg=DINE[k];
     L.push({box:d.box,draw:run(()=>diningTable(d,k,t))});
-    const back=ax==='i'?[i0,j0-.55,i1,j0-.05]:[i0-.55,j0,i0-.05,j1], frontB=ax==='i'?[i0,j1+.05,i1,j1+.55]:[i1+.05,j0,i1+.55,j1];
-    L.push({box:back,draw:run(()=>cfg.bench==='chairs'?chairRow(ax,d.box,0,[.3,.7],k*2+1):settle(ax,d.box,k,cfg.bench==='settle',cfg.cushion))});
-    L.push({box:frontB,draw:run(()=>chairRow(ax,d.box,1,cfg.chairs,k*2))});
+    L.push({box:[i0,j0-.55,i1,j0],draw:run(()=>chairRow(d.box,cfg.chairs,k*2))});
   });
   L.push({box:[PUB.pianoStool.i-PUB.pianoStool.r,PUB.pianoStool.j-PUB.pianoStool.r,PUB.pianoStool.i+PUB.pianoStool.r,PUB.pianoStool.j+PUB.pianoStool.r],draw:run(pianoStool)});
   const c=PUB.coatStand; L.push({box:[c.i-.12,c.j-.12,c.i+.12,c.j+.12],draw:run(()=>coatStand(t))});
