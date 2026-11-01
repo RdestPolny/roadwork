@@ -175,13 +175,24 @@ function whisperStand(t){ const p=t%1800; return p<720?0:p<840?ease((p-720)/120)
 function whisperPose(t,stand){
   const nod=.25*Math.sin(t*.031), glance=vn(t*.01,3)>.62?-.5:0;
   const bow=.5+.5*Math.sin(t*.0372), headF=lerp(.55+1.1*bow,1,stand), headZ=lerp(10.8-2.2*bow,15.1,stand), sway=Math.sin(t*.025)*.08*stand;
-  const W={i:16.9,j:lerp(1.05,.85,stand),fi:1-stand,fj:lerp(.12,-1,stand),z0:0}, P={i:lerp(18.35,16.95,stand),j:lerp(1.2,1.42+sway,stand),fi:lerp(-1,0,stand),fj:lerp(-.1,-1,stand),z0:0};
+  // An occasional push, with a pause between movements, eases her toward the wall.
+  const press=pulse(t%210,40,52)*stand;
+  const W={i:16.9,j:lerp(1.05,.85-.08*press,stand),fi:1-stand,fj:lerp(.12,-1,stand),z0:0}, P={i:lerp(18.35,16.95,stand),j:lerp(1.2,1.42+sway-.06*press,stand),fi:lerp(-1,0,stand),fj:lerp(-.1,-1,stand),z0:0};
   const Jw=s=>({hip:[0,s*1.05,lerp(3.5,7,stand)],knee:[lerp(1.8,.5,stand),s*1.1,lerp(.9,3.8,stand)],foot:[lerp(-1.3,.1,stand),s*1.2,lerp(.5,.9,stand)],sh:[.2,s*2.35,lerp(8.5,12,stand)],el:[lerp(1,2,stand),s*2.8,lerp(6.4,14,stand)],hd:[lerp(1.7,4,stand),s*lerp(.7,2.8,stand),lerp(7.8,16,stand)]});
-  Jw.pel=[0,0,lerp(2.9,6.4,stand)]; Jw.chest=[.35,0,lerp(8.3,11.8,stand)]; Jw.head=[headF,glance*.3,headZ];
+  Jw.pel=[0,0,lerp(2.9,6.4,stand)]; Jw.chest=[.35+.45*press,0,lerp(8.3,11.8,stand)]; Jw.head=[headF+.5*press,glance*.3,headZ-.12*press];
   const Jp=s=>({hip:[0,s*1.25,7.3],knee:[.6,s*1.35,3.9],foot:[0,s*1.45,.9],sh:[.3,s*2.8,12.6],
     el:s>0?[lerp(3,2.2,stand),s*2.5,lerp(11.5,9.6,stand)]:[lerp(-.1,2.2,stand),s*3.5,lerp(9.9,9.6,stand)],hd:s>0?[lerp(10.8-headF,4.2+sway*7.5,stand),lerp(1.1,1.2,stand),lerp(headZ+1.5,7.5,stand)]:[lerp(.4,4.2+sway*7.5,stand),lerp(s*3.4,-2,stand),lerp(7.9,7.5,stand)]});
-  Jp.pel=[0,0,6.7]; Jp.chest=[.7,0,12.3]; Jp.head=[1,0,15.6+nod*.4];
-  return {W,Jw,P,Jp};
+  Jp.pel=[0,0,6.7]; Jp.chest=[.7+.45*press,0,12.3]; Jp.head=[1+.55*press,0,15.6+nod*.4];
+  // Resolve the woman's waist points into the officer's local frame, keeping
+  // both hands on her sides as their bodies move. Blend in while she rises.
+  const placed=s=>{
+    const a=Jp(s), target=toWorld(W,-.35,s*1.65,Jw.pel[2]+1.2), di=(target[0]-P.i)*7.5, dj=(target[1]-P.j)*7.5;
+    const den=P.fi*P.fi+P.fj*P.fj||1, hand=[(di*P.fi+dj*P.fj)/den,(-di*P.fj+dj*P.fi)/den,target[2]];
+    const u=ease(stand), sh=[a.sh[0]+.4*press,a.sh[1],a.sh[2]];
+    return {...a,sh,hd:lerp3(a.hd,hand,u),el:lerp3(a.el,elbow(sh,hand,s),u)};
+  };
+  placed.pel=Jp.pel; placed.chest=Jp.chest; placed.head=Jp.head;
+  return {W,Jw,P,Jp:placed};
 }
 /** Her clothes: a dark bodice, a full wine-coloured skirt over a crinoline and an ochre wool shawl. */
 const DRESS={top:['#1d181c','#342a31','#4f414b'],skirt:['#22121a','#43202c','#683444'],shawl:['#4a3b20','#776339','#a38c55']};
