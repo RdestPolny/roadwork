@@ -18,7 +18,7 @@ const R=.24;
 function seatBoxes(){ return PUB.dining.map(({box:[a,b,c]})=>[a,b-.55,c,b]); }
 
 /** Runtime values owned by the pub. */
-export const state={inside:false,i:12,j:5.75,fi:-1,fj:0,ph:0,moving:false,cy:48,bake:/** @type {Uint32Array|null} */(null)};
+export const state={inside:false,i:12,j:5.75,fi:-1,fj:0,ph:0,moving:false,cy:48,ox:0,bake:/** @type {Uint32Array|null} */(null)};
 
 /** Whether the port player is inside the pub. */
 export function pubInside(){ return state.inside; }
@@ -55,11 +55,12 @@ export function pubTick(/** @type {number} */dx,/** @type {number} */dy){
   }
   follow(false);
 }
-/** Camera height: the room is 432 px wide (fits exactly) and pans vertically; even values keep the bake aligned to whole pixels. */
-const CX=138, CY_TOP=2*PUB.H, CY_BOTTOM=46;
+/** Camera: the room is wider and taller than the 432×288 frame, so it pans both ways after the player.
+ * CX is the bake's origin (2× units, a multiple of 2 so ×1.5 lands on whole native pixels); ox (native px, multiples of 3) and cy (even) pick the window. */
+const CX=2*Math.ceil(6*PUB.J), CY_TOP=2*PUB.H, CY_BOTTOM=2*Math.floor((192-6*(PUB.I+PUB.J))/2), OX_MAX=Math.max(0,Math.ceil(1.5*(CX+12*PUB.I))-432);
 function follow(/** @type {boolean} */snap){
-  const want=Math.max(CY_BOTTOM,Math.min(CY_TOP,128-(state.i+state.j)*6));
-  state.cy=snap?want:state.cy+(want-state.cy)*.08;
+  const want=Math.max(CY_BOTTOM,Math.min(CY_TOP,128-(state.i+state.j)*6)), wx=Math.max(0,Math.min(OX_MAX,1.5*(CX+12*(state.i-state.j))-216));
+  state.cy=snap?want:state.cy+(want-state.cy)*.08; state.ox=snap?wx:state.ox+(wx-state.ox)*.08;
 }
 
 /**
@@ -86,8 +87,8 @@ export function depthOrder(L){
   return order;
 }
 
-/** Bake the whole room's static layers once into a 432×(room height) buffer. */
-const BW=432, BH=Math.ceil((CY_TOP-CY_BOTTOM)*1.5)+288;
+/** Bake the whole room's static layers once into a buffer the size of the room's picture. */
+const BW=432+OX_MAX, BH=Math.ceil((CY_TOP-CY_BOTTOM)*1.5)+288;
 function bake(){
   const A=appearanceState, buf=new Uint32Array(BW*BH), oldW=A.W, oldH=A.H, previous=setFramebuffer(buf);
   A.W=BW; A.H=BH;
@@ -100,9 +101,9 @@ function bake(){
 export function renderPub(){
   const t=boxingState.tick, fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H;
   if(!state.bake) state.bake=bake();
-  const cy=2*Math.round(state.cy/2), off=(CY_TOP-cy)*1.5;
-  fb.set(state.bake.subarray(off*BW,off*BW+W*H));
-  withPortView(CX,cy,()=>{
+  const cy=2*Math.round(state.cy/2), oy=(CY_TOP-cy)*1.5, ox=3*Math.round(state.ox/3), B=state.bake;
+  for(let y=0;y<H;y++) fb.set(B.subarray((oy+y)*BW+ox,(oy+y)*BW+ox+W),y*W);
+  withPortView(CX-ox/1.5,cy,()=>{
     const hero=state, side=hero.fi-hero.fj>=0?1:-1, g=hero.moving?hero.ph%1:.25;
     /** @type {PubProp[]} */
     const props=[...pubShellProps(t),...pubBarProps(t),...pubTablesProps(t),
