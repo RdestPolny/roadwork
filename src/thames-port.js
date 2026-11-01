@@ -1228,7 +1228,8 @@ export function withThamesCamera(fn){ return withPortPixels(()=>{ const previous
 export function resumeThamesPort(){ setGstate('port'); setPanelMode(); portStory(); setInfo(); }
 /** Outfit shared by the port opponent and his fight figure. */
 export function portFightOutfit(fn){ const A=appearanceState; withCellOutfit(()=>{ setRamp(A.R_HSH,['#797974','#b7b4a7','#e1dbca'],false); setRamp(A.R_HSHF,['#797974','#b7b4a7','#e1dbca'],true); setRamp(A.R_HPT,['#181b1d','#2a2e31','#454a4a'],false); setRamp(A.R_HPTF,['#181b1d','#2a2e31','#454a4a'],true); fn(); }); }
-export function renderThamesPort(fighters=null){ if(!fighters&&pubInside()){ setPortSackPrompt(false,0,0); return renderPub(); } return withPortPixels(()=>renderPortFrame(fighters)); }
+export function renderThamesPort(fighters=null){ const story=document.getElementById('portStory'), inPub=!fighters&&pubInside(); if(story) story.hidden=inPub;
+  if(inPub){ setPortSackPrompt(false,0,0); return renderPub(); } return withPortPixels(()=>renderPortFrame(fighters)); }
 /** Run fn in the port's projection with the camera moved to (x,y) (2× units), as the pub interior draws with the same helpers and scale. */
 export function withPortView(x,y,fn){ const ox=camera.x, oy=camera.y; camera.x=x; camera.y=y; try{ return withThamesCamera(fn); } finally { camera.x=ox; camera.y=oy; } }
 /** The port's hero figure at P (i,j,fi,fj) in joints J, as he walks the quay. */
