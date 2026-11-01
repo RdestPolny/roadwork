@@ -261,7 +261,7 @@ function pub(t){
   fq(F,D.a,D.z0,D.b,D.z1,(x,y)=>{
     const [a,z]=onJ(j+.03,x,y), p=(a-(D.a+D.wt))/(D.b-D.a-D.wt), q=(z-D.z0)/(D.z1-D.z0);
     if(p<0) return shadeC(mix(C.woodDark,C.litD,.4*(1-q)),.55+.25*(1-q));
-    return roomAt(p,q);
+    return mix(roomAt(p,q),rgb('#f5bf71'),.48+.16*Math.max(0,1-Math.abs(p-.5)*2));
   });
   // The leaf, swung out on its left hinge (the inner face shows): iron straps, two panels, a brass push plate.
   const H=[34.97,5.98], E=[34.97+1.44*Math.cos(1.22),5.98+1.44*Math.sin(1.22)], zb=D.z0+.15, zt=D.z1;
@@ -289,6 +289,14 @@ function pub(t){
   stoneStep(34.8,6.42,36.78,6.78,0,1.35,11,36.2,false);
   stoneStep(34.9,6.78,36.66,7.02,-.08,.5,23,35.4,false);
   floor(34.6,7.0,36.9,7.35,0,(x,y)=>{ const [,jj]=ground(x,y,0), k=Math.max(0,1-(jj-7)/.35); return k>0&&h2(x*3,y*5)<190*k?shadeC(under(x,y),.72):0; });
+  // Warm light reaches the pavement beyond the threshold and fades into the setts.
+  floor(34.2,7.03,37.5,9.9,.02,(x,y)=>{
+    const [i,jj]=ground(x,y,.02), d=jj-7.03, width=.95+.35*d;
+    const e=Math.abs(i-35.8-.08*d)/width;
+    if(d<0||e>=1) return 0;
+    const k=.52*Math.pow(clamp01(1-d/2.87),1.25)*Math.pow(1-e*e,1.4);
+    return mix(under(x,y),rgb('#f2b968'),k);
+  });
   // Wrought-iron hanging sign: scrolled bracket on the wall, cross-bar, two chains and a framed board.
   const SJ=7.52, arm=(s,z)=>[38.55+.95*s,5.98+1.57*s,z];
   for(const dz of [0,.34]) stroke(...arm(0,27.2+dz),...arm(1,27.2+dz),dz?IRON_L:C.iron);
