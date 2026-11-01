@@ -38,7 +38,7 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
     const shift=Math.sin(t*.0042+ph*2.3), rest=[Math.max(0,Math.min(1,shift*1.8)),Math.max(0,Math.min(1,-shift*1.8))];
     const paw=Math.max(0,Math.min(1,(vn(t*.005+ph*7,ph*3)-.74)*5)), swish=Math.sin(t*.034+ph)*(vn(t*.004,ph+2)>.55?.35:.1);
     const flick=vn(t*.02+ph*5,ph)>.7?.35:0;
-    const poll=[13.9+turn,jc,18.3+nod], muzzle=[14.42+turn,jc,14.9+nod*1.2];
+    const poll=[13.88+turn,jc,18.1+nod], muzzle=[14.49+turn,jc,15.2+nod*1.2];
     /** Blend three ramp colours smoothly by u in 0..1 (dark, mid, light). */
     const grade=(cols,u)=>{ u=Math.max(0,Math.min(1,u)); return u<.5?mix(cols[0],cols[1],u*2):mix(cols[1],cols[2],(u-.5)*2); };
     const coatC=c.map(h=>rgb(h)), rugC=(offset?['#18221a','#34463a','#5a7058']:['#261512','#4e2a22','#7a4636']).map(h=>rgb(h)), stripe=rgb('#9a7a3e');
@@ -63,7 +63,7 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
       const col=j>jc?coat:far, up=part!=='lower', low=part!=='upper';
       if(fore){ const knee=[i+.06+.32*lift,j,5.6+1.5*lift], fet=[i+.02-.12*lift,j,1.6+2*lift], hoof=[i+.08-.2*lift,j,.35+1.5*lift];
         if(up) limb([i-.05,j,10.4],knee,1.2,.62,pass,col); if(low){ limb([i+.03+.2*lift,j,7.2+.9*lift],knee,.85,.62,pass,col); limb(knee,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
-      else { const hock=[i-.34+.1*cock,j,5.9-.3*cock], fet=[i-.15+.25*cock,j,1.5+.55*cock], hoof=[i-.05+.42*cock,j,.35+.15*cock];
+      else { const hock=[i-.48+.1*cock,j,5.8-.3*cock], fet=[i-.12+.25*cock,j,1.5+.55*cock], hoof=[i-.02+.42*cock,j,.35+.15*cock];
         if(up) limb([i+.05,j,10.8],[i-.12,j,8],1.6,1,pass,col); if(low){ limb([i-.12,j,8],hock,1,.58,pass,col); limb(hock,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
     };
     for(let pass=0;pass<2;pass++){
@@ -72,10 +72,11 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
       limb([11.05,jc+.04,9.6],[11.1+swish*.4,jc+.08+swish*.3,6.2],.6,.42,pass,hair);
       leg(11.75,jc+.34,false,rest[1],0,pass,'upper'); leg(13.3,jc+.34,true,0,ph?0:paw,pass,'upper');
       trunk(pass);
-      limb([13.05,jc,12.6],[13.5,jc,15.6+nod*.4],2.5,1.8,pass);
+      limb([13.05,jc,12.6],[13.5,jc,15.6+nod*.4],2.6,1.95,pass);
       limb([13.5,jc,15.6+nod*.4],poll,1.8,1.25,pass);
       limb([poll[0]+.04,jc,poll[2]-.5],[poll[0]+.22,jc,poll[2]-1.9],1.25,1,pass);
-      limb(poll,muzzle,1.15,.78,pass);
+      limb(poll,muzzle,1.23,.87,pass);
+      limb([muzzle[0]-.12,jc,muzzle[2]+.35],[muzzle[0]+.06,jc,muzzle[2]-.1],.82,.72,pass);
       limb([poll[0]-.06,jc-.12,poll[2]+.6],[poll[0]-.02-flick*.3,jc-.14,poll[2]+1.9],.42,.15,pass,hair);
       limb([poll[0]+.05,jc+.12,poll[2]+.6],[poll[0]+.12,jc+.14,poll[2]+1.85],.42,.15,pass,hair);
       leg(11.75,jc+.34,false,rest[1],0,pass,'lower'); leg(13.3,jc+.34,true,0,ph?0:paw,pass,'lower');
@@ -92,7 +93,11 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
     hs(12.72,jc+.38,13.7,12.75,jc+.38,8.7,dark);
     ht(11.45,jc+.4,12,11.85,jc+.4,10.1,dark); ht(11.85,jc+.4,10.1,12.5,jc+.4,10.6,dark);
     hs(13.45,jc+.4,11.8,10.6,jc+.4,7,dark);
-    /* bridle: headstall, noseband and the blinker by the eye; reins up to the driver's hands */
+    // A quiet eye and nostril give the head a readable equine profile.
+    const faceJ=jc+.24+offset;
+    thin(poll[0]+.16,faceJ,poll[2]-1.15,poll[0]+.19,faceJ,poll[2]-1.15,rgb('#100d0b'));
+    thin(muzzle[0]-.02,faceJ,muzzle[2]+.15,muzzle[0]+.04,faceJ,muzzle[2]+.15,rgb('#211914'));
+    /* bridle: headstall, noseband and the blinker by the eye. */
     const bx=poll[0]+.08, bz=poll[2]-1.6, cheek=jc+.2+offset;
     quad(bx,cheek,bz,bx+.28,cheek,bz,bx+.28,cheek,bz+1.6,bx,cheek,bz+1.6,()=>rgb('#161714'));
     thin(bx,cheek+.01,bz+1.6,bx+.28,cheek+.01,bz+1.6,rgb('#65513a'));
