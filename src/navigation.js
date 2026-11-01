@@ -123,7 +123,7 @@ export function hubKey(e,down){
 /** Match touch controls to the active prison activity. */
 export function setPanelMode(){
   document.body.classList.toggle('hub',boxingState.gstate==='hub'||boxingState.gstate==='menu');
-  for(const mode of ['work','arm','port']) document.body.classList.toggle(mode,boxingState.gstate===mode);
+  for(const mode of ['work','arm','port','pub']) document.body.classList.toggle(mode,boxingState.gstate===mode);
   const pullup=boxingState.gstate==='pullup'||boxingState.gstate==='roach', pu=boxingState.gstate==='pushup';
   document.getElementById('menuBtn').textContent=boxingState.gstate==='spar'&&sparringState.sparVenue==='yard'?'Wróć na spacerniak':boxingState.gstate==='spar'&&sparringState.sparVenue==='laznia'?'Wróć do łaźni':'Wróć do Wardu';
   const labels=['1 · Jab','2 · Cross','3 · Hook','4 · Upper','Spacja · Blok'];

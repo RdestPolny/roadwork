@@ -85,10 +85,11 @@ body:not(.hub) #needsHud,body.dlgopen #needsHud,body.shadow #needsHud{display:no
 .prompt b{font:400 22px/1 var(--f-st);letter-spacing:.5px;color:var(--wapno);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prompt small{font-size:12px;color:var(--szary)}
 .prompt small:empty{display:none}
-body:not(.hub):not(.port) .prompt,#stMenu:not([hidden]) ~ .prompt{display:none}
+body:not(.hub):not(.port):not(.pub) .prompt,#stMenu:not([hidden]) ~ .prompt{display:none}
 body.port .prompt{left:var(--port-x);top:var(--port-y);bottom:auto;transform:translate(-50%,-100%);padding:2px;border-width:1px;box-shadow:2px 2px 0 #000}
 body.port .prompt kbd{min-width:18px;height:18px;font-size:10px;box-shadow:none}
 body.port .prompt div{display:none}
+body.port .prompt.port-door div{display:block;font-size:11px;padding:0 4px}
 
 /* bare-knuckle opening plate */
 .fight-plate{position:absolute;left:0;right:0;top:24%;z-index:4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:clamp(14px,3vh,30px) 16px;background:var(--sadza);border-top:6px solid var(--pieczatka);border-bottom:6px solid var(--pieczatka);box-shadow:0 10px 0 rgba(0,0,0,.5);pointer-events:none;text-align:center;animation:plate 1.7s steps(12,end) forwards}

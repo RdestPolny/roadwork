@@ -12,6 +12,7 @@ import { renderRoaches } from './roaches.js';
 import { crankFrame, renderCrank } from './crank.js';
 import { renderIsoFight, state as isoFightState } from './iso-fight.js';
 import { renderThamesPort } from './thames-port.js';
+import { renderPub } from './pub.js';
 import { collodionFrame } from './collodion.js';
 
 // Runtime values owned by renderer; initialized explicitly by main.js.
@@ -28,7 +29,7 @@ export function hdRoom(){ return gymState.hubRoom==='cell'||gymState.hubRoom==='
 
 /** Single source of truth for native isometric frame size; side-view modes retain 2×.
  * @param {string} venue */
-export function isometricFrame(venue){ return ['cell','canteen','yard','laznia','port','sandy'].includes(venue)?state.hd3:state.hd; }
+export function isometricFrame(venue){ return ['cell','canteen','yard','laznia','port','pub','sandy'].includes(venue)?state.hd3:state.hd; }
 /** Select the current room framebuffer. */
 export function roomFrame(){ return isometricFrame(gymState.hubRoom); }
 
@@ -145,6 +146,7 @@ function present(face,blit=true){
 
 export function render(){
   if(boxingState.gstate==='port'){ withHD(()=>{ renderThamesPort(); present(false); },isometricFrame('port')); return; }
+  if(boxingState.gstate==='pub'){ withHD(()=>{ renderPub(); present(false); },isometricFrame('pub')); return; }
   if(boxingState.gstate==='crank'){ crankFrame(); withHD(()=>{ renderCrank(); present(false); }); return; }
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ if(hubHD()) withHD(()=>{ renderHub(); present(false); },roomFrame()); else { renderHub(); present(false); } return; }
   if(boxingState.gstate==='isofight'){ withHD(()=>{ renderIsoFight(); present(false); },isometricFrame(isoFightState.venue)); return; }

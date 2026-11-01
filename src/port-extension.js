@@ -318,21 +318,10 @@ function pub(t){
   pubCraftDetails();
 }
 const RUSTY=rgb('#5e3b27'), IRON_L=rgb('#5b6460');
-/** Lit pub windows, the bay, and the doorway are baked once, so they are glazed here every frame: a slow irregular candle-and-gas flicker, and now and then a figure crossing behind the glass. Cheap (a few thousand pixels): it never rebuilds the cache. */
+/** Animate the baked pub glazing with a slow gaslight flicker, without figures behind the glass. */
 function glowGlass(J,a0,a1,z0,z1,id,t,amp=1){
-  const P=980+id*173, n=Math.floor((t+id*311)/P), ph=((t+id*311)%P)/340, pass=ph<1&&h2(n*7+id,41)<150, dir=h2(n,id)&1?-1:1;
   const f=1+amp*(.075*(vn(t*.014+id*9.1,id*3.7)*2-1)+.03*(vn(t*.052+id*3.3,7.5)*2-1));
-  const fc=pass?(dir<0?1.2-1.4*ph:-.2+1.4*ph):0, bob=Math.sin(ph*38)*.012, edge=Math.min(1,ph*8,(1-ph)*8);
-  quad(a0,J,z0,a1,J,z0,a1,J,z1,a0,J,z1,(x,y)=>{
-    let c=shadeC(under(x,y),f);
-    if(pass){
-      const [i,z]=onJ(J,x+.5,y+.5), fx=(i-a0)/(a1-a0), fz=(z-z0)/(z1-z0);
-      const hx=(fx-fc)/.15, hz=(fz-.66-bob)/.1, bx=(fx-fc)/.3, bz=(fz-.36)/.27;
-      const q=Math.max(0,1-hx*hx-hz*hz,1-bx*bx-bz*bz);
-      if(q>0) c=mix(c,rgb('#1a0f08'),Math.min(.5,q*1.6)*.55*edge);
-    }
-    return c;
-  });
+  quad(a0,J,z0,a1,J,z0,a1,J,z1,a0,J,z1,(x,y)=>shadeC(under(x,y),f));
 }
 /** The dynamic half of the pub's lit glass (see glowGlass), sorted behind every person who stands in front of the wall. */
 export function pubWindowsFX(t){

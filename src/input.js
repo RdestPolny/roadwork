@@ -11,12 +11,13 @@ import { holdPullup, pullupInfo } from './pullups.js';
 import { roachKey, roachKeysOff, roachStrike, roachInfo } from './roaches.js';
 import { crankKey, crankKeysOff, crankInfo } from './crank.js';
 import { thamesKey, clearThamesInput } from './thames-port.js';
+import { pubKey, clearPubInput } from './pub.js';
 import { simUI } from './simulation.js';
 import { state as gymState, clearHubInput } from './gym.js';
 import { statShort, setDevMode } from './progression.js';
 import { state as roomsState, actStop } from './rooms.js';
 import { state as workState, workHint, workKey, workTap, workStepKey, workEnd, workGo } from './work.js';
-import { sysKey } from './menu.js';
+import { sysKey, sysOpen } from './menu.js';
 import { dlgKey } from './dialog.js';
 import { state as optionsState, optsToggle } from './options.js';
 import { hubKey, exitToHub, state as navigationState, stMenuPick, stMenuOpen } from './navigation.js';
@@ -36,7 +37,7 @@ export const state = {};
 
 /** Release held gameplay controls before opening or closing a modal. */
 export function clearHeldInput(){
-  crankKeysOff();isoFightRelease();clearThamesInput();
+  crankKeysOff();isoFightRelease();clearThamesInput();clearPubInput();
   clearHubInput(); releaseWalk(); state.bodyHeld=false; holdPullup(false); holdPushup(false); roachKeysOff(); resetDirectionTap();
 }
 
@@ -92,10 +93,13 @@ function setPrompt(title,sub,key='E'){
   state.promptKeyEl.textContent=key; state.promptTitleEl.textContent=title; state.promptSubEl.textContent=sub||'';
 }
 /** Show the port's nearby sack interaction using the usual action prompt. */
-export function setPortSackPrompt(show,x,y){
-  setPrompt(show?'PODNIEŚ WOREK':'');
+export function setPortSackPrompt(show,x,y,title=null){
+  setPrompt(show?(title||'PODNIEŚ WOREK'):'');
+  if(state.promptEl) state.promptEl.classList.toggle('port-door',!!show&&!!title);
   if(show){ state.promptEl.style.setProperty('--port-x',`${x}px`); state.promptEl.style.setProperty('--port-y',`${y}px`); }
 }
+/** Show or hide the interior exit hint in the standard interaction HUD. */
+export function setPubPrompt(show){ setPrompt(show?'WYJDŹ NA NABRZEŻE':''); }
 
 /** Upper case without diacritics, to match "PODCIAGANIE" with "podciąganie". @param {string} t */
 const plain=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
@@ -122,6 +126,7 @@ export function setInfo(){
     return;
   }
   if(boxingState.gstate==='port'){ state.infoEl.textContent='PORT NAD TAMIZĄ · NOC'; state.nextEl.textContent='strzałki / WASD — ruch · E — podnieś / odłóż worek · Esc — powrót'; return; }
+  if(boxingState.gstate==='pub'){ state.infoEl.textContent='THE ROPE & ANCHOR'; state.nextEl.textContent='strzałki / WASD — ruch · E — wyjdź na nabrzeże · Esc — pauza'; return; }
   if(boxingState.gstate==='work'){ state.infoEl.textContent='RZEŹNIA · półtusza '+Math.min(workState.WK.n+(workState.WK.phase==='end'?0:1),workState.WK_N)+'/'+workState.WK_N+(workState.WK.drops?' · upuszczone: '+workState.WK.drops:''); state.nextEl.textContent=workHint()+(workState.WK.phase==='end'?'':' · Esc — koniec zmiany'); return; }
   if(boxingState.gstate==='arm'){ const A=armState.A; state.infoEl.textContent='SIŁOWANIE NA RĘKĘ'+(A?' · '+A.name+(A.stake==='porcja'?' · o porcję':A.stake==='miejsce'?' · o miejsce':' · dla sportu'):''); state.nextEl.textContent=A&&A.result?'Enter — wróć do Wardu':'Spacja / E — pchnij w rytm kółka · przytrzymaj S / ↓ — zaprzyj się, gdy rywal czerwienieje · Esc — poddaj się'; return; }
   if(boxingState.gstate==='spar'){
@@ -219,6 +224,7 @@ addEventListener('keydown',e=>{
   if(charSheetKey(e)||prisonKey(e)||skillTreeKey(e)||sysKey(e)||dlgKey(e)) return;
   if(!optionsState.optsEl.hidden){ if(e.code==='Escape'||e.code==='KeyO'){ e.preventDefault(); optsToggle(false); } e.stopImmediatePropagation(); return; }
   if(e.code==='KeyO'&&!e.repeat&&!e.ctrlKey&&!e.metaKey&&e.target.tagName!=='INPUT'&&e.target.tagName!=='SELECT'){ e.preventDefault(); optsToggle(true); return; }
+  if(boxingState.gstate==='pub'){ if(!e.repeat&&e.code==='Escape'){ e.preventDefault(); sysOpen('pause'); return; } if(pubKey(e,true)) e.preventDefault(); return; }
   if(boxingState.gstate==='port'){ if(thamesKey(e.code,true,e.repeat)){ e.preventDefault(); return; } if(!e.repeat&&e.code==='Escape'){ e.preventDefault(); exitToHub(); } return; }
   if(e.repeat)return;
   if(sessionKey(e)) return;
@@ -256,7 +262,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyM'){audioState.soundOn=!audioState.soundOn;state.sndEl.checked=audioState.soundOn;}
 });
 
-addEventListener('keyup',e=>{ if(boxingState.gstate==='port'){ thamesKey(e.code,false); return; } if(charSheetOpen()||skillTreeKey(e)) return; if(boxingState.gstate==='arm'){ armKey(e,false); return; } if(boxingState.gstate==='isofight'){ isoFightKey(e,false); return; } if(e.code==='Space'||e.code==='KeyE'){ holdPullup(false); holdPushup(false); } if(boxingState.gstate==='roach') roachKey(e.code,false); if(boxingState.gstate==='crank') crankKey(e,false); if(boxingState.gstate==='hub'||boxingState.gstate==='menu') hubKey(e,false); const k=state.KEYMAP[e.code], mv=k===animationState.M_SLIPL?k:screenMove(k); /* releasing Q must not pick the next slip side */ if(mv===animationState.walkHeld)releaseWalk(); if(e.code==='ArrowDown')state.bodyHeld=false; });
+addEventListener('keyup',e=>{ if(boxingState.gstate==='pub'){ pubKey(e,false); return; } if(boxingState.gstate==='port'){ thamesKey(e.code,false); return; } if(charSheetOpen()||skillTreeKey(e)) return; if(boxingState.gstate==='arm'){ armKey(e,false); return; } if(boxingState.gstate==='isofight'){ isoFightKey(e,false); return; } if(e.code==='Space'||e.code==='KeyE'){ holdPullup(false); holdPushup(false); } if(boxingState.gstate==='roach') roachKey(e.code,false); if(boxingState.gstate==='crank') crankKey(e,false); if(boxingState.gstate==='hub'||boxingState.gstate==='menu') hubKey(e,false); const k=state.KEYMAP[e.code], mv=k===animationState.M_SLIPL?k:screenMove(k); /* releasing Q must not pick the next slip side */ if(mv===animationState.walkHeld)releaseWalk(); if(e.code==='ArrowDown')state.bodyHeld=false; });
 
 addEventListener('blur',clearHeldInput);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) clearHeldInput(); });

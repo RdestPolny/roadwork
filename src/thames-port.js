@@ -12,6 +12,7 @@ import { portSurface, districtBlocked } from './port-district.js';
 import { walkJoints } from './port-life.js';
 import { DEBUG } from './config.js';
 import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX } from './port-extension.js';
+import { startPub, clearPubInput } from './pub.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
 export function startThamesPort(){ Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; invalidateBackground(); clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
@@ -54,9 +55,23 @@ function portStory(){
 export function thamesPlayer(){ return {...player,pose:!!player.pose,zoom:view.z,sack:{...playerSack},job:{...portJob},story:storyState.kind&&{kind:storyState.kind,tick:storyState.tick}}; }
 /** Keep the interaction hint in sync with the pickup range and animation. */
 function sackPrompt(){
+  const door=nearPubDoor()&&!storyPlaying()&&!player.carrying&&player.lift<0&&!portJob.entry;
   const show=!player.carrying&&player.lift<0&&!portJob.entry&&!storyPlaying()&&Math.hypot(player.i-playerSack.i,player.j-playerSack.j)<1.4;
   const H=rendererState.hd3, d=window.devicePixelRatio||1;
-  setPortSackPrompt(show,(H.ox+isoX(playerSack.i,playerSack.j)*H.scale)/d,(H.oy+isoY(playerSack.i,playerSack.j,5)*H.scale)/d);
+  const i=door?35.8:playerSack.i,j=door?6:playerSack.j;
+  setPortSackPrompt(door||show,(H.ox+isoX(i,j)*H.scale)/d,(H.oy+isoY(i,j,door?15:5)*H.scale)/d,door?'WEJDŹ DO PUBU':null);
+}
+/** The interactable side of the actual front threshold, outside the building. */
+function nearPubDoor(){ return Math.abs(player.i-35.8)<.9&&player.j>5.9&&player.j<7.15; }
+/** Enter without reinitialising the port job or the story. */
+function enterPub(){
+  clearThamesInput(); player.moving=false; setPortSackPrompt(false);
+  setGstate('pub'); setPanelMode(); setInfo(); startPub();
+}
+/** Return to the exact free spot from which the player entered the pub. */
+export function leavePubToPort(){
+  clearPubInput(); clearThamesInput(); player.moving=false; player.fi=0; player.fj=1;
+  setPortSackPrompt(false); resumeThamesPort();
 }
 /** Ground-level footprints of the port props, including the movable sack. */
 export function thamesBlocked(i,j){
@@ -81,6 +96,7 @@ export function thamesKey(code,down,repeat=false){
     if(down&&!repeat&&player.lift<0&&!portJob.entry){
       if(player.carrying){ playerSack.i=player.i+player.fi*.55; playerSack.j=player.j+player.fj*.55; player.carrying=false; }
       else if(Math.hypot(player.i-playerSack.i,player.j-playerSack.j)<1.4){ const di=playerSack.i-player.i,dj=playerSack.j-player.j,dist=Math.hypot(di,dj); if(dist>.01){ player.fi=di/dist; player.fj=dj/dist; } player.lift=0; player.moving=false; }
+      else if(nearPubDoor()) enterPub();
     }
     return true;
   }

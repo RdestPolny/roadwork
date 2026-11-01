@@ -3,6 +3,7 @@ import { armTick } from './armwrestle.js';
 import { sessionTick } from './training-session.js';
 import { state as gymState, hubTick } from './gym.js';
 import { tickThamesPort } from './thames-port.js';
+import { tickPub } from './pub.js';
 import { sparUpdate } from './sparring.js';
 import { workTick, state as workState } from './work.js';
 import { pushupTick, solvePushup } from './pushups.js';
@@ -31,6 +32,7 @@ export function update(){
   if(boxingState.shakeT>0){boxingState.shakeT--;const a=Math.ceil(boxingState.shakeAmp*boxingState.shakeT/boxingState.shakeDur),s=(boxingState.shakeT&2)?1:-1;boxingState.shX=boxingState.shakeAxis===0?s*a:0;boxingState.shY=boxingState.shakeAxis===1?s*a:0;} else {boxingState.shX=0;boxingState.shY=0;}
   if(boxingState.riseT>0){boxingState.riseT--;boxingState.shY+=1;}
   if(boxingState.gstate==='port'){ tickThamesPort(); return; }
+  if(boxingState.gstate==='pub'){ tickPub(); return; }
   if(boxingState.gstate==='hub'||boxingState.gstate==='menu'){ hubTick(); if(boxingState.gstate==='hub') prisonTick(); return; }
   if(boxingState.gstate==='isofight'){ isoFightTick(); return; }
   if(boxingState.gstate==='spar'){ sparUpdate(); return; }

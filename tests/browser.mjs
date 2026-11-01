@@ -401,6 +401,46 @@ try {
     await check('developer mode: any door to any room at any hour, no schedule, no autosave', () => checkDevMode(page));
     await check('developer scene switcher in options: switches locations and activities', () => checkDevSceneSwitcher(page));
 
+    await check('Thames pub entrance and return preserve the port', async () => {
+      await page.evaluate(async()=>{ const T=await import('/src/thames-port.js'); T.startPortScene('before'); T.debugPortView(35.8,6.6); });
+      await page.keyboard.press('e');
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'port','a story scene prevents entry');
+      await page.evaluate(async()=>{ const T=await import('/src/thames-port.js'); T.startThamesPort(); T.thamesKey('KeyE',true); window.__boxer.step(120); T.debugPortView(35.8,6.6); });
+      await page.keyboard.press('e');
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'port','carrying a sack prevents entry');
+      await page.evaluate(async()=>{ const T=await import('/src/thames-port.js'); T.startThamesPort(); window.__boxer.step(240); });
+      const before=await page.evaluate(async()=>{ const T=await import('/src/thames-port.js'); T.debugPortView(34,7); window.__boxer.step(1); return T.thamesPlayer(); });
+      await page.keyboard.press('e');
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'port','E away from the door must not enter');
+      await page.evaluate(async()=>{ (await import('/src/thames-port.js')).debugPortView(35.8,6.6); window.__boxer.step(1); });
+      const atDoor=await page.evaluate(async()=>(await import('/src/thames-port.js')).thamesPlayer());
+      await page.keyboard.press('e');
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'pub','E at the front door enters the pub');
+      assert.equal(await page.locator('#prompt').isVisible(),true,'exit prompt is visible inside');
+      const collision=await page.evaluate(async()=>{const P=await import('/src/pub.js'); const start=P.pubPlayer(); P.pubKey({code:'ArrowUp'},true); window.__boxer.step(40); P.pubKey({code:'ArrowUp'},false); const moved=P.pubPlayer(); return {start,moved,bar:P.pubBlocked(1.5,1),door:P.pubBlocked(7.5,.2),floor:P.pubBlocked(3.3,4.5)};});
+      assert.ok(Math.hypot(collision.start.i-collision.moved.i,collision.start.j-collision.moved.j)>.5,'player can explore the interior');
+      assert.deepEqual([collision.bar,collision.door,collision.floor],[true,true,false],'counter and rear door are solid and the aisle is clear');
+      await page.evaluate(async()=>{const P=await import('/src/pub.js'); P.startPub();});
+      const pubBefore=await page.evaluate(async()=>(await import('/src/pub.js')).pubPlayer());
+      await page.keyboard.down('ArrowUp');
+      await page.evaluate(()=>window.dispatchEvent(new Event('blur')));
+      await page.evaluate(()=>window.__boxer.step(5));
+      await page.keyboard.up('ArrowUp');
+      const pubAfter=await page.evaluate(async()=>(await import('/src/pub.js')).pubPlayer());
+      assert.deepEqual([pubAfter.i,pubAfter.j],[pubBefore.i,pubBefore.j],'focus loss releases movement');
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#sys').isVisible(),true,'Escape pauses in the pub');
+      await page.keyboard.press('Escape');
+      await page.evaluate(()=>window.__boxer.step(5));
+      await page.keyboard.press('e');
+      assert.equal(await page.evaluate(()=>window.__boxer.gstate),'port','E at the inner door returns to the port');
+      const after=await page.evaluate(async()=>(await import('/src/thames-port.js')).thamesPlayer());
+      assert.deepEqual(after.job,before.job,'port job remains intact');
+      assert.deepEqual(after.sack,before.sack,'sack is not reset');
+      assert.deepEqual(after.story,before.story,'story is not reset');
+      assert.deepEqual([after.i,after.j],[atDoor.i,atDoor.j],'return uses the safe point at the front door');
+    });
+
     await check('Thames port developer preview, animation and return', async () => {
       const result=await page.evaluate(() => {
         document.querySelector('[data-dev-scene="port"]').click();
