@@ -8,6 +8,7 @@
  */
 import { ANCHORS, DECK_Z } from './port-district.js';
 import { ragdollLengths, stepRagdoll, ragdollJointsIn } from './ragdoll.js';
+import { mocapWalk } from './mocap-walk.js';
 
 const clamp01=(/** @type {number} */ u)=>Math.max(0,Math.min(1,u));
 const ease=(/** @type {number} */ u)=>{ u=clamp01(u); return u*u*(3-2*u); };
@@ -37,16 +38,24 @@ export function rnd(a,b=0){
   return (h>>>0)/4294967296;
 }
 
-/** Walking legs: q is the phase of one stride cycle (two steps); returns foot forward offset and lift. @param {number} q */
-export const stride=q=>{ const D=.62; if(q<D) return [1.6-3.2*q/D,0]; const u=(q-D)/(1-D); return [-1.6+3.2*ease(u),Math.sin(Math.PI*u)]; };
-/** Joints of a walking man at stride phase g; loaded = a sack held on the shoulder of side `side`.
+/** The walk cycle's mean pelvis height: the mocap pelvis' rise and fall around it is the docker's bob. */
+const WALK_PEL=Array.from({length:24},(_,i)=>mocapWalk(i/24).pel[2]).reduce((x,y)=>x+y)/24;
+/** Share of the mocap leg's forward swing kept: the port's routines advance g for this skeleton's shorter old stride. */
+const WALK_SWING=.6;
+/** A mocap bone direction with its forward swing narrowed by k, at length l. @param {number[]} a @param {number[]} b @param {number} k @param {number} l */
+const bone=(a,b,k,l)=>{ const d=sub(b,a); d[0]*=k; return mul(d,l/(len(d)||1)); };
+/** Joints of a walking man at stride phase g (cycles); loaded = a sack held on the shoulder of side `side`. The limbs swing as in
+ * the mocap walk (src/mocap-walk.js) on this skeleton's own bones, attachments and scale, so every pose built on it still fits.
  * @param {number} g @param {boolean} loaded @param {number} side */
 export function walkJoints(g,loaded,side){
-  const bob=-.22*Math.cos(4*Math.PI*g)-(loaded?.15:0), lean=loaded?.8:.5, swing=stride(frac(g+.5))[0], swing2=stride(frac(g))[0];
+  const W=mocapWalk(g), bob=W.pel[2]-WALK_PEL-(loaded?.15:0), lean=loaded?.8:.5;
+  const yaw=(W(1).sh[0]-W(-1).sh[0])*.25;   // the shoulders turn against the stride
   /** @param {number} s */
-  const J=s=>{ const [fx,lift]=stride(frac(g+(s>0?0:.5))), hip=[0,s*1.2,7.2+bob], sw=s>0?swing:swing2;
-    return {hip,knee:[fx*.5+.55+lift*.35,s*1.3,(hip[2]+.9+lift)/2+.2],foot:[fx,s*1.4,.9+lift*.9],sh:[lean*.5,s*2.6,12.1+bob],
-      el:loaded&&s===side?[.6,s*3.1,14.4+bob]:[.2-sw*.45,s*3.4,9.8+bob],hd:loaded&&s===side?[.9,s*2.3,16+bob]:[.5-sw*.8,s*3.5,7.7+bob]}; };
+  const J=s=>{ const m=W(s), hip=[0,s*1.2,7.2+bob], knee=add(hip,bone(m.hip,m.knee,WALK_SWING,LEG[0])), foot=add(knee,bone(m.knee,m.foot,WALK_SWING,LEG[1]));
+    const sh=[lean*.5+s*yaw,s*2.6,12.1+bob];
+    if(loaded&&s===side) return {hip,knee,foot,sh,el:[.6,s*3.1,14.4+bob],hd:[.9,s*2.3,16+bob]};
+    const el=add(sh,bone(m.sh,m.el,1,ARM[0]));
+    return {hip,knee,foot,sh,el,hd:add(el,bone(m.el,m.hd,1,ARM[1]))}; };
   J.pel=[0,0,6.6+bob];J.chest=[lean,0,12+bob];J.head=[lean+.2,0,15.3+bob];
   return J;
 }
