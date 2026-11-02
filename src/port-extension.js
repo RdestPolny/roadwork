@@ -12,7 +12,7 @@ import { pubCraftDetails, tradeCraftDetails, pierCraftDetails, yardCraftProps } 
 import { portLifeProps } from './port-scenes.js';
 import { C, floor, stroke, thin, rope, vn, frac, barrel, crate, chimney,
   onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, contact, cyl, roundLit,
-  smoke, spot, hull, RIVER, camera } from './thames-port.js';
+  smoke, spot, hull, RIVER, camera, lampLight } from './thames-port.js';
 
 const WOOD=rgb('#4b3527'), WOOD_HI=rgb('#75604a'), WOOD_DARK=rgb('#211b17');
 const BRICK_PUB=[rgb('#493126'),rgb('#53382c'),rgb('#392b27'),rgb('#604135')];
@@ -71,27 +71,60 @@ export function rail(i0,j0,i1,j1,from=0,to=1,wooden=false){
   } else { stroke(a0,b0,6.5,a1,b1,6.5,C.woodLight); thin(a0,b0,3.4,a1,b1,3.4,WOOD_HI); }
 }
 const shore=[[31.5,13,0],[31.7,13.85,-1.4],[32,15,-3.1],[32.6,16.15,-4.8],[33.4,16.9,-6.3],[34.5,17.3,-6.95],[35.5,17.6,-6.95],[36.5,18,-6.95],[37.4,17.45,-6.95],[38.4,16.35,-6.95],[39.3,13.2,-6.95]];
-/** The sandy bank and the timber pier along the quay. */
+const SHINGLE=rgb('#5a5444'), MUD=rgb('#3a342a'), MUD_WET=rgb('#26231e'), WRACK=rgb('#2a2b1c'), WEED=rgb('#4a4a26'), SHORE=0xff020304;
+const TYRE_RUST=[rgb('#5e3a24'),rgb('#8a5631')];
+const PEBBLES=[rgb('#6b665a'),rgb('#575349'),rgb('#3e3b35'),rgb('#6e4a36'),rgb('#7c7a6e'),rgb('#4f5250')];
+/** Thames foreshore at low tide at a ground point, z from 0 at the quay down to the water: dry shingle with broken brick,
+ * a wrack line of weed and drift, then wet mud that shines in the lamp light. */
+function shoreAt(i,j,z){
+  const h=-z, wet=Math.max(0,Math.min(1,(h-2.4+(vn(i*.9,j*.7)-.5)*1.4)/3));
+  let c=shadeC(mix(mix(SHINGLE,MUD,Math.min(1,h/3)),MUD_WET,wet),.85+.3*vn(i*1.6+4,j*1.8));
+  const pi=i*3.4, pj=j*3.4, g=h2(Math.floor(pi)+77,Math.floor(pj)*3+5), fi=frac(pi)-.5-((g&7)-3.5)*.08, fj=frac(pj)-.5-((g>>3&7)-3.5)*.08, rad=.16+(g%5)*.05;
+  if(g<110-wet*80&&fi*fi+fj*fj<rad*rad) c=mix(c,shadeC(PEBBLES[g%6],fi+fj<-.15?1.12:fi+fj>.2?.78:.95),.42-wet*.22);
+  const dw=Math.abs(h-2.6-vn(i*.8,7)*1.1);
+  if(dw<.45){ const s=vn(i*4.2,j*4.6); c=mix(c,s>.55?WEED:WRACK,Math.min(.85,(1-dw/.45)*1.6*(.5+s*.6))); }
+  if(wet>.3){ const s=vn((i-j)*1.4,(i+j)*.5+3); if(s>.58) c=mix(c,C.waterHi,Math.min(.45,(s-.58)*2.2)*wet); }
+  const L=lampLight(i,j)*(1+wet);
+  return L>0?mix(shadeC(c,1+L*.7),C.lamp,Math.min(.4,L*.22)):c;
+}
+/** Where the quay's setts stop above the bank: they are kept or lost whole, the line ragged, intact at both ends. */
+const settEdge=i=>11.85+.35*vn(i*1.8,3.7)+.12*vn(i*6,1.2)+Math.max(0,.7-(i-31.5))*2+Math.max(0,.9-(39.3-i))*2;
+/** The centre i of the sett in a row of the quay's bond that holds i (the bond of settAt in thames-port). */
+const settMid=(i,row)=>{ const o=frac(row*.37)*.9; return (Math.floor(i*1.25+o)+.5-o)/1.25; };
+/** The bank and the timber pier along the quay. */
 export function portDecks(){
   floor(31.5,11.65,39.3,13.06,.04,(x,y)=>{
-    const [i,j]=ground(x,y,.04), boundary=11.85+.35*vn(i*1.8,3.7)+.12*vn(i*6,1.2);
-    const edge=Math.min(1,Math.max(0,(j-boundary)*5));
-    const fade=edge*Math.min(1,(i-31.5)*3,(39.3-i)*2);
-    const sand=shadeC(rgb('#817253'),.72+.24*vn((x-camera.x)*.13,(y-camera.y)*.14)+(h2((x-camera.x)|0,(y-camera.y)|0)-128)/850);
-    return mix(under(x,y),sand,fade);
+    const [i,j]=ground(x,y,.04), row=Math.floor(j*2.3);
+    if((row+.5)/2.3<settEdge(settMid(i,row))) return under(x,y);
+    const back=Math.floor((j-.22)*2.3), c=shoreAt(i,j,0);
+    return back<row&&(back+.5)/2.3<settEdge(settMid(i,back))?shadeC(c,.55):c;
   });
-  for(let k=0;k<shore.length-1;k++){
+  // The bank slopes from the quay to the water: mark it first, so its texture can find the river along its true edge.
+  const K=.725*camera.z/camera.iy;
+  const slope=(x,y)=>{ const a=(x-camera.x)/camera.ix, b=(y-camera.y)/camera.iy, j=((b-a)/2+13*K)/(1+K), z=Math.max(-6.95,-1.45*(j-13)), c=shoreAt((a+b+z*camera.z/camera.iy)/2,j,z);
+    if(x<1||y<1||x>=appearanceState.W-1||y>=appearanceState.H-1) return c;
+    return under(x,y-1)===RIVER||under(x-1,y)===RIVER||under(x+1,y)===RIVER?mix(c,C.waterHi,.45):under(x,y+1)===RIVER?shadeC(c,.7):c; };
+  for(const fill of [()=>SHORE,slope]) for(let k=0;k<shore.length-1;k++){
     const [a,ja,za]=shore[k], [b,jb,zb]=shore[k+1];
-    quad(a,13,0,b,13,0,b,jb,zb,a,ja,za,(x,y)=>shadeC(rgb('#817253'),.72+.24*vn((x-camera.x)*.13,(y-camera.y)*.14)+(h2((x-camera.x)|0,(y-camera.y)|0)-128)/850));
-    if(za<-6&&zb<-6) thin(a,ja,za+.05,b,jb,zb+.05,shadeC(C.waterHi,.8));
+    quad(a,13,0,b,13,0,b,jb,zb,a,ja,za,fill);
   }
+  for(let k=0;k<shore.length-1;k++){ const [a,ja,za]=shore[k], [b,jb,zb]=shore[k+1]; if(za<-6&&zb<-6) thin(a,ja,za+.05,b,jb,zb+.05,shadeC(C.waterHi,.8)); }
+  // Stumps of an old jetty, worn to the mud line, slimy at the foot.
+  for(const [i,j,h] of [[34.1,16.35,2.6],[35.15,16.85,1.7],[36.3,17.15,3.1],[37.4,16.75,1.2],[38.3,15.9,2.2]]){
+    const z=Math.max(-6.95,-1.45*(j-13));
+    isoBox(i-.13,j-.13,i+.13,j+.13,z-.3,z+h,WOOD_HI,WOOD,WOOD_DARK); thin(i-.13,j+.13,z+.35,i+.13,j+.13,z+.35,C.slime); }
+  // Drift on the mud: a green bottle and a cart tyre rusting half under the shingle.
+  const sz=j=>-1.45*(j-13)+.1;
+  thin(36.75,15.2,sz(15.2),36.95,15.12,sz(15.12),rgb('#2f4a35')); thin(36.8,15.16,sz(15.16)+.25,36.9,15.12,sz(15.12)+.25,rgb('#6f8a70'));
+  for(let k=0;k<9;k++){ const a=k*Math.PI/8, b=a+Math.PI/8, j0=14.3+Math.sin(a)*.32, j1=14.3+Math.sin(b)*.32;
+    thin(37.7+Math.cos(a)*.42,j0,sz(j0),37.7+Math.cos(b)*.42,j1,sz(j1),k&1?TYRE_RUST[0]:TYRE_RUST[1]); }
   for(const [i,j,z] of [[34.3,13.8,-1.6],[35.2,14.3,-2],[36.4,14.6,-2.3],[37.8,14.2,-2],[38.5,13.7,-1.6]]){
     thin(i,j,z,i+.12,j+.05,z+.08,shadeC(WOOD_DARK,1.3));
     thin(i+.14,j-.13,z+.2,i+.22,j-.1,z+.25,shadeC(WOOD_HI,.8));
   }
   thin(35.1,13.6,-.95,35.65,13.9,-1.4,WOOD_DARK);
   // A crumpled, weathered net on the sloping sand.
-  const netZ=j=>-1.45*(j-13)+.08, net=rgb('#2c2b20'), ni=33.3, nj=15.85;
+  const netZ=j=>-1.45*(j-13)+.08, net=rgb('#5d5640'), ni=33.3, nj=15.85;
   for(let n=-3;n<=3;n++){
     const u=n/4, span=Math.sqrt(1-u*u), i=ni+u*.9, j=nj+u*.7;
     const j0=nj-span*.67, j1=nj+span*(.67+.1*Math.sin(n*3));
@@ -237,8 +270,8 @@ function signAt(u,v,w,h,x,y){
   return sh?shadeC(rgb('#0a1010'),1):base;
 }
 /** Where each lit pub window sits: [a, z, w, h] on the front wall (j=5.9), as given to windowAt. */
-const PUB_LIT=[[31.7,3.4,1.25,12],[37.6,3.4,1.25,12],[34.3,27.6,1.4,13],[37.6,27.6,1.4,13]];
-const PUB_DOOR={a:35.08,b:36.52,z0:2.3,z1:16.9,wt:.35};
+export const PUB_LIT=[[31.7,3.4,1.25,12],[37.6,3.4,1.25,12],[34.3,27.6,1.4,13],[37.6,27.6,1.4,13]];
+export const PUB_DOOR={a:35.08,b:36.52,z0:2.3,z1:16.9,wt:.35};
 /** One worn stone step: +i end, riser (shadowed under a lighter, hollowed nose) and a top that polishes in the middle; moss in the damp corners, a crack and a broken corner. */
 function stoneStep(i0,j0,i1,j1,z0,z1,s,crackAt,chip){
   quad(i1,j0,z0,i1,j1,z0,i1,j1,z1,i1,j0,z1,(x,y)=>{ const [j,z]=onI(i1,x,y); return shadeC(C.stone[h2(Math.floor(j*6)+s,2)&3],.46+.2*vn(j*3+s,z*.6)); });

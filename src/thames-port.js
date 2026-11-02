@@ -12,7 +12,7 @@ import { DISTRICT, portSurface, districtBlocked, propBlocked, propDraws, PORT_PR
 import { walkJoints } from './port-life.js';
 import { DEBUG } from './config.js';
 import { pubInside, enterPub, leavePub, pubTick, renderPub, pubRivalNear } from './pub.js';
-import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX } from './port-extension.js';
+import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX, PUB_LIT, PUB_DOOR } from './port-extension.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
 export function startThamesPort(){ leavePub(); Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; invalidateBackground(); clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
@@ -213,34 +213,118 @@ function contact(i0,j0,i1,j1,z=0,k=.55){
   floor(i0-.2,j0-.15,i1+.25,j1+.3,z,(x,y)=>{ const [i,j]=ground(x,y,z), d=Math.max(Math.max(i0-i,i-i1,0)/.25,Math.max(j0-j,j-j1,0)/.3); return shadeC(under(x,y),k+(1-k)*Math.min(1,d)); });
 }
 
+/** Grass and weeds rooted in the sett joints where nobody treads: under the warehouse walls, along the quay's edge and the
+ * drain, behind the lamp posts. Baked with the setts; each tuft springs from a bed joint, dry straw or late green. */
+function weeds(){
+  const spots=[];
+  for(let i=.9;i<29.6;i+=.55) spots.push([i,.35+frac(i*.71)*.5]);
+  for(let j=1.4;j<12;j+=.6) if(j<3.4||j>6.3) spots.push([.4+frac(j*.53)*.4,j]);
+  for(let i=.9;i<42;i+=.7) if(i<31.2||i>39.6) spots.push([i,12.35+frac(i*.37)*.45]);
+  for(let i=40.2;i<51.4;i+=.6) spots.push([i,4.62+frac(i*.61)*.5]);
+  for(const l of LAMPS) if(!l.wall) for(let a=2;a<5.5;a+=1.1) spots.push([l.i+Math.cos(a)*.5,l.j+Math.sin(a)*.42]);
+  for(let k=0;k<spots.length;k++){
+    const [si,sj]=spots[k], h=h2(Math.floor(si*31)+k,Math.floor(sj*29)+7);
+    if(h>100||propBlocked(si,sj)||districtBlocked(si,sj)) continue;
+    const j=Math.round(sj*2.3)/2.3+.02, i=si, L=lampLight(i,j), dim=Math.min(1,.62+j*.1)*Math.min(1,.62+i*.12);
+    const lit=c=>{ const d=shadeC(c,dim*(1+L*.8)); return L>0?mix(d,C.lamp,Math.min(.3,L*.18)):d; };
+    spot(isoX(i,j),isoY(i,j,0)-.5,3,1.4,.7,shadeC(W.moss,dim));
+    const nb=4+(h&3), dry=(h>>2)&1;
+    for(let b=0;b<nb;b++){ const g=h2(k*7+b,h), o=(b-(nb-1)/2)*.045+((g&7)-3.5)*.006, lean=((g>>3&7)-3.5)*.035+o*.6, z=.7+(g>>6)*.35+(b&1)*.3;
+      const tip=lit(dry&&b%3!==1?W.straw:W.grass);
+      thin(i+o,j-o,0,i+o+lean*.4,j-o-lean*.4,z*.5,lit(W.blade)); thin(i+o+lean*.4,j-o-lean*.4,z*.5,i+o+lean,j-o-lean,z,tip); }
+  }
+}
 /** Wet granite setts with puddles, grime by the walls and pools of gas light. */
 function sett(x,y){ const [i,j]=ground(x,y); return settAt(i,j); }
 /** The quay's setts at a ground point, or 0 off the quay (the knockdown comic's floor). @param {number} i @param {number} j */
 export function quayFloor(i,j){ const s=portSurface(i,j); return !s?0:s==='stone'?settAt(i,j):shadeC(C.woodLight,.75+vn(i*1.4,j*3)*.25); }
+/** Weathering colours: moss in joints, rust on iron, stained and burnt setts and bricks, salt bloom, puddle water. */
+const W={moss:rgb('#36432a'), mossHi:rgb('#58622f'), rust:rgb('#4e3222'), rustHi:rgb('#70452a'), stain:rgb('#5b4a36'), cool:rgb('#454d52'),
+  oily:rgb('#3d3547'), sheen:rgb('#384a44'), puddle:rgb('#1c2427'), salt:rgb('#77756a'), clinker:rgb('#2b2b2f'), pale:rgb('#6f6248'),
+  red:rgb('#6a3a2a'), spall:rgb('#77503a'), blade:rgb('#262e1c'), grass:rgb('#4f5c2e'), straw:rgb('#6c653a')};
+/** Rain puddles [i, j, half-size along i, along j], placed on open setts where a wall lamp or a lit sash mirrors in them. */
+const PUDDLES=[[11.8,9.35,1.05,.6],[34.2,7.55,.85,.5],[22.35,6.05,.75,.5]];
+/** Oil and tar stains [i, j, radius] where carts stood and barrels were rolled. */
+const OIL=[[15.6,6.9,.7],[24.3,9.3,.9],[45.3,9.1,.65],[6.2,8.2,.55]];
+/** Water depth of the puddles at a ground point: above 0 under water, 0 to −.35 the wet rim round it, lower dry. */
+/** The lit sashes of the warehouse fronts [a, z, w, h] (as fronts() draws them), for the puddles to mirror. */
+const LIT_SASHES=[[2.9,28,1.2,15],[12.2,28,1.2,14],[18.8,28,1.2,15],[26.6,28,1.2,15],[1.2,51,1.2,15],[9.3,51,1.2,15]];
+/** What a puddle at a ground point mirrors: the warehouse fronts (j=0), the side wall (i=0) or the pub front (j=5.93) at
+ * height 6×distance, lit sashes, dark brick, or the night sky above the parapet; a little ripple wobbles it. */
+function facadeMirror(i,j){
+  if(i>=30){ const d=j-5.93, a=i-d+(vn(i*4,j*26)-.5)*.16, h=6*d, win=PUB_LIT.find(([wa,wz,ww,wh])=>a>wa&&a<wa+ww&&h>wz&&h<wz+wh), door=a>PUB_DOOR.a&&a<PUB_DOOR.b&&h>PUB_DOOR.z0&&h<PUB_DOOR.z1;
+    if(win&&(frac((a-win[0])/win[2]*2)<.14||frac((h-win[1])/win[3]*3)<.1)) return mix(W.puddle,C.litD,.35);
+    return win||door?mix(W.puddle,mix(C.litD,C.lit,.45),.6):shadeC(mix(W.puddle,C.brickC[2],.2),.85+.3*vn(a*3,h*.1)); }
+  const side=i<j, a=(side?j-i:i-j)+(vn(i*4,j*26)-.5)*.16, h=6*(side?i:j), F=side?null:FRONTS.find(s=>a>=s.i0&&a<s.i1);
+  if(h>(side?74:F?F.h:0)) return shadeC(W.puddle,1.3);
+  if(!side) for(const [wa,wz,ww,wh] of LIT_SASHES) if(a>wa&&a<wa+ww&&h>wz&&h<wz+wh) return frac((a-wa)/ww*2)<.14||frac((h-wz)/wh*3)<.08?mix(W.puddle,C.litD,.4):mix(W.puddle,mix(C.litD,C.lit,.45),.7);
+  return shadeC(mix(W.puddle,(F?F.pal:C.brick)[0],.2),.85+.3*vn(a*3,h*.1));
+}
+function puddleAt(i,j){
+  let p=-1; for(let k=0;k<PUDDLES.length;k++){ const P=PUDDLES[k], di=(i-P[0])/P[2], dj=(j-P[1])/P[3], q=di*di+dj*dj;
+    if(q<2.4) p=Math.max(p,1-q-(vn(i*2.3+k*9,j*2.9)-.5)*.75); }
+  return p;
+}
+/** Gas light falling on a ground point (0 = none), from every lamp at its current glow. @param {number} i @param {number} j */
+export function lampLight(i,j){ let L=0; for(let k=0;k<LAMPS.length;k++){ const l=LAMPS[k], q=Math.max(0,1-Math.hypot(i-l.i,j-l.j)/l.r); L+=q*q*glow[k]; } return L; }
+/** Iron colour c with rust blooming where the noise r is above zero. */
+const rusty=(c,lit,r)=>r>0?mix(c,shadeC(r>.35?W.rustHi:W.rust,lit*.6),Math.min(.6,r*1.3)):c;
 /** @param {number} i @param {number} j */
 function settAt(i,j){
-  const row=Math.floor(j*2.3), u=i*1.25+frac(row*.37)*.9, v=j*2.3-row, f=frac(u);
-  const n=h2(Math.floor(u)+row*7,row*3), wetN=fbm(i*.33+3,j*.45+11);
-  let c=(v<.17||f<.07)?C.joint:shadeC(C.stone[n&3],v>.72?1.13:f>.9?.88:1);
+  const row=Math.floor(j*2.3), u=i*1.25+frac(row*.37)*.9, v=j*2.3-row, f=frac(u), cu=Math.floor(u);
+  const n=h2(cu+row*7,row*3), m=h2(cu*5+row*11+3,row*7+cu), wetN=fbm(i*.33+3,j*.45+11);
+  let c; const joint=v<.17||f<.07||(m>=40&&m<56&&f>.8&&v>.66);
+  if(joint){ c=C.joint;
+    const moss=fbm(i*.45+7,j*.55+2)-.5+(j<1.6?(1.6-j)*.4:0)+(i<1.4?(1.4-i)*.3:0)+(j>12.2?.15:0)-(j>3.5&&j<10.4?.14:0);
+    if(moss>0) c=mix(c,vn(i*2.7,j*3.1)>.55?W.mossHi:W.moss,Math.min(.85,moss*3)); }
+  else { c=C.stone[n&3];
+    if(m<20) c=mix(c,W.stain,.4); else if(m>238) c=mix(c,W.cool,.35); else if(m<30) c=shadeC(c,.74);
+    c=shadeC(c,v>.72?1.13:f>.9?.88:1);
+    if((m&31)===7&&v>.2){ const cf=.32+(m>>5)*.05+(v-.5)*(m&32?.3:-.3)+.05*Math.sin(v*11+m); if(Math.abs(f-cf)<.05) c=shadeC(c,.5); else if(Math.abs(f-cf-.08)<.03) c=shadeC(c,1.08); } }
   c=shadeC(c,(.84+(n-128)/1300+(vn(i*.7,j*.7)-.5)*.2)*Math.min(1,.62+j*.1)*Math.min(1,.62+i*.12));
   if(i<8.5&&(Math.abs(j-3.75)<.14||Math.abs(j-5.95)<.14)) c=mix(shadeC(c,.72),C.glassHi,.12*Math.max(0,1-i/8.5));
+  const rd=Math.min(Math.abs(j-10.935),Math.abs(j-11.635)); if(rd<.16) c=mix(c,W.rust,(1-rd/.16)*.4*vn(i*1.3,j*4));
+  const dc=Math.hypot(i-26.8,j-Math.min(11.2,Math.max(6.6,j)))/(j<8?5:3.4); if(dc<1) c=mix(c,C.coal,Math.min(.7,(1-dc)**1.6*(.35+.9*fbm(i*.8+2,j*.9))));
+  for(let k=0;k<OIL.length;k++){ const O=OIL[k], d=Math.hypot(i-O[0],(j-O[1])*1.35)/O[2]; if(d>1.4) continue; const e=d+(vn(i*2.1+k*7,j*2.4)-.5)*.7;
+    if(e<1){ c=mix(c,C.tar,.5*Math.min(1,(1-e)*2.5)); if(e>.55) c=mix(c,vn(i*3+k,j*3)>.5?W.oily:W.sheen,.35*(1-Math.abs(e-.78)/.23)); } }
   if(wetN>.64) c=mix(shadeC(c,.7),C.glassHi,Math.min(.55,(wetN-.64)*6)*(.6+.4*vn(i*2,j*6)));
   else if(wetN>.58) c=shadeC(c,.82);
-  let L=0; for(let k=0;k<LAMPS.length;k++){ const l=LAMPS[k], q=Math.max(0,1-Math.hypot(i-l.i,j-l.j)/l.r); L+=q*q*glow[k]; }
-  if(wetN>.64) L*=1.8;
-  if(gymState.ISO_K===3&&v>.2&&f>.13){ const grain=h2(Math.floor(i*24)+41,Math.floor(j*24));
+  const p=puddleAt(i,j)+(joint?.22:0);
+  if(p>-.35){ if(p<=0) c=shadeC(c,.68-p*.9);
+    else {
+      const mirror=facadeMirror(i,j);
+      c=mix(shadeC(c,.6),mirror,joint?1:Math.min(.95,p*6));
+      if(!joint&&puddleAt(i-.09,j-.09)<=0&&vn(i*5,j*5)>.25) c=mix(c,C.glassHi,.65);
+      for(let k=0;k<LAMPS.length;k++){ const l=LAMPS[k], s=l.z/6, di=i-l.i-s, dj=j-l.j-s, a=(di-dj)*.5, b=(di+dj)*.5, w=Math.exp(-(a*a/.012+b*b/.25))*glow[k];
+        if(w>.03) c=mix(c,w>.6?C.flame:C.lamp,Math.min(.9,w*1.3)); } } }
+  let L=lampLight(i,j);
+  if(wetN>.64) L*=1.8; if(p>0) L*=.5;
+  if(gymState.ISO_K===3&&v>.2&&f>.13&&p<=0){ const grain=h2(Math.floor(i*24)+41,Math.floor(j*24));
     if(grain<14) c=shadeC(c,.78); else if(grain>244) c=shadeC(c,1.12); }
   return L>0?mix(shadeC(c,1+L*.7),C.lamp,Math.min(.4,L*.22)):c;
 }
 /** Brick bond with a granite plinth, per-brick tone, soot streaks and rising damp; a runs along the face, z up it. */
 function brickAt(a,z,pal,seed){
-  if(z<2.6){ const r=Math.floor(z/1.3), u=a*1.4+(r&1)*.5; return (frac(z/1.3)<.15||frac(u)<.05)?C.mortar:shadeC(C.stone[h2(Math.floor(u)+seed,r)&3],.8+vn(a*3,z)*.16); }
-  const row=Math.floor(z*1.1), u=a*4.4+(row&1)*.5, f=frac(u), v=z*1.1-row, n=h2(Math.floor(u)+seed,row);
-  if(v<.17||f<.07) return shadeC(C.mortar,.88+vn(a*2,z*.3)*.25);
+  if(z<2.6){ const r=Math.floor(z/1.3), u=a*1.4+(r&1)*.5, c=(frac(z/1.3)<.15||frac(u)<.05)?C.mortar:shadeC(C.stone[h2(Math.floor(u)+seed,r)&3],.8+vn(a*3,z)*.16);
+    const g=vn(a*1.3+seed,z*.9)-.45+(z<.8?.25:0); return g>0?mix(c,W.moss,Math.min(.6,g*1.8)):c; }
+  const row=Math.floor(z*1.1), u=a*4.4+(row&1)*.5, f=frac(u), v=z*1.1-row, n=h2(Math.floor(u)+seed,row), m=h2(Math.floor(u)*5+seed+3,row*13+1);
+  const salt=z<14?(vn(a*.8+seed,z*.3)-.5)*2.2*(1-Math.abs(z-7)/7):0;
+  if(v<.17||f<.07){ const c=shadeC(C.mortar,(.88+vn(a*2,z*.3)*.25)*(crackAt(a,z,seed,.12)?.4:1)); return salt>.2?mix(c,W.salt,Math.min(.6,(salt-.2)*1.6)):c; }
   const streak=vn(a*1.6+seed,z*.035), patch=vn(a*.45+seed,z*.06);
-  const k=(.86+(n-128)/650)*(1.08-.34*streak*Math.min(1,z/26)-.16*patch)*(z<10?.8+z*.02:1);
+  let k=(.86+(n-128)/650)*(1.08-.34*streak*Math.min(1,z/26)-.16*patch)*(z<10?.8+z*.02:1), col=pal[n&3];
+  if(m<9) col=mix(col,W.clinker,.5); else if(m>246) col=mix(col,W.pale,.4); else if(m>239) col=mix(col,W.red,.3);
+  else if(m<13){ col=mix(col,W.spall,.45); if(v>.72) k*=.55; }
   const fleck=gymState.ISO_K===3?h2(Math.floor(a*18)+seed,Math.floor(z*11)):128;
-  return shadeC(pal[n&3],k*(fleck<17?.78:fleck>246?1.11:1));
+  const c=shadeC(col,k*(fleck<17?.78:fleck>246?1.11:1)*(crackAt(a,z,seed,.06)?.5:1));
+  return salt>.35?mix(c,W.salt,Math.min(.4,(salt-.35)*1.2)):c;
+}
+/** Is a point of a brick face on one of its stepped settlement cracks? Within w of the crack's line, so a wide w follows it through the mortar. */
+function crackAt(a,z,seed,w){
+  const ca=Math.floor(a/5), cz=Math.floor((z-3)/22), h=h2(ca*7+seed*3,cz*5+seed);
+  if(h>60) return false;
+  const dz=z-(cz*22+3+h%11);
+  if(dz<0||dz>5+h%9) return false;
+  return Math.abs(a-(ca*5+1+(h%30)/10+dz*((h&1)?.11:-.11)+(vn(dz*.6,h)-.5)*.12))<w;
 }
 /** A point on a wall face: f is {j:J} (faces +j) or {i:I} (faces +i), a runs along it. */
 const pt=(f,a,z)=>f.j!==undefined?[a,f.j+.03,z]:[f.i+.03,a,z];
@@ -252,6 +336,10 @@ function fl(f,a0,z0,a1,z1,c){ thin(...pt(f,a0,z0),...pt(f,a1,z1),c); }
 /** Sash window in a stone surround: lit, dark with sky sheen, or behind iron shutters; ground floors get bars. */
 function windowAt(f,a,z,w,h,kind,t,bars=false){
   const id=Math.floor(a*7+z), stone=(x,y)=>shadeC(C.lintel,.78+vn((x-camera.x)*.35,(y-camera.y)*.35)*.3);
+  /* rain runs off the sill and leaves grime (rust under bars) down the brick, heaviest at the sill's ends */
+  const grime=(x,y)=>{ const [aa,zz]=f.j!==undefined?onJ(f.j+.03,x,y):onI(f.i+.03,x,y), d=(z-1.1-zz)/(5+3*vn(aa*5,id)), e=Math.min(Math.abs(aa-a+.05),Math.abs(aa-a-w-.05));
+    const k=Math.max(0,1-d)*(.25+.55*Math.max(0,1-e/.18)+.25*vn(aa*16,id))*(vn(aa*9+id,zz*.15)>.35?1:.4); return mix(under(x,y),bars?W.rust:C.black,Math.min(.72,k*.8)); };
+  fq(f,a-.2,Math.max(.2,z-9.5),a+w+.2,z-1.1,grime);
   fq(f,a-.14,z+h,a+w+.14,z+h+2.4,stone); fl(f,a-.14,z+h+2.4,a+w+.14,z+h+2.4,shadeC(C.lintel,1.25));
   fq(f,a+w*.42,z+h+.2,a+w*.58,z+h+2.7,()=>shadeC(C.lintel,1.12));
   fq(f,a-.1,z-1.1,a+w+.1,z,stone); fl(f,a-.1,z-.05,a+w+.1,z-.05,shadeC(C.lintel,1.3));
@@ -301,8 +389,9 @@ function barrel(i,j,z=0){
 /** Cast-iron mooring bollard with a mushroom cap. */
 function bollard(i,j){
   contact(i-.3,j-.3,i+.3,j+.3,0,.6);
-  cyl(i,j,.24,0,2.6,(z,s)=>shadeC(C.iron,roundLit(s)*1.5),(s,v)=>shadeC(C.ironHi,1-v*.2));
-  cyl(i,j,.33,2.6,3.4,(z,s)=>shadeC(C.iron,roundLit(s)*1.8),(s,v)=>shadeC(C.ironHi,1.15-v*.2));
+  const r=(z,s)=>vn(s*2.6+i*5,z*1.3+j*3)*1.5-.62+(z<.8?.4*(.8-z):0);
+  cyl(i,j,.24,0,2.6,(z,s)=>{ const lit=roundLit(s)*1.5; return rusty(shadeC(C.iron,lit),lit,r(z,s)); },(s,v)=>shadeC(C.ironHi,1-v*.2));
+  cyl(i,j,.33,2.6,3.4,(z,s)=>{ const lit=roundLit(s)*1.8; return rusty(shadeC(C.iron,lit),lit,r(z+4,s)); },(s,v)=>rusty(shadeC(C.ironHi,1.15-v*.2),1.2,vn(s*2+i*7,v*2+j*5)*1.4-.7));
 }
 /** Planked shipping crate: battens round each face, a diagonal brace and, sometimes, a stencilled mark. */
 function crate(i,j,w,d,h,z=0,tone=0,mark=-1){
@@ -434,7 +523,7 @@ function lantern(i,j,z,k,t){
 /** A quay lamp standing on the setts. */
 function gasLamp(i,j,k,t){
   contact(i-.35,j-.35,i+.35,j+.35,0,.6);
-  cyl(i,j,.3,0,1.6,(z,s)=>shadeC(C.iron,roundLit(s)*1.6),(s,v)=>shadeC(C.ironHi,1.1));
+  cyl(i,j,.3,0,1.6,(z,s)=>{ const lit=roundLit(s)*1.6; return rusty(shadeC(C.iron,lit),lit,vn(s*2.4+i*5,z*1.6+j*3)*1.4-.75+(z<.6?.5*(.6-z):0)); },(s,v)=>shadeC(C.ironHi,1.1));
   cyl(i,j,.2,1.6,3.4,(z,s)=>shadeC(C.iron,roundLit(s)*(z>2.9?2:1.5)),(s,v)=>shadeC(C.ironHi,1));
   cyl(i,j,.12,3.4,22.6,(z,s)=>shadeC(C.iron,roundLit(s)*(frac(s*2.2+.5)<.3?1.05:1.6)*(z>20.5&&z<21.3?1.4:1)));
   stroke(i-.5,j,21,i+.5,j,21,C.iron); thin(i-.5,j,21.6,i+.5,j,21.6,C.ironHi);
@@ -1089,13 +1178,18 @@ function chimney(i,j,z,w){
 }
 
 /** The quay's river wall: granite courses, a coping, and green slime below the tide line. */
-function quayFace(a,z){
-  if(z>-.9){ return frac(a*.8)<.04?C.mortar:shadeC(C.edge,(z>-.25?1.05:.82)*(.85+vn(a*2,3)*.2)); }
-  const r=Math.floor((z+.9)/2.2), u=a*.62+(r&1)*.5, f=frac(u), v=frac((z+.9)/2.2);
-  let c=(v>.9||f<.04)?C.mortar:shadeC(C.stone[h2(Math.floor(u),r)&3],(v<.2?1.18:1)*(.95+vn(a*1.4,z*.4)*.3));
-  const tide=WL+2.6+vn(a*.7,1)*1.2; if(z<tide) c=mix(c,C.slime,Math.min(.85,(tide-z)*.35+vn(a*3,z)*.2));
+function quayFace(a,z,streaks=QUAY_IRON){
+  let c;
+  if(z>-.9) c=frac(a*.8)<.04?C.mortar:shadeC(C.edge,(z>-.25?1.05:.82)*(.85+vn(a*2,3)*.2)*(h2(Math.floor(a*.8),5)<30&&z>-.4&&frac(a*.8)>.82?.62:1));
+  else { const r=Math.floor((z+.9)/2.2), u=a*.62+(r&1)*.5, f=frac(u), v=frac((z+.9)/2.2);
+    c=(v>.9||f<.04)?C.mortar:shadeC(C.stone[h2(Math.floor(u),r)&3],(v<.2?1.18:1)*(.95+vn(a*1.4,z*.4)*.3));
+    const tide=WL+2.6+vn(a*.7,1)*1.2; if(z<tide) c=mix(c,C.slime,Math.min(.85,(tide-z)*.35+vn(a*3,z)*.2)); }
+  for(let k=0;k<streaks.length;k++){ const s=streaks[k], top=s>100?-2.3:0, d=Math.abs(a-(s%100)-(vn(z*.4,s)-.5)*.08); if(d>.17||z>top) continue;
+    const w=(1-d/.17)*(.45+.55*vn(a*11,z*.2+s))*(1+(z-top)/(4+3*frac(s*3.7))); if(w>0) c=mix(c,W.rust,Math.min(.6,w*.8)); }
   return c;
 }
+/** Iron on the river wall that bleeds rust down it: bollards and the ladder at the coping, mooring rings (i+100) lower down. */
+const QUAY_IRON=[2.2,8.5,16.5,21.8,28.2,12.45,12.9,105.3,119.1,124.6,140.4];
 /** Warehouse front: brickwork, string courses, cornice, windows, loading doors and bills. */
 function fronts(t){
   const F={j:0}, band=(x,y)=>shadeC(C.lintel,.72+vn((x-camera.x)*.3,(y-camera.y)*.3)*.3);
@@ -1224,9 +1318,11 @@ function background(t){
     // The former solid end wall (i=30) is now the open continuation of Wapping.
     floor(-30,13,80,70,WL,()=>RIVER); floor(52,-8,80,13,WL,()=>RIVER);
     for(const [a,b] of [[0,31.5],[39.3,52]]) quad(a,13,WL-.5,b,13,WL-.5,b,13,0,a,13,0,(x,y)=>{ const [i,z]=onJ(13,x,y); return quayFace(i,z); });
-    quad(52,0,WL-.5,52,13,WL-.5,52,13,0,52,0,0,(x,y)=>{ const [a,z]=onI(52,x,y); return shadeC(quayFace(a,z),.78); });
+    quad(52,0,WL-.5,52,13,WL-.5,52,13,0,52,0,0,(x,y)=>{ const [a,z]=onI(52,x,y); return shadeC(quayFace(a,z,[]),.78); });
     for(let i=1;i<30;i+=2.6){ isoBox(i,13.02,i+.4,13.42,WL-.6,-1,C.woodLight,C.wood,C.woodDark); thin(i+.2,13.43,WL+.6,i+.2,13.43,-1.2,C.woodDark); }
-    for(let z=WL+.4;z<0;z+=1.2) thin(12.4,13.05,z,12.95,13.05,z,C.ironHi); for(const i of [12.4,12.95]) thin(i,13.05,WL,i,13.05,.9,C.iron);
+    for(let z=WL+.4;z<0;z+=1.2) thin(12.4,13.05,z,12.95,13.05,z,rusty(C.ironHi,1,vn(z*.9,3)*1.6-.6)); for(const i of [12.4,12.95]) thin(i,13.05,WL,i,13.05,.9,C.iron);
+    for(const s of QUAY_IRON) if(s>100){ const i=s-100; stroke(i-.06,13.04,-2,i+.06,13.04,-2,C.iron);
+      for(let k=0;k<12;k++){ const a=k*Math.PI/6, b=a+Math.PI/6; thin(i+Math.sin(a)*.24,13.05,-3.6+Math.cos(a)*1.5,i+Math.sin(b)*.24,13.05,-3.6+Math.cos(b)*1.5,k<3||k>10?W.rustHi:k<6?W.rust:C.iron); } }
     floor(0,0,30,13,0,sett);
     floor(30,0,52,13,0,sett);
     warehouseDoors();
@@ -1234,7 +1330,9 @@ function background(t){
     // Timber decks, piles and joists do not move: bake once per camera pose.
     portDecks();
     thin(0,13,0,31.5,13,0,C.edge); thin(39.3,13,0,52,13,0,C.edge); thin(52,0,0,52,13,0,C.edge);
-    for(const j of [10.9,11.6]){ thin(0,j+.07,0,52,j+.07,0,C.black); thin(0,j,0,52,j,0,shadeC(C.ironHi,1.6)); }
+    for(const j of [10.9,11.6]){ thin(0,j+.07,0,52,j+.07,0,C.black);
+      for(let i=0;i<52;i+=.25) thin(i,j,0,i+.25,j,0,rusty(shadeC(C.ironHi,1.6),1.4,vn(i*.9+j,j*3)*1.5-.62)); }
+    weeds();
     glow=keep;
 }
 /** Static scenery is cached as square chunks of the world's pixel grid (a pixel is world-fixed: screen − camera), so the cost of a
