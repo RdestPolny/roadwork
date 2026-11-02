@@ -1,6 +1,7 @@
 import { wardBed, wardBlanket, wardFlies, WARD_SEATS, WARD_EX, WARD_WASH } from './ward.js';
 import { exerciseLayout, buildExerciseYard, ringPos, RING_C, WALK_R, WALK_SP } from './exercise-yard.js';
 import { figureHD, state as gymState, itemW, itemH, isoLine, isoX, isoY, quad, ipAdd, bodyPt, itemRect } from './gym.js';
+import {RIG} from './fighter-rig.js';
 import { rgb, state as appearanceState, setRamp } from './appearance.js';
 import { state as roomsState, floorAt, drawCellItem } from './rooms.js';
 import { pset, taper, shadowEll, state as rendererState } from './renderer.js';
@@ -46,9 +47,9 @@ export function drawIsoNPC(C){
   const HD=gymState.ISO_K>1&&(C.pants||C.bath), jt={};   // cell inmates in the 2× room: the modelled figure
   for(let s=-1;s<=1;s+=2){
     const near=s===nearS, SK=near?rb:rb+1, TRk=near?rb+2:rb+3, TT=near?rb+4:rb+5;
-    let hip=[0,s*1.2,7.2+bob+jump], knee, foot;
+    let hip=[0,s*RIG.hipHalf,7.2+bob+jump], knee, foot;
     if(stance){ const lead=s===1, sh=mv?0.45*Math.sin(ph+(lead?0:Math.PI)):0, ff=(lead?1.5:-1.3)+sh;
-      hip=[0,s*1.25,6.9+bob]; knee=[ff*0.55+0.5,s*1.55,3.6]; foot=[ff,s*1.7,0.9+(mv?Math.max(0,Math.cos(ph+(lead?0:Math.PI)))*0.5:0)]; }
+      hip=[0,s*RIG.hipHalf,6.9+bob]; knee=[ff*0.55+0.5,s*1.55,3.6]; foot=[ff,s*1.7,0.9+(mv?Math.max(0,Math.cos(ph+(lead?0:Math.PI)))*0.5:0)]; }
     else { const sw=mv?Math.sin(ph+(s<0?0:Math.PI)):0, lift=mv?Math.max(0,Math.cos(ph+(s<0?0:Math.PI)))*(dr?0.35:1.3):0, fF=(dr?0.95:2.2)*sw;
       knee=[fF*0.5+0.7,s*1.3,3.8+lift*0.6]; foot=[fF,s*1.4,0.9+lift]; }
     if(HD) jt[s]={hip,knee,foot};
@@ -57,7 +58,7 @@ export function drawIsoNPC(C){
     ipAdd(knee[0],knee[1],knee[2],1.1, foot[0],foot[1],foot[2],1.0, SK); }
     if(!HD) ipAdd(foot[0]-0.2,foot[1],foot[2]-0.1,1.25, foot[0]+0.9,foot[1],foot[2]-0.3,1.1, appearanceState.R_NPCB);
     // arms
-    const sh=[0.1+lean,s*2.7+sl,12.4+bob+jump]; let el, hd;
+    const sh=[0.1+lean,s*RIG.shoulderHalf+sl,12.4+bob+jump]; let el, hd;
     if(stance){ [el,hd]=crewGuardArm(C,s,bob,lean,sl); }
     else if(act==='behind'){ el=[-0.8,s*2.7,10.1]; hd=[-1.4,s*0.9,8.7]; }                                                   /* hands clasped behind the back */                                                      // arms folded
     else if(act==='rest'){ el=[-0.5,s*4.3,10.2+bob]; hd=[0.3,s*2.9,8.0+bob]; }
@@ -392,7 +393,7 @@ export function cnToiletStream(){
 }
 /** Shared standing pose for the toilet routine. */
 export function toiletJoints(){
-  const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.2,s*2.7,12.2],el:[0.8,s*2.6,9.6],hd:[1.7,s*0.7,7.7]});
+  const J=s=>({hip:[0,s*RIG.hipHalf,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.2,s*RIG.shoulderHalf,12.2],el:[0.8,s*2.6,9.6],hd:[1.7,s*0.7,7.7]});
   J.pel=[0,0,6.6]; J.chest=[0.2,0,12.0]; J.head=[0.5,0,15.3]; return J;
 }
 
@@ -402,13 +403,13 @@ export function cnDraw(C){
     case 'pushup': drawCrewPushup(C); return;
     case 'cheer': {
       const wave=Math.sin(C.t*0.12);
-      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.3,s*2.7,12.2],el:[0.8,s*3.8,14.0+wave*0.5],hd:[1.0,s*3.4,16.0+wave]});
+      const J=s=>({hip:[0,s*RIG.hipHalf,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.3,s*RIG.shoulderHalf,12.2],el:[0.8,s*3.8,14.0+wave*0.5],hd:[1.0,s*3.4,16.0+wave]});
       J.pel=[0,0,6.6]; J.chest=[0.3,0,12.0]; J.head=[0.4,0,15.5];
       cnSkel(C,J,false); return; }
 
     case 'grab': {
       const wave=Math.sin(C.t*0.35)*0.3;
-      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.3,s*2.7,12.2],el:[2.4,s*3.4,11.5+wave],hd:[5.0,s*1.8,11.0+wave]});
+      const J=s=>({hip:[0,s*RIG.hipHalf,7.2],knee:[0.3,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[0.3,s*RIG.shoulderHalf,12.2],el:[2.4,s*3.4,11.5+wave],hd:[5.0,s*1.8,11.0+wave]});
       J.pel=[0,0,6.6]; J.chest=[0.3,0,12.0]; J.head=[0.4,0,15.5];
       cnSkel(C,J,false); return; }
 
@@ -438,9 +439,9 @@ export function cnDraw(C){
     case 'sit': {
       const eat=(!C.yard||C.smoke)&&(t%260)<60, bob=0.15*Math.sin(t*0.05);
       const J=s=>{ const R=s===1&&eat;
-        if(C===state.PROF&&C.moving){ const push=Math.sin(C.ph); return {hip:[0.3,s*1.2,5.9],knee:[2.7,s*1.35,6.1],foot:[2.8,s*1.45,0.9],sh:[0.3,s*2.7,11.2+bob],el:[0.2+push*1.1,s*3.4,8.8],hd:[0.1+push*2.2,s*3.1,6.8+Math.cos(C.ph)*0.8]}; }
-        if(C.tub) return {hip:[0.3,s*1.2,5.9],knee:[2.6,s*1.3,6.6],foot:[4.4,s*1.35,5.9],sh:[0.3,s*2.7,11.2+bob],el:[1.0,s*3.1,9.2+bob],hd:[1.6,s*3.2,9.1]};   /* in the tub: legs out in the water, hands on the rim */
-        return {hip:[0.3,s*1.2,5.9],knee:[2.7,s*1.35,6.1],foot:[2.8,s*1.45,0.9],sh:[0.3,s*2.7,11.2+bob],
+        if(C===state.PROF&&C.moving){ const push=Math.sin(C.ph); return {hip:[0.3,s*RIG.hipHalf,5.9],knee:[2.7,s*1.35,6.1],foot:[2.8,s*1.45,0.9],sh:[0.3,s*RIG.shoulderHalf,11.2+bob],el:[0.2+push*1.1,s*3.4,8.8],hd:[0.1+push*2.2,s*3.1,6.8+Math.cos(C.ph)*0.8]}; }
+        if(C.tub) return {hip:[0.3,s*RIG.hipHalf,5.9],knee:[2.6,s*1.3,6.6],foot:[4.4,s*1.35,5.9],sh:[0.3,s*RIG.shoulderHalf,11.2+bob],el:[1.0,s*3.1,9.2+bob],hd:[1.6,s*3.2,9.1]};   /* in the tub: legs out in the water, hands on the rim */
+        return {hip:[0.3,s*RIG.hipHalf,5.9],knee:[2.7,s*1.35,6.1],foot:[2.8,s*1.45,0.9],sh:[0.3,s*RIG.shoulderHalf,11.2+bob],
           el:R?[1.5,s*3.0,10.4]:(C.yard?[1.3,s*3.1,8.6]:[1.4,s*3.2,8.7]), hd:R?[1.7,s*0.9,13.4]:(C.yard?[2.5,s*2.0,6.9]:[2.9,s*2.3,8.2])}; };
       J.pel=[0,0,5.4]; J.chest=[0.3,0,10.9+bob]; J.head=[0.6,0,14.3+bob]; J.noShadow=true;
       cnSkel(C,J,false);
@@ -449,7 +450,7 @@ export function cnDraw(C){
       return; }
     case 'floor': {   /* on the wet flags by the tub: knees up, arms over them, head hanging; now and then he scratches */
       const bob=0.12*Math.sin(t*0.04), itch=(t%420)<70, nod=0.5*Math.max(0,Math.sin(t*0.011));
-      const J=s=>({hip:[0,s*1.2,1.4],knee:[1.9,s*1.4,5.2],foot:[3.0,s*1.5,0.9],sh:[-0.3,s*2.6,8.4+bob],
+      const J=s=>({hip:[0,s*RIG.hipHalf,1.4],knee:[1.9,s*1.4,5.2],foot:[3.0,s*1.5,0.9],sh:[-0.3,s*2.6,8.4+bob],
         el:s===1&&itch?[0.7,s*3.0,10.4]:[1.5,s*2.9,6.2],hd:s===1&&itch?[0.6,s*1.5,12.3+Math.sin(t*0.9)*0.3]:[2.4,s*1.6,5.0]});
       J.pel=[0,0,1.0]; J.chest=[-0.2,0,8.1+bob]; J.head=[0.3+nod*0.3,0,11.9+bob-nod*0.5]; J.noShadow=true;
       cnSkel(C,J,false);
@@ -458,17 +459,17 @@ export function cnDraw(C){
     case 'sparDown': drawWardSparKnockdown(C.step.fighter,boxingState.tick-C.step.knockout.at); return;
     case 'sparHelp': {
       const w=Math.sin(t*0.14)*0.5;
-      const J=s=>({hip:[-1,s*1.2,4.2],knee:[1.5,s*1.4,2.5],foot:[0.5,s*1.4,0.9],sh:[2,s*2.7,8],el:[3.5,s*2.5,5+w],hd:[5,s*1.2,3+w]});
+      const J=s=>({hip:[-1,s*RIG.hipHalf,4.2],knee:[1.5,s*1.4,2.5],foot:[0.5,s*1.4,0.9],sh:[2,s*RIG.shoulderHalf,8],el:[3.5,s*2.5,5+w],hd:[5,s*1.2,3+w]});
       J.pel=[-1,0,3.8]; J.chest=[2,0,7.8]; J.head=[3,0,10]; cnSkel(C,J,false); return; }
     case 'lie': {
       const br=0.2*Math.sin(t*0.03);
-      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.3,s*1.25,3.8],foot:[0,s*1.3,0.9],sh:[0.1,s*2.7,12.4+br],el:[-0.1,s*3.4,9.9],hd:[0.3,s*3.3,7.7]});
+      const J=s=>({hip:[0,s*RIG.hipHalf,7.2],knee:[0.3,s*1.25,3.8],foot:[0,s*1.3,0.9],sh:[0.1,s*RIG.shoulderHalf,12.4+br],el:[-0.1,s*3.4,9.9],hd:[0.3,s*3.3,7.7]});
       J.pel=[0,0,6.6]; J.chest=[0.3,0,12.2+br]; J.head=[0.35,0,15.6];
       cnSkel(C,J,true,cnBedOf(C).base); cnBlanket(C); return; }
     case 'squat': {
       const T=96, d=0.5-0.5*Math.cos(2*Math.PI*(t%T)/T);
       const J=s=>({hip:[-1.5*d,s*1.25,7.2-3.1*d],knee:[0.7+0.9*d,s*(1.3+0.5*d),3.8+0.5*d],foot:[0.25,s*1.5,0.9],
-        sh:[0.1+0.9*d,s*2.7,12.4-3.0*d],el:[0.3+0.9*d,s*4.1,14.8-3.0*d],hd:[-0.6+0.9*d,s*1.3,15.9-3.0*d]});   // hands behind the head
+        sh:[0.1+0.9*d,s*RIG.shoulderHalf,12.4-3.0*d],el:[0.3+0.9*d,s*4.1,14.8-3.0*d],hd:[-0.6+0.9*d,s*1.3,15.9-3.0*d]});   // hands behind the head
       J.pel=[-1.5*d,0,6.6-3.1*d]; J.chest=[0.4+0.9*d,0,12.2-3.0*d]; J.head=[0.45+1.1*d,0,15.6-3.0*d];
       cnSkel(C,J,false); return; }
     case 'toilet': {
@@ -476,7 +477,7 @@ export function cnDraw(C){
       return; }
     case 'wash': {
       const phase=t%84, splash=phase>=32&&phase<52, lift=splash?1:0, bend=1.8+0.35*Math.sin(t*0.075);
-      const J=s=>({hip:[0,s*1.2,7.2],knee:[0.8,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[bend,s*2.6,11.2],
+      const J=s=>({hip:[0,s*RIG.hipHalf,7.2],knee:[0.8,s*1.3,3.8],foot:[0.3,s*1.4,0.9],sh:[bend,s*2.6,11.2],
         el:[bend+1.2,s*2.8,9.2+lift*2.0],hd:[bend+2.5-lift*0.5,s*1.0,6.0+lift*7.0]});
       J.pel=[0,0,6.6]; J.chest=[bend,0,11.0]; J.head=[bend+1.1,0,13.4]; cnSkel(C,J,false);
       if(splash){

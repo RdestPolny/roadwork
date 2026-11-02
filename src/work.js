@@ -1,6 +1,6 @@
 import { setRamp, state as appearanceState, rgb, rampIndex } from './appearance.js';
 import { state as sparringState } from './sparring.js';
-import { state as boxingState, h2, drawText, solve, ik, torsoEdge, drawLeg, drawBoxer, drawParticles, drawPopups, popup, spawn, resetClock, predictApex, startMove, commitWalk, handleEvents, spawnSweat, setFlow } from './boxing.js';
+import { state as boxingState, h2, drawText, solve, ik, torsoEdge, drawLeg, drawBoxer, drawParticles, drawPopups, popup, spawn, resetIdleCycle, predictApex, startMove, commitWalk, handleEvents, spawnSweat, setFlow } from './boxing.js';
 import { state as rendererState, line, pset, taper } from './renderer.js';
 import { skyBucket, goRoom } from './rooms.js';
 import { state as audioState, tone, sfxWhoosh, sfxBreath, sfxLand, sfxBell, sfxSlowmo, sfxPunch, sfxKO, sfxMiss, initAudio } from './audio.js';
@@ -422,7 +422,7 @@ export // left surface of the hanging half at height y
    state machine (startMove / samplePose / solve) runs the body, the apex event of a punch lands the hit on the meat. */
 function wkSurf(gy){ if(!wkBoxing()||gy<state.WK_HOOKY||gy>state.WK_HOOKY+28) return 999; return wkMeatX(gy); } function wkBoxStart(){
   boxingState.state=animationState.IDLE; boxingState.stateT=0; boxingState.frameIdx=-1; boxingState.fired=0; boxingState.buffered=-1; boxingState.bufferedGrade=1; animationState.walkHeld=-1; boxingState.moveStep=0; sparringState.aimLow=0; sparringState.blockHeld=false; boxingState.flow=false; boxingState.curGrade=1;
-  animationState.cur.set(animationState.GUARD); animationState.lastPose.set(animationState.cur); animationState.fromPose.set(animationState.cur); boxingState.idleT=0; resetClock(600,boxingState.simNow);
+  animationState.cur.set(animationState.GUARD); animationState.lastPose.set(animationState.cur); animationState.fromPose.set(animationState.cur); boxingState.idleT=0; resetIdleCycle(boxingState.simNow);
   animationState.posX=state.WK.hip-appearanceState.BASE_X;                                    // starts where he threw the half onto the hook...
   const sp=animationState.posX; animationState.posX=0; predictApex(animationState.MOVES[0]); animationState.posX=sp;   // ...and steps back to the spot where a jab's apex just sinks into the meat
   state.WK.boxPX=wkMeatX(boxingState.predY)+2-boxingState.predTip;

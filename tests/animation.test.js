@@ -26,10 +26,10 @@ test('Victorian guard extends the lead fist at chest height and keeps the idle f
   assert.ok(G[P.LGX]>G[P.RGX]+6,'the lead fist reaches forward while the rear stays close');
   assert.ok(G[P.LGY]>=0&&G[P.RGY]>G[P.LGY],'both fists sit below the shoulders');
   assert.ok(G[P.LEAN]<=0,'the torso stays upright over the hips');
-  Object.assign(B,{flow:false,beatMs:600,lastBeatMs:0});S.idleOff=0;
+  Object.assign(B,{flow:false,idleEpoch:0});S.idleOff=0;
   let min=Infinity,max=-Infinity,breath=0;
   for(let beat=0;beat<8;beat++)for(let frame=0;frame<8;frame++){
-    B.beatIdx=beat;B.simNow=frame/8*600;A.computeIdle(out);
+    B.simNow=(beat+frame/8)*B.IDLE_STEP_MS;A.computeIdle(out);
     for(const k of [P.GX,P.GY,P.STEP,P.RSTEP,P.LLIFT,P.RLIFT,P.HEEL,P.LHEEL])assert.equal(out[k],G[k],'idle has no hop or foot shuffle');
     assert.ok(out[P.LGY]>=0&&out[P.RGY]>=0,'the guard does not return to the chin');
     assert.ok(Array.from(out).every(Number.isFinite));min=Math.min(min,out[P.BX]);max=Math.max(max,out[P.BX]);breath=Math.max(breath,out[P.SQ]);

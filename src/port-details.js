@@ -182,7 +182,7 @@ export function pierCraftDetails(rect){
     rope([i,j,1.85],[i+.42,j-1.4,.3],.3,C.ropeD);
   }
 }
-/** A net rack, a rope coil on the pier and a tackle hook: small static silhouettes (the timber yard's bench lives in port-scenes). */
+/** A rope coil on the pier and a tackle hook: small static silhouettes (the timber yard's bench lives in port-scenes). */
 export function yardCraftProps(t){
   // Heavy net on a low rack instead of a row of identical crates.
   for(let k=0;k<5;k++){

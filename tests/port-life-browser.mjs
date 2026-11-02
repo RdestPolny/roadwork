@@ -16,7 +16,7 @@ export async function checkPortLife(page){
     ['cat-steal','cat','STEAL',.5,49.4,23.5],
     ['cat-sprint','cat','SPRINT',.5,47.4,21.6],
     ['cat-return','cat','RETURN',.65,46.5,21.4],
-    ['cat-eat','cat','EAT',.5,46.0,21.2],
+    ['cat-eat','cat','EAT',.5,46.5,21.4],
     ['pub-sip','pub','A',.5,34.2,8.8],
     ['wood-pick','wood','PICK_UP_PLANK',.7,46.7,8.3],
     ['wood-carry','wood','WALK_TO_BENCH',.5,46.7,8.3],

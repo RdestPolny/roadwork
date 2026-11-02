@@ -1,20 +1,11 @@
 // Frame-time profile of the Thames port: idle frames vs. a walk across the quay (camera moving).
 //   node scripts/profile-port.mjs [--frames=300]
-import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { existsSync } from 'node:fs';
+
+import { openGame } from './lib/harness.mjs';
 
 const frames = Number(process.argv.find(a => a.startsWith('--frames='))?.slice(9) ?? 300);
-const port = 5196, root = new URL('..', import.meta.url).pathname;
-const server = spawn(process.execPath, ['scripts/serve.mjs'], { cwd: root, env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'] });
-await once(server.stdout, 'data');
-const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const browser = await chromium.launch({ headless: true, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
+const game = await openGame({ seed: false }), page = game.page, errors = game.errors;
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto(`http://127.0.0.1:${port}/?debug=1`); await page.waitForFunction(() => !!window.__boxer, null, { timeout: 15000 });
   await page.evaluate(() => document.querySelector('[data-dev-scene="port"]').click());
   const r = await page.evaluate(async frames => {
     const T = await import('/src/thames-port.js'), R = await import('/src/renderer.js'), B = await import('/src/boxing.js');
@@ -32,4 +23,4 @@ try {
     return { idle: run(false), walk: run(true) };
   }, frames);
   console.log(JSON.stringify(r), errors.length ? 'ERRORS ' + errors.slice(0, 3).join('|') : '');
-} finally { await browser.close(); server.kill(); }
+} finally { await game.close(); }

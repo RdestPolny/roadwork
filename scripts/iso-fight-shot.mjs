@@ -1,20 +1,10 @@
 // Screenshot of the isometric fight experiment: node scripts/iso-fight-shot.mjs --out=iso1 --script='...js run after start, may await b.step(n)'
-import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { openGame, root } from './lib/harness.mjs';
 const arg = (k, d) => process.argv.find(a => a.startsWith(`--${k}=`))?.slice(k.length + 3) ?? d;
-const venue = arg('venue', 'cell'), opp = Number(arg('opp', '0')), crop = arg('crop', ''), out = arg('out', 'iso'), script = arg('script', ''), port = 5195, root = new URL('..', import.meta.url).pathname;
-const server = spawn(process.execPath, ['scripts/serve.mjs'], { cwd: root, env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'] });
-await once(server.stdout, 'data');
-const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const browser = await chromium.launch({ headless: true, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
+const venue = arg('venue', 'cell'), opp = Number(arg('opp', '0')), crop = arg('crop', ''), out = arg('out', 'iso'), script = arg('script', '');
+const game = await openGame({ seed: true, logs: true }), page = game.page, errors = game.errors;
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  const errors = []; page.on('pageerror', e => errors.push(e.message)); page.on('console', m => { if (m.type() === 'error') { if (!m.text().includes('404')) errors.push(m.text()); } else if (m.type() === 'log') console.log('>', m.text()); });
-  await page.addInitScript(() => { let seed = 123456789; Math.random = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return (seed >>> 0) / 4294967296; }; });
-  await page.goto(`http://127.0.0.1:${port}/?debug=1`); await page.waitForFunction(() => !!window.__boxer, null, { timeout: 15000 });
   await page.evaluate(async ({ venue, opp }) => { const b = window.__boxer; b.newGame('prison'); b.pause(); const X = await import('/src/prison.js'); for (let k = 0; k < 6 && X.cardOpen(); k++) document.querySelector('#storyChoices button')?.click(); b.goRoom(venue === 'canteen' ? 'cell' : venue); b.step(60); b.startSpar(opp, venue); b.step(1); }, { venue, opp });
   const png = await page.evaluate(async ({ script, crop }) => {
     const b = window.__boxer, R = await import('/src/renderer.js'), I = await import('/src/iso-fight.js'); globalThis.I = I;
@@ -28,4 +18,4 @@ try {
   }, { script, crop });
   await mkdir(`${root}artifacts/tmp`, { recursive: true }); await writeFile(`${root}artifacts/tmp/${out}.png`, Buffer.from(png.split(',')[1], 'base64'));
   console.log(`artifacts/tmp/${out}.png`, errors.length ? 'ERRORS: ' + errors.join(' | ') : 'no errors');
-} finally { await browser.close(); server.kill(); }
+} finally { await game.close(); }

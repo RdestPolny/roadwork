@@ -1,4 +1,8 @@
-# Side-on fight backdrops (144×96)
+# Side-on scenes (144×96)
+
+Only shadowboxing (Cień, `startSpar(…, shadow=true)`, always the cell) and push-ups still use this frame; real fights
+are isometric (see iso-room.md). The yard and bath side backdrops below are no longer reachable in play — use them as a
+visual pattern, not as live code to polish.
 
 ## Frame layout and what covers it
 
@@ -62,7 +66,7 @@ Heavy fog flattens the wall: keep `high` at most ~0.17 at y 40.
 Each person: own period (230 + 53·id ticks), offset `id·61`, breathes in ~37% of slots → nobody most of the time,
 rarely three at once.
 
-## Render-room timing
+## Render timing
 
-`--fight=n:gap` starts the fight and steps 60 ticks; the first frame is at `boxingState.tick` = 120, then
+`render-room --fight=n:gap` / `shot.mjs` start the scene and step 60 ticks; the first frame is at `boxingState.tick` = 120, then
 `120 + k·gap`. Compute when a timed event happens from that, instead of rendering many sheets.

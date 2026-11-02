@@ -1,4 +1,4 @@
-// Milliseconds per frame of a side-on fight scene (sim step + render), headless Chrome, from the repo root:
+// Milliseconds per frame of the isometric fight (sim step + render), headless Chrome, from the repo root:
 //   node .claude/skills/roadwork-scene-art/scripts/perf.mjs --venue=yard [--frames=300]
 // venue: cell | canteen | yard | laznia. Prints e.g. `yard: 1.29 ms/frame (300 frames)` and any page errors.
 import { chromium } from 'playwright';

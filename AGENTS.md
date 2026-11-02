@@ -6,7 +6,7 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 
 - Rób małe, konkretne zmiany. Reużywaj istniejące funkcje i możliwości przeglądarki; nie dodawaj abstrakcji, zależności ani narzędzi na przyszłość.
 - Podczas refaktoru zachowuj grafikę, animacje, sterowanie, tempo, balans i treść gry. Zmiana zachowania wymaga osobnego uzasadnienia lub polecenia użytkownika.
-- Nie przenoś gry do nowego silnika ani bundlera bez konkretnej potrzeby. Nie inicjalizuj Git ani Vite w ramach zwykłej poprawki.
+- Nie przenoś gry do nowego silnika ani bundlera bez konkretnej potrzeby. Nie dodawaj Vite ani innego bundlera w ramach zwykłej poprawki.
 - Nie edytuj `reference/boxer_heavybag-2.html`. To oryginał do porównania.
 - Nowy kod zmienia cudzy stan przez publiczną operację jego właściciela, a nie przez bezpośrednie przypisanie do importowanego `…State`. Dodaj małą operację u właściciela, jeśli jej brakuje.
 - Duże moduły dziel przy rzeczywistej zmianie, nie wyłącznie dla zmniejszenia liczby linii.
@@ -15,18 +15,17 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 
 - Nie zmieniaj kluczy `heavybag.save`, `heavybag.slot.1`–`heavybag.slot.3` ani schematu zapisu bez migracji i testu starego zapisu. Zachowaj ochronę uszkodzonego zapisu, przyszłych wersji i pustego `gym:[]`.
 - Zachowaj stałą referencję `saveStore.state`. Resetuj zapis przez `merge({})`, a zapis do Storage obsługuj przez store.
-- Zegar wejścia i symulacji ma wspólną podstawę. Pauza nie resetuje BPM, kolejki tempa ani nut.
+- Zegar wejścia i symulacji ma wspólną podstawę. Pauza nie resetuje osi czasu symulacji ani cyklu bezczynności. Gra nie używa BPM ani metronomu; nie wprowadzaj ich.
 - Dodając pole kontekstu zawodnika `F.S`, aktualizuj wspólną mapę `CONTEXT_FIELDS` w `fighter-context.js` i sprawdź zapis oraz odczyt.
 - Cheaty i `window.__boxer` są dostępne wyłącznie po świadomym włączeniu `?debug=1`.
 
 ## Weryfikacja
 
 - Gra ma docelowo sztywne okno. Pracuj w jednym stałym kadrze (obecny kadr testowy: 1280×800); nie projektuj responsywności ani nie sprawdzaj telefonów i różnych rozmiarów ekranu bez wyraźnego polecenia.
-- Przy małych zmianach uruchamiaj tylko testy zmienionej mechaniki, np. `node --test tests/crank.test.js` lub `npm run test:browser -- --only=crank`. Pełny zestaw uruchamiaj przy zmianach wspólnych mechanizmów albo konkretnym ryzyku regresji, nie automatycznie po każdej poprawce. Zwracaj krótki wynik zamiast pełnych logów.
-
-- Uruchom odpowiednie testy jednostkowe dla zmian logiki; `npm test` uruchamia cały zestaw. Dodaj najmniejszy test, który wykrywa naprawiany błąd.
+- Przy małych zmianach uruchamiaj tylko testy zmienionej mechaniki, np. `node --test tests/crank.test.js` lub `npm run test:browser -- --only=crank` (`--list` pokazuje nazwy scenariuszy). Pełny zestaw (`npm test`, `npm run test:browser`) uruchamiaj przy zmianach wspólnych mechanizmów albo konkretnym ryzyku regresji, nie automatycznie po każdej poprawce. Zwracaj krótki wynik zamiast pełnych logów.
+- Dla poprawianego błędu logiki dodaj najmniejszy test, który go wykrywa. Nie pisz fuzzerów ani jednorazowych skryptów `scratch/*stress*` zamiast testu.
 - Uruchom `npm run check` po zmianach w modułach objętych kontrolą typów lub w jej konfiguracji. Aktualna lista ścisłego `checkJs` znajduje się w `tsconfig.json` (obejmuje więcej niż trzy moduły); nie utrwalaj jej liczby w tej instrukcji.
-- Uruchom odpowiedni scenariusz `npm run test:browser -- --only=…` po zmianach inicjalizacji, wejścia, czasu, menu, zapisu, przejść między trybami albo renderowania. Dla zmian wizualnych obejrzyj też zrzuty i grę.
+- Uruchom odpowiedni scenariusz `npm run test:browser -- --only=…` po zmianach inicjalizacji, wejścia, czasu, menu, zapisu, przejść między trybami albo renderowania. Dla zmian wizualnych obejrzyj natywną klatkę: `node scripts/shot.mjs --scene=…` (headless; nie panel przeglądarki), tyle klatek, ile potrzeba do oceny ruchu.
 - Nowe helpery opisuj JSDoc. Rozszerzaj `checkJs` moduł po module przy pracy nad nimi; nie deklaruj całego `src/` jako sprawdzonego bez naprawy błędów.
 - Raportuj wykonane sprawdzenia i rzeczywiste ograniczenia. Nie przypisuj wyników testom, których nie uruchomiono.
 
@@ -39,4 +38,4 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 ## Grafika z obrazu-wzoru
 
 - Skill `painted-pixel-assets` leży w `.claude/skills/painted-pixel-assets/` (kopia projektowa). Przed użyciem przeczytaj `SKILL.md` i `references/roadwork.md`.
-- Postaci walczące rysuje kod (`drawBoxer()` na szkielecie), więc skin zawodnika to nowa funkcja rysująca według PNG-wzorca (wzorce PNG trzymaj lokalnie w `art/`, poza repozytorium), a nie nałożony sprite.
+- Postaci rysuje kod, nie sprite'y: w bójce izometrycznej, pokojach i porcie `figureHD()` w `src/gym.js` na szkielecie `src/fighter-rig.js`; `drawBoxer()` w `src/boxing.js` tylko w bocznych scenach (Cień, pompki, praca, `cast.js`). Skin zawodnika to zmiana funkcji rysującej według PNG-wzorca (wzorce PNG trzymaj lokalnie w `art/`, poza repozytorium).

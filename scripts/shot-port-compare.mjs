@@ -1,18 +1,9 @@
 // Dump the port's native framebuffer at fixed camera spots to a JSON file (for before/after pixel diffs).
 //   node scripts/shot-port-compare.mjs out.json
-import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
-const port = 5197, root = new URL('..', import.meta.url).pathname;
-const server = spawn(process.execPath, ['scripts/serve.mjs'], { cwd: root, env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'inherit'] });
-await once(server.stdout, 'data');
-const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const browser = await chromium.launch({ headless: true, ...(existsSync(chrome) ? { executablePath: chrome } : {}) });
+import { openGame } from './lib/harness.mjs';
+const game = await openGame({ seed: false }), page = game.page, errors = game.errors;
 try {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await page.goto(`http://127.0.0.1:${port}/?debug=1`); await page.waitForFunction(() => !!window.__boxer, null, { timeout: 15000 });
   await page.evaluate(() => document.querySelector('[data-dev-scene="port"]').click());
   const shots = await page.evaluate(async () => {
     const T = await import('/src/thames-port.js'), R = await import('/src/renderer.js'), B = await import('/src/boxing.js');
@@ -26,4 +17,4 @@ try {
   });
   await writeFile(process.argv[2], JSON.stringify(shots));
   console.log(Object.entries(shots).map(([k, v]) => k + ':' + (v ? v.length : 'invalid')).join(' '));
-} finally { await browser.close(); server.kill(); }
+} finally { await game.close(); }

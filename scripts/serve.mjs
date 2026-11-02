@@ -20,4 +20,4 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(404).end('Not found');
   }
 });
-server.listen(port, '127.0.0.1', () => console.log(`Roadwork: http://127.0.0.1:${port}`));
+server.listen(port, '127.0.0.1', () => console.log(`Roadwork: http://127.0.0.1:${server.address().port}`));   // PORT=0 picks a free port

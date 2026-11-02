@@ -1,7 +1,7 @@
 import { resumeThamesPort } from './thames-port.js';
 import { healerOpen } from './healers.js';
 import { openCharSheet } from './char-sheet.js';
-import { state as boxingState, setFlow, resetClock } from './boxing.js';
+import { state as boxingState, setFlow, resetIdleCycle } from './boxing.js';
 import { state as armState } from './armwrestle.js';
 import { profOpen } from './profesor.js';
 import { workReset } from './work.js';
@@ -44,7 +44,7 @@ function leaveMode(){
 
 export function enterHub(st){
   roomsState.hubAct=null; gymState.hubP.pose=0; gymState.hubP.poseZ=0;
-  leaveMode(); boxingState.gstate='hub'; resetClock(600,boxingState.simNow); applyStats(); boxingState.hitstop=0; boxingState.shakeT=0; boxingState.pL.fill(0); boxingState.puL.fill(0);
+  leaveMode(); boxingState.gstate='hub'; resetIdleCycle(boxingState.simNow); applyStats(); boxingState.hitstop=0; boxingState.shakeT=0; boxingState.pL.fill(0); boxingState.puL.fill(0);
   document.body.classList.add('hub'); stMenuClose();
   for(const k in gymState.hubKeys) gymState.hubKeys[k]=0;
   hubRebake();                                             // gear / bag colours may have changed

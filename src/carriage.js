@@ -3,9 +3,9 @@
 import { rgb, setRamp, state as appearanceState } from './appearance.js';
 import { state as rendererState, taper } from './renderer.js';
 import { h2 } from './boxing.js';
-import { state as gymState, quad, isoX, isoY, isoBox, figureHD, withCellOutfit, shadeC } from './gym.js';
+import { state as gymState, quad, quad as quadW, isoX, isoY, isoBox, figureHD, withCellOutfit, shadeC } from './gym.js';
 import { mix } from './cast.js';
-import { C, withRamps, thin, stroke, floor, spot, vn, ease, lerp, toWorld } from './thames-port.js';
+import { C, withRamps, thin, thin as thinW, stroke, stroke as strokeW, floor, spot, vn, ease, lerp, toWorld } from './thames-port.js';
 
 /** Spoked coach wheel in its vertical isometric plane. */
 export function coachWheel(i,j,z,r){
@@ -27,13 +27,16 @@ export function coachWheel(i,j,z,r){
  * swishes its tail, flicks its ears, nods and breathes. reins is the world point where the driver holds them. */
 export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
   withCellOutfit(()=>{
+    /* shorter legs: heights above the hooves sink by up to 1.3, the hooves keep the ground, so everything above the knee is lowered rigidly */
+    const zm=z=>z-1.3*Math.max(0,Math.min(1,(z-.35)/9)), thin=(i,j,z,I,J,Z,c)=>thinW(i,j,zm(z),I,J,zm(Z),c), stroke=(i,j,z,I,J,Z,c)=>strokeW(i,j,zm(z),I,J,zm(Z),c);
+    const quad=(i,j,z,i1,j1,z1,i2,j2,z2,i3,j3,z3,f)=>quadW(i,j,zm(z),i1,j1,zm(z1),i2,j2,zm(z2),i3,j3,zm(z3),f);
     const A=appearanceState, coat=A.R_HSH, far=A.R_HSHF, hair=A.R_HPT, jc=4.85;
     /* the far horse a dark bay, the near one a lighter bay with a blaze; both with black lower legs, mane and tail */
     const c=offset?['#33231a','#6e4a32','#a5784f']:['#221812','#46301f','#6b4a31'];
     setRamp(coat,c,false); setRamp(far,c.map(h=>'#'+[1,3,5].map(k=>Math.round(parseInt(h.slice(k,k+2),16)*.72).toString(16).padStart(2,'0')).join('')),false);
     setRamp(hair,['#121311','#221e1a','#3d3229'],false);
     /** Project and shade a tapered section of anatomy. */
-    const limb=(a,b,r0,r1,pass,ramp=coat)=>taper(isoX(a[0],a[1]+offset),isoY(a[0],a[1]+offset,a[2]),r0*2,isoX(b[0],b[1]+offset),isoY(b[0],b[1]+offset,b[2]),r1*2,pass,ramp,0,-9,-9,0);
+    const limb=(a,b,r0,r1,pass,ramp=coat)=>taper(isoX(a[0],a[1]+offset),isoY(a[0],a[1]+offset,zm(a[2])),r0*2,isoX(b[0],b[1]+offset),isoY(b[0],b[1]+offset,zm(b[2])),r1*2,pass,ramp,0,-9,-9,0);
     const nod=Math.sin(t*.027+ph)*.5+Math.max(0,vn(t*.006+ph*9,ph)-.75)*4, turn=Math.sin(t*.019+ph)*.05, breath=1+.03*Math.sin(t*.05+ph);
     const shift=Math.sin(t*.0042+ph*2.3), rest=[Math.max(0,Math.min(1,shift*1.8)),Math.max(0,Math.min(1,-shift*1.8))];
     const paw=Math.max(0,Math.min(1,(vn(t*.005+ph*7,ph*3)-.74)*5)), swish=Math.sin(t*.034+ph)*(vn(t*.004,ph+2)>.55?.35:.1);
@@ -45,8 +48,8 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
     /** The trunk from rump to chest as one smoothly shaded body, swelling at the belly, under a wool rug thrown over the back
      * from withers to croup, its hem waving a little and trimmed with a stripe. pass 0 draws the outline, pass 1 the fill. */
     const trunk=pass=>{
-      const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, x0=isoX(11.42,jc+offset), y0=isoY(11.42,jc+offset,11.55-.2*Math.max(...rest)), x1=isoX(13.33,jc+offset), y1=isoY(13.33,jc+offset,11.25);
-      const r0=5.9*breath, r1=4.8, bl=.9, dx=x1-x0, dy=y1-y0, l2=dx*dx+dy*dy, L=Math.sqrt(l2); let nx=-dy/L, ny=dx/L; if(ny>0){ nx=-nx; ny=-ny; }
+      const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, x0=isoX(11.42,jc+offset), y0=isoY(11.42,jc+offset,zm(11.55-.2*Math.max(...rest))), x1=isoX(13.33,jc+offset), y1=isoY(13.33,jc+offset,zm(11.25));
+      const r0=6.6*breath, r1=5.7, bl=1.9, dx=x1-x0, dy=y1-y0, l2=dx*dx+dy*dy, L=Math.sqrt(l2); let nx=-dy/L, ny=dx/L; if(ny>0){ nx=-nx; ny=-ny; }
       const R=r0+bl+2, xa=isoX(11.6,jc+offset), xb=isoX(13,jc+offset);
       for(let y=Math.max(0,Math.floor(Math.min(y0,y1)-R));y<=Math.min(H-1,Math.ceil(Math.max(y0,y1)+R));y++) for(let x=Math.max(0,Math.floor(Math.min(x0,x1)-R));x<=Math.min(W-1,Math.ceil(Math.max(x0,x1)+R));x++){
         const tr=((x-x0)*dx+(y-y0)*dy)/l2, tt=tr<0?0:tr>1?1:tr, ex=x-(x0+dx*tt), ey=y-(y0+dy*tt), r=r0+(r1-r0)*tt+bl*4*tt*(1-tt), d=Math.hypot(ex,ey);
@@ -62,9 +65,9 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
     const leg=(i,j,fore,cock,lift,pass,part='all')=>{
       const col=j>jc?coat:far, up=part!=='lower', low=part!=='upper';
       if(fore){ const knee=[i+.06+.32*lift,j,5.6+1.5*lift], fet=[i+.02-.12*lift,j,1.6+2*lift], hoof=[i+.08-.2*lift,j,.35+1.5*lift];
-        if(up) limb([i-.05,j,10.4],knee,1.2,.62,pass,col); if(low){ limb([i+.03+.2*lift,j,7.2+.9*lift],knee,.85,.62,pass,col); limb(knee,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
+        if(up) limb([i-.1,j,11.2],knee,2,.7,pass,col); if(low){ limb([i+.03+.2*lift,j,7.2+.9*lift],knee,.85,.62,pass,col); limb(knee,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
       else { const hock=[i-.34+.1*cock,j,5.9-.3*cock], fet=[i-.15+.25*cock,j,1.5+.55*cock], hoof=[i-.05+.42*cock,j,.35+.15*cock];
-        if(up) limb([i+.05,j,10.8],[i-.12,j,8],1.6,1,pass,col); if(low){ limb([i-.12,j,8],hock,1,.58,pass,col); limb(hock,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
+        if(up) limb([i+.3,j,12.4],[i-.12,j,7.8],3,1.05,pass,col); if(low){ limb([i-.12,j,8],hock,1,.58,pass,col); limb(hock,fet,.55,.45,pass,hair); limb(fet,hoof,.5,.58,pass,hair); } }
     };
     for(let pass=0;pass<2;pass++){
       leg(11.85,jc-.34,false,rest[0],0,pass); leg(13.2,jc-.34,true,0,ph?paw:0,pass);
@@ -72,17 +75,20 @@ export function horse(t,offset,ph,dark,trim,reins=[10.65,4.46,23]){
       limb([11.05,jc+.04,9.6],[11.1+swish*.4,jc+.08+swish*.3,6.2],.6,.42,pass,hair);
       leg(11.75,jc+.34,false,rest[1],0,pass,'upper'); leg(13.3,jc+.34,true,0,ph?0:paw,pass,'upper');
       trunk(pass);
-      limb([13.05,jc,12.6],[13.5,jc,15.6+nod*.4],2.5,1.8,pass);
-      limb([13.5,jc,15.6+nod*.4],poll,1.8,1.25,pass);
-      limb([poll[0]+.04,jc,poll[2]-.5],[poll[0]+.22,jc,poll[2]-1.9],1.25,1,pass);
-      limb(poll,muzzle,1.15,.78,pass);
+      limb([12.75,jc,13.1],[13.2,jc,15.2],3.6,3.3,pass);
+      limb([13.05,jc,12.6],[13.5,jc,15.6+nod*.4],3.5,2.6,pass);
+      limb([13.5,jc,15.6+nod*.4],poll,2.6,1.9,pass);
+      limb([poll[0]+.04,jc,poll[2]-.5],[poll[0]+.22,jc,poll[2]-1.9],2.3,1.8,pass);
+      limb(poll,muzzle,2.1,1.3,pass);
       limb([poll[0]-.06,jc-.12,poll[2]+.6],[poll[0]-.02-flick*.3,jc-.14,poll[2]+1.9],.42,.15,pass,hair);
       limb([poll[0]+.05,jc+.12,poll[2]+.6],[poll[0]+.12,jc+.14,poll[2]+1.85],.42,.15,pass,hair);
       leg(11.75,jc+.34,false,rest[1],0,pass,'lower'); leg(13.3,jc+.34,true,0,ph?0:paw,pass,'lower');
     }
-    /* mane along the crest of the neck, following the nod */
-    for(let k=0;k<7;k++){ const u=k/6, i=13.0+.85*u+turn*u, z=14.2+4.2*u+nod*u;
-      for(const pass of [0,1]) limb([i,jc-.05,z],[i-.14,jc-.05,z-.8],.22,.12,pass,hair); }
+    /* mane: a thick fringe along the crest of the neck from the withers to the poll, falling over the near side in overlapping
+       locks that sway a little and follow the nod, and a forelock between the ears */
+    for(let k=0;k<14;k++){ const u=k/13, i=12.85+.95*u+turn*u, z=16.9+2.9*u+nod*u*.95+.5*Math.sin(u*3), j=jc+.1, len=2.4-.7*u, sw=.12*Math.sin(t*.03+ph+k*.9);
+      for(const pass of [0,1]) limb([i,j,z],[i-.2+sw,j+.03,z-len],.75-.2*u,.3,pass,hair); }
+    for(const pass of [0,1]){ limb([poll[0]+.02,jc+.08,poll[2]+1.3],[poll[0]+.2,jc+.1,poll[2]-.7],.8,.35,pass,hair); }
     /* harness: collar with brass hames, saddle pad and girth, breeching round the quarters, traces back to the splinter bar */
     for(const pass of [0,1]) limb([13.28,jc,15.4+nod*.3],[13.55,jc,12.2],1.1,1.05,pass,hair);
     const hs=(i,j,z,I,J,Z,c)=>stroke(i,j+offset,z,I,J+offset,Z,c), ht=(i,j,z,I,J,Z,c)=>thin(i,j+offset,z,I,J+offset,Z,c);

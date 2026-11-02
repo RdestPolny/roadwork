@@ -463,8 +463,7 @@ function dockPerson(i,j,sitting=false,z0=0,fi=1,fj=0){
   withCellOutfit(()=>figureHD(C0,joint,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'flatcap',stubble:true},{noShadow:true}));
 }
 /** The police van, a "Black Maria", standing where the cabs wait: a tall closed box of blue-black lacquer on coach wheels, beaded panels
- * with a gilt line and the royal cipher, barred vents under the roof, a side door at the back with a grille and an iron step, a constable
- * on the box and a pair of bays. door 0..1: how far the side door stands open (it swings out on its front hinge). */
+ * with a gilt line and the royal cipher, barred vents under the roof, a side door at the back with a grille and an iron step, an empty driver's box and a pair of bays. door 0..1: how far the side door stands open (it swings out on its front hinge). */
 function policeVan(t,door){
   const dark=rgb('#121416'), trim=rgb('#a78a60'), gilt=rgb('#b8975a'), bead=rgb('#3d4757'), lac=[rgb('#141922'),rgb('#1f2633'),rgb('#2f3949')];
   const i0=6.9, i1=10.25, j0=3.8, j1=5.9, z0=3.4, z1=19.4, N={j:j1}, Fr={i:i1}, D0=7.88, D1=8.72, Dz0=4.4, Dz1=14.4;
@@ -503,17 +502,8 @@ function policeVan(t,door){
   isoBox(10.25,4.05,10.95,5.65,14.6,15.3,rgb('#3a2c26'),rgb('#2a201c'),rgb('#201814'));
   isoBox(10.95,3.95,11.6,5.65,12.1,12.6,C.woodLight,C.wood,C.woodDark);
   for(const j of [4.1,5.5]){ stroke(10.25,j,11,11.05,j,12.1,dark); stroke(10.25,j,14.6,10.4,j,11.3,dark); }
-  const P={i:10.55,j:4.85,fi:1,fj:0,z0:11.4}, hands=[2.8,0,8.6];
-  withCellOutfit(()=>{
-    const A=appearanceState, navy=['#11151d','#1d2431','#2f3a4d'];
-    setRamp(A.R_HSH,navy,false); setRamp(A.R_HSHF,navy,true); setRamp(A.R_HPT,navy,false); setRamp(A.R_HPTF,navy,true); setRamp(A.R_HBELT,['#0c0f15','#1a202c','#2d3647'],false);
-    const br=Math.sin(t*.05)*.1, J=s=>({hip:[0,s*1.2,4.2],knee:[2.2,s*1.3,4],foot:[3.9,s*1.4,1.4],sh:[.1,s*2.7,9.4+br],el:[1.5,s*2.8,7.4],hd:[hands[0],s*1.6,hands[2]+.2*Math.sin(t*.031)]});
-    J.pel=[0,0,3.8]; J.chest=[.4,0,9+br]; J.head=[.45,0,12.4+br];
-    figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HBELT,style:'toque',mustache:true},{noShadow:true});
-    const star=toWorld(P,1.8,0,13.9); thin(...star,star[0],star[1],star[2]+.5,rgb('#b49a5a'));
-  });
+  const reins=[10.6,4.85,15.3];
   /* the far horse, the pole between the pair and the splinter bar at the van's front, then the near horse */
-  const reins=toWorld(P,...hands);
   horse(t,0,0,dark,trim,reins);
   stroke(10.55,4.15,6.6,10.55,6.95,6.6,C.woodDark); thin(10.55,4.15,7.1,10.55,6.95,7.1,C.woodLight);
   quad(10.35,5.52,3.2,13.95,5.52,9.6,13.95,5.52,10.2,10.35,5.52,3.8,()=>C.wood);

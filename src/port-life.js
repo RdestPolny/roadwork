@@ -7,6 +7,7 @@
  * Figure frame: forward f, side s, up z in height units; 7.5 units are one ground tile, as in thames-port's toWorld.
  */
 import { ANCHORS, DECK_Z } from './port-district.js';
+import { ragdollLengths, stepRagdoll, ragdollJointsIn } from './ragdoll.js';
 
 const clamp01=(/** @type {number} */ u)=>Math.max(0,Math.min(1,u));
 const ease=(/** @type {number} */ u)=>{ u=clamp01(u); return u*u*(3-2*u); };
@@ -76,7 +77,7 @@ function ik(root,target,lens,pole){
   return [add(add(root,mul(u,along)),mul(v,h)),add(root,mul(u,D))];
 }
 /** @typedef {{hip:number[],knee:number[],foot:number[],sh:number[],el:number[],hd:number[]}} Limb */
-/** @typedef {{pel:number[],chest:number[],head:number[],L:Limb,R:Limb,look:number[],miss?:number}} Pose */  // miss: how far a hand fell short of its target
+/** @typedef {{pel:number[],chest:number[],head:number[],abd?:number[],L:Limb,R:Limb,look:number[]|null,miss?:number}} Pose */  // miss: how far a hand fell short of its target
 /** @param {Pose} p @param {number} s */
 export const limb=(p,s)=>s>0?p.R:p.L;
 /** Hands at rest by the thighs. */
@@ -650,44 +651,70 @@ export function musicianAt(t){
   /** @type {any} */ const o={sway:.22*play*Math.sin(phrase/2),lean:.04+.05*play,yaw:look[0],pitch:look[1]+.07*play*Math.sin(beat),
     feet:{[-1]:[-.2,-1.5,.9],[1]:[1.2,1.6,.9+1.4*stamp]},hands:{[-1]:hand(-1),[1]:hand(1)},elbow:{[-1]:[-.9,-.9,-.6],[1]:[-.9,.9,-.6]}};
   const pose=body(o);
-  return {P,pose,state:S.s,u:S.u,gap:pump,box:[handWorld(P,pose,-1),handWorld(P,pose,1)]};
+  return {P,pose,state:S.s,u:S.u,play,gap:pump,box:[handWorld(P,pose,-1),handWorld(P,pose,1)]};
 }
 
-/** The landlord by his door: takes a tankard from his barrel, rubs it dry, holds it to the light and sets it down on the free spot.
- * Four spots, three tankards: each goes back to the empty one, so the set slowly moves round. */
-export const KEEPER=placeFor(T2,ANCHORS.pub_keeper_angle,4.6,-1.0);
-export const KEEPER_SPOTS=[[-.17,-.15],[.17,-.15],[.17,.15],[-.17,.15]].map(([di,dj])=>[T2[0]+di,T2[1]+dj,TABLE.h]);
-const KEEP=(()=>{ const e0=3, list=[]; let e=e0, r=0;
-  while(!(r>=6&&e===e0)){
-    const from=r>=5&&e!==e0?e0:(e+1+Math.floor(rnd(r,31)*3))%4;
-    for(const [s,d] of [['LOOK',360+Math.round(rnd(r,32)*300)],['TAKE',90],['WIPE',260+Math.round(rnd(r,33)*130)],['HOLD_UP',70],['PLACE',90]]) list.push([s,d,{empty:e,from}]);
-    if(rnd(r,34)<.45) list.push(['WIPE_TABLE',210,{empty:from,from}]);
-    e=from; r++; }
-  return loop(list); })();
+/** The drunk by the second barrel: hangs on it with his forearms, sways and nods; now and then his hands slip, he goes down on the setts,
+ * lies a while, gets his knees under him and pulls himself up by laying his chest across the barrel. */
+export const DRUNK=placeFor(T2,ANCHORS.pub_keeper_angle,4.6,-1.0);
+/** Ticks from letting go to the ragdoll lying still; the lie lasts at least that long. */
+const FALL_TICKS=34, SETTLE=FALL_TICKS+130;
+const DRUNK_LOOP=(()=>{ const list=[]; for(let k=0;k<5;k++) list.push(['HANG',480+Math.round(rnd(k,31)*340)],['SLIP',46],['FALL',FALL_TICKS],['LIE',SETTLE-FALL_TICKS+Math.round(rnd(k,32)*140)],['ROLL',70],['PUSH',84],['DRAPE',90+Math.round(rnd(k,33)*70)]); return loop(list); })();
+/** Standing intentions in the drunk's frame; the barrel top is at f 4.6, s -1 and 7.15 high. Hands at the barrel top, flailing, and so on. */
+const D_HANG={lean:.5,crouch:0,back:0,pitch:.3,hands:{[-1]:[4.4,-3.0,7.5],[1]:[4.4,1.0,7.5]}};
+const D_DRAPE={lean:.95,crouch:.05,back:-.2,pitch:.55,hands:{[-1]:[4.0,-3.0,7.4],[1]:[4.0,1.0,7.4]}};
+const D_SQUAT={lean:.62,crouch:.9,back:-.6,pitch:.35,hands:{[-1]:[3.8,-2.6,7.4],[1]:[3.8,.8,7.4]}};
+const D_SLIP={lean:.1,crouch:.35,back:.3,pitch:-.2,hands:{[-1]:[2.2,-3.6,10.5],[1]:[1.8,3.8,11.5]}};
+/** @param {any} a @param {any} b @param {number} k */
+function mixO(a,b,k){ /** @type {any} */ const o={}; for(const key in a) o[key]=typeof a[key]==='number'?lerp(a[key],b[key],k):Array.isArray(a[key])?lerp3(a[key],b[key],k):mixO(a[key],b[key],k); return o; }
+/** @param {Pose} A @param {Pose} B @param {number} k @returns {Pose} */
+function mixPose(A,B,k){
+  const limb=(/** @type {any} */ a,/** @type {any} */ b)=>/** @type {Limb} */(Object.fromEntries(Object.keys(a).map(key=>[key,lerp3(a[key],b[key],k)])));
+  return {pel:lerp3(A.pel,B.pel,k),chest:lerp3(A.chest,B.chest,k),head:lerp3(A.head,B.head,k),abd:lerp3(A.abd||lerp3(A.pel,A.chest,.46),B.abd||lerp3(B.pel,B.chest,.46),k),L:limb(A.L,B.L),R:limb(A.R,B.R),look:[0,1].map(c=>lerp(A.look?.[c]||0,B.look?.[c]||0,k)),miss:0};
+}
+/** A standing body with the spine's middle joint filled in, so it mixes with a ragdoll's. @param {any} o */
+const standing=o=>{ const p=body(o); return {...p,abd:lerp3(p.pel,p.chest,.46)}; };
+/** His barrel and the two standing in the street beside it are solid up to their tops. */
+const barrelBlocks=(/** @type {number} */ i,/** @type {number} */ j,/** @type {number} */ z)=>z<TABLE.h&&(Math.hypot(i-T2[0],j-T2[1])<TABLE.r||ANCHORS.pub_street_barrels.some(([bi,bj])=>Math.hypot(i-bi,j-bj)<.4));
+/** The fall: the same Verlet ragdoll as a knocked-down fighter, started from the pose his hands slip in and run tick by tick; it comes to rest
+ * against the barrel's foot. Computed once; frames[n] is n ticks after he let go. @type {Pose[]|null} */
+let fallFrames=null;
+function fallPoses(){
+  if(fallFrames) return fallFrames;
+  const P=DRUNK, J=body({...D_SLIP,sway:-2.4,yaw:-.2,pitch:-.25}), a=J.R, b=J.L, abd=lerp3(J.pel,J.chest,.46);
+  const loc=[J.pel,J.chest,J.head,a.knee,a.foot,b.knee,b.foot,a.el,a.hd,b.el,b.hd,abd], speed=.4;   // he goes down towards the street, away from the pub wall
+  const nodes=loc.map((l,k)=>{
+    const w=toWorld(P,l), m=k===11?.7:k===2?1.35:k===1?.95:k===0?.45:k>=7?1.1:.15;   // the head and arms go first, the feet stay
+    const vf=.3*speed*m, vs=-.45*speed*m, vi=(vf*P.fi-vs*P.fj)/UNIT, vj=(vf*P.fj+vs*P.fi)/UNIT, vz=k<=2||k===11?.1*m:0;
+    return {i:w[0],j:w[1],z:l[2],pi:w[0]-vi,pj:w[1]-vj,pz:l[2]-vz};
+  });
+  const rd={nodes,len:ragdollLengths(loc),thud:false}, env={blocked:barrelBlocks};
+  fallFrames=[];
+  for(let n=0;n<=SETTLE;n++){
+    const f=ragdollJointsIn(rd.nodes,P,1.2,2.6);
+    fallFrames.push({pel:f.pel,chest:f.chest,head:f.head,abd:f.abd,L:f(-1),R:f(1),look:null,miss:0});
+    stepRagdoll(rd,env);
+  }
+  return fallFrames;
+}
 /** @param {number} t */
-export function keeperAt(t){
-  const S=stepAt(KEEP,t), u=S.u, P=KEEPER, guests=[(DRINKER_A.i+DRINKER_B.i)/2,(DRINKER_A.j+DRINKER_B.j)/2];
-  const rest=[1.6,-2.7,8.5], cloth=[.9,3.1,8.0], chest=[2.9,-.9,10.6], eye=[2.7,-.7,14.4];
-  /** @type {any} */ const o={hands:{[-1]:rest,[1]:cloth},lean:.08,yaw:yawTo(P,guests)*.85,pitch:.08,sway:.12*Math.sin(t/470+2)};
-  const grip=(/** @type {number} */ n)=>gripOnTable(P,KEEPER_SPOTS[n],-1,'mug');
-  let tilt=0, held=false, touching='';
-  if(S.s==='TAKE'){ o.hands[-1]=u<.5?lerp3(rest,grip(S.from),ease(u/.5)):lerp3(grip(S.from),chest,ease((u-.5)/.5)); held=u>=.5;
-    o.lean=.08+.2*bump(u,.5,.5); o.yaw=lerp(o.yaw,0,bump(u,.5,.5)); o.pitch=.35; touching=u<.6?'table':''; }
-  else if(S.s==='WIPE'){ const q=S.local*2*Math.PI/38, top=add(chest,[.2,.6,1.35]), round=add(top,[.35*Math.cos(q),.35*Math.sin(q),.15*Math.sin(q*2)]);
-    o.hands[-1]=chest; o.hands[1]=lerp3(cloth,round,ease(u/.1)*(1-ease((u-.9)/.1))); held=true; tilt=.45*ease(u/.1); o.pitch=.42; o.yaw=.1*Math.sin(S.local*.01); }
-  else if(S.s==='HOLD_UP'){ const up=bump(u,.5,.5); o.hands[-1]=lerp3(chest,eye,up); o.pitch=lerp(.4,-.15,up); o.yaw=0; held=true; tilt=.45*(1-ease(u/.3))*(1-up)+.0; }
-  else if(S.s==='PLACE'){ o.hands[-1]=u<.55?lerp3(chest,grip(S.empty),ease(u/.55)):lerp3(grip(S.empty),rest,ease((u-.55)/.45)); held=u<.55;
-    o.lean=.08+.2*bump(u,.55,.45); o.pitch=.35; touching=u>.4?'table':''; }
-  else if(S.s==='WIPE_TABLE'){ const top=add(toLocal(P,[T2[0],T2[1],TABLE.h]),[-.6,.4,.6]), q=S.local*2*Math.PI/46, w=ease(bump(u,.5,.48)*2);
-    o.hands[1]=lerp3(cloth,add(top,[1.0*Math.cos(q),1.2*Math.sin(q),0]),w); o.lean=.08+.32*w; o.pitch=.5*w; o.yaw=lerp(o.yaw,0,w); touching=w>.2?'table':''; }
-  else o.pitch=.08+.05*Math.sin(S.local*.02);
-  const pose=body(o);
-  // a tankard is on each spot but the empty one and the one in his hand
-  const placed=S.s==='PLACE'&&u>=.55, taken=held||placed;
-  const onTable=[0,1,2,3].filter(n=>S.s==='WIPE_TABLE'?n!==S.empty:!((n===S.empty&&!placed)||(n===S.from&&taken)));
-  return {P,pose,state:S.s,u,touching,mugs:onTable.map(n=>KEEPER_SPOTS[n]),
-    held:held?{state:'HELD_BY_NPC',...heldVessel(P,handWorld(P,pose,-1),-1,'mug',tilt)}:null,
-    cloth:{at:handWorld(P,pose,1),wiping:S.s==='WIPE'||S.s==='WIPE_TABLE'}};
+export function drunkAt(t){
+  const S=stepAt(DRUNK_LOOP,t), u=S.u, P=DRUNK, w=S.local;
+  const sway=.5*Math.sin(t/310)+.2*Math.sin(t/97), nod=.22*Math.sin(t/230)+.1*Math.sin(t/71), turnH=.6*Math.sin(t/390);
+  const hic=bump(frac(t/173),.5,.06);
+  const stand=(/** @type {any} */ o,/** @type {number} */ sw,/** @type {number} */ yaw,/** @type {number} */ pitch)=>standing({...o,sway:sw,side:.08*Math.sin(t/410),yaw,pitch});
+  let pose, lie=0;
+  if(S.s==='HANG'){
+    const o=mixO(D_DRAPE,D_HANG,ease(w/90)), tipsy=ease((w-(S.d-150))/150);   // swaying wider before the hands let go
+    o.lean+=.05*hic-.1*tipsy*(.5+.5*Math.sin(t/37)); pose=stand(o,sway*(1+2.2*tipsy)+.3*tipsy*Math.sin(t/29),turnH,o.pitch+nod-.2*hic);
+  } else if(S.s==='SLIP'){ const k=ease(u); pose=stand(mixO(D_HANG,D_SLIP,k),lerp(sway,-2.4,k),lerp(turnH,-.2,k),lerp(.3,-.25,k)); }
+  else if(S.s==='FALL'){ lie=1; pose=fallPoses()[Math.min(w,SETTLE)]; }
+  else if(S.s==='LIE'){ lie=1; const rest=fallPoses()[SETTLE], br=.1*Math.sin(t/38); pose={...rest,chest:add(rest.chest,[0,0,br]),head:add(rest.head,[0,0,br*.6])}; }
+  else if(S.s==='ROLL'){ lie=1-ease(u); pose=mixPose(fallPoses()[SETTLE],stand(D_SQUAT,0,0,.35),ease(u)); }
+  else if(S.s==='PUSH'){ pose=stand(mixO(D_SQUAT,D_DRAPE,ease(u)),.3*Math.sin(u*9),0,.5); }
+  else { const o=D_DRAPE; pose=stand(o,.15*Math.sin(t/160),.4*Math.sin(t/400),o.pitch+.05*Math.sin(t/50)); }
+  const tilt=lie>.12;
+  return {P,pose:tilt?{...pose,look:null}:pose,state:S.s,u,tilt,lie,at:toWorld(P,pose.pel).slice(0,2)};   // `at`: where the pelvis is, for depth sorting
 }
 
 /* ------------------------------------------------------------------ the timber yard */
@@ -991,15 +1018,15 @@ export const lifeTime=tick=>tick+clock.offset;
 /** Debug only: shift the life clock. @param {number} v */
 export function setLifeOffset(v){ clock.offset=v; }
 /** The loops, for tests. */
-export const LOOPS={FISH,CAT,TALK,LONE,KEEP,WOOD,HANDLER,HANDLER_LAG};
+export const LOOPS={FISH,CAT,TALK,LONE,DRUNK_LOOP,WOOD,HANDLER,HANDLER_LAG};
 /** A life tick at which routine `who` is in `state` at progress u, or -1; nth picks a later occurrence in the loop.
- * @param {'fisher'|'cat'|'pub'|'loner'|'keeper'|'wood'|'handler'} who @param {string} state @param {number} [u] @param {number} [nth] */
+ * @param {'fisher'|'cat'|'pub'|'loner'|'drunk'|'wood'|'handler'} who @param {string} state @param {number} [u] @param {number} [nth] */
 export function phaseTime(who,state,u=.5,nth=0){
-  const L=/** @type {any} */({fisher:FISH,cat:CAT,pub:TALK,loner:LONE,keeper:KEEP,wood:WOOD,handler:HANDLER})[who], hits=L?L.steps.filter(s=>s.s===state):[], S=hits[Math.min(nth,hits.length-1)];
+  const L=/** @type {any} */({fisher:FISH,cat:CAT,pub:TALK,loner:LONE,drunk:DRUNK_LOOP,wood:WOOD,handler:HANDLER})[who], hits=L?L.steps.filter(s=>s.s===state):[], S=hits[Math.min(nth,hits.length-1)];
   if(!S) return -1;
   const t=Math.round(S.t0+u*S.d);
   return who==='handler'?((t-HANDLER_LAG)%YARD_T+YARD_T)%YARD_T+YARD_T:t;
 }
 /** Everyone at life time t. @param {number} t */
-export function portLife(t){ return {fisher:fisherAt(t),bucket:bucketAt(t),cat:catAt(t),catCrate:{i:CAT_CRATE.i,j:CAT_CRATE.j,w:CAT_CRATE.w,d:CAT_CRATE.d,h:CAT_CRATE.h,z:DECK_Z},pub:drinkersAt(t),loner:lonerAt(t),keeper:keeperAt(t),musician:musicianAt(t),yard:yardAt(t)}; }
+export function portLife(t){ return {fisher:fisherAt(t),bucket:bucketAt(t),cat:catAt(t),catCrate:{i:CAT_CRATE.i,j:CAT_CRATE.j,w:CAT_CRATE.w,d:CAT_CRATE.d,h:CAT_CRATE.h,z:DECK_Z},pub:drinkersAt(t),loner:lonerAt(t),drunk:drunkAt(t),musician:musicianAt(t),yard:yardAt(t)}; }
 
