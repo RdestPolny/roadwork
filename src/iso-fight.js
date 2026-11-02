@@ -28,6 +28,7 @@ import { createCombatant, tickCombatant, punchCost, beginPunch, whiffPunch, setG
 import { state as progressionState, resetSessXP, addXP, persist, sessXPText, statShort, passTrial, recordFight } from './progression.js';
 import { fighterStats } from './stats.js';
 import { fightXP } from './training-data.js';
+import { PW, PH, hasPainted, portraitInks, portraitPose, paintPortrait } from './fight-portraits.js';
 import { doneToday, takeFightTrial } from './training-session.js';
 import { prisonFightEnd, countFight, showFightPlate, hideFightPlate } from './prison.js';
 import { hungerLevel, tiredness } from './simulation.js';
@@ -36,7 +37,7 @@ import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, dr
 
 // Runtime values owned by iso-fight; the fight is reset by startIsoFight().
 export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
-  notice:'',noticeUntil:0,pointer:null,showRig:false,clinch:false,clinchAt:0,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],sparks:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null,
+  notice:'',noticeUntil:0,pointer:null,showRig:false,clinch:false,clinchAt:0,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null,
   tape:/** @type {any[]} */ ([]),fin:/** @type {any} */ (null),windUsed:false,kick:0};
 
 /** Seconds from the start of a punch to contact and to the end of the recovery. */
@@ -101,8 +102,8 @@ const emptyCounts=()=>({thrown:0,landed:0,power:0,body:0,counters:0,evades:0,blo
  * @param {{hpMax:number,staCap:number,pow:number,regen:number,hunger?:number}} rules @param {{stunDealt:number,stunTaken:number}} S @param {number} [leadSide] */
 function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
   const F={i,j,fi,fj,leadSide,lastHand:0,evadeHookHand:0,dash:null,dashReadyAt:0,lastMove:[fi,fj],moving:false,mf:0,ms:0,rt:createCombatant(rules),pk:null,buf:null,slipSince:-9,slipDir:1,evKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */ ('slip'),evDi:0,evDj:0,evFwd:0,evSide:0,hurtT:0,hurtDuration:.3,hurtDir:0,hurtLow:false,hurtPower:1,hurtBlocked:false,hurtSide:0,stagger:0,stun:0,dmg:0,faceDamage:0,
-    grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,tire:0,tiredAt:0,aiAt:1,vib:0,vibI:0,vibJ:0,flash:0,slide:/** @type {any} */ (null),tell:/** @type {any} */ (null),combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
-    stunDealt:S.stunDealt,stunTaken:S.stunTaken,c:emptyCounts(),wounds:/** @type {any} */ ({cuts:0,ribs:0}),bleed:false,hist:/** @type {any[]} */ ([]),draw:()=>{}};
+    grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,tire:0,tiredAt:0,aiAt:1,vib:0,vibI:0,vibJ:0,slide:/** @type {any} */ (null),tell:/** @type {any} */ (null),combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
+    stunDealt:S.stunDealt,stunTaken:S.stunTaken,c:emptyCounts(),wounds:/** @type {any} */ ({cuts:0,ribs:0}),cutAt:/** @type {number[]} */ ([]),bleed:false,hist:/** @type {any[]} */ ([]),draw:()=>{}};
   F.ft={1:{},'-1':{}}; F.li=i; F.lj=j; for(const s of [1,-1]) Object.assign(F.ft[s],stance(F,s),{sw:0,from:null,to:null});
   F.wrap=wrap; F.draw=()=>F.wrap(()=>drawFighter(F));
   return F;
@@ -143,7 +144,7 @@ export function startIsoFight(idx,venue,station){
   S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V==='pub'?'cell':V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
   if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.bullClock=0; }
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
-  Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],sparks:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
+  Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
     notice:'Ciosy 1-4 · LPM: korpus · Spacja: blok · Q: slip · F: dash',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
     const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2],[-2.6,0.3],[2.6,0.3]];
@@ -488,8 +489,8 @@ function special(A,D){
   const [ui,uj]=toward(A,D), px=hx(D), py=hy(D);
   if(kind==='shove'){ walk(D,A,ui,uj,.5); D.rt.sta=Math.max(0,D.rt.sta-6); D.stagger=.35; popup(sparringState.T_SHOVE,px,py-12,appearanceState.C_WHITE,1,28); sfxPunch(0.7,0.8,true); S.freeze=2; return; }
   const dmg=kind==='headbutt'?9:7;
-  D.rt.hp=Math.max(1,D.rt.hp-dmg); D.stun+=22; D.dmg=Math.min(1,D.dmg+0.12); D.faceDamage+=dmg; D.hurtT=.3; D.hurtDir=0; D.hurtLow=false; D.hurtPower=1; D.stagger=.3;
-  if(Math.random()<0.45) D.wounds.cuts=Math.min(3,(D.wounds.cuts||0)+1);
+  D.rt.hp=Math.max(1,D.rt.hp-dmg); D.stun+=22; D.dmg=Math.min(1,D.dmg+0.12); D.faceDamage+=dmg; D.hurtT=D.hurtDuration=.3; D.hurtDir=0; D.hurtLow=false; D.hurtPower=1; D.stagger=.3;
+  if(Math.random()<0.45&&(D.wounds.cuts||0)<3){ D.wounds.cuts=(D.wounds.cuts||0)+1; D.cutAt.push(S.t); }
   popup(kind==='headbutt'?sparringState.T_HEADBUTT:sparringState.T_CUT,px,py-14,sparringState.C_BLOOD2,1,34);
   sfxPunch(1,0.8,true); spray(A,D,2,false,false,{damage:dmg,counter:true}); S.freeze=3;
 }
@@ -533,7 +534,6 @@ function impact(A,D){
   }
   const px=hx(D), py=hy(D)+(low?10:0);
   if(o.kind==='parry'){
-    hitSpark(A,D,'parry',pid,low);
     D.c.blocks++; D.c.perfects++; A.stagger=.45; A.pk=null; A.stun+=16; popup(sparringState.T_PARRY,px,py-12,appearanceState.C_SPARK,1,30); sfxBlock(0.95,true);
     S.freeze=8; say(D===S.P?'Idealny blok · kontruj':'Rywal sparował'); return;
   }
@@ -549,7 +549,7 @@ function impact(A,D){
     } else {
       D.stun+=[11,20,28,32][pid]*(o.counter?1.45:1)*((A.stunDealt||1)/(D.stunTaken||1));
       if(D.stun>=82&&D.rt.hp>0){ D.stun=30; D.stagger=.7; D.pk=null; stagger=true; popup(sparringState.T_CARD+19,px,py-16,appearanceState.C_SPARK,1,38); }
-      if(pid===2&&D.dmg>0.42&&(D.wounds.cuts||0)<3&&Math.random()<0.28){ D.wounds.cuts=(D.wounds.cuts||0)+1; popup(sparringState.T_CUT,px,py-18,sparringState.C_BLOOD2,1,38); }
+      if(pid===2&&D.dmg>0.42&&(D.wounds.cuts||0)<3&&Math.random()<0.28){ D.wounds.cuts=(D.wounds.cuts||0)+1; D.cutAt.push(now); popup(sparringState.T_CUT,px,py-18,sparringState.C_BLOOD2,1,38); }
       if((pid===1||pid===3)&&o.counter&&D.dmg>0.48&&!D.wounds.nose){ D.wounds.nose=true; D.rt.regen*=0.82; sfxCrack(0.8); popup(sparringState.T_CARD+15,px,py-18,sparringState.C_BLOOD2,1,38); }
     }
   }
@@ -568,11 +568,10 @@ function impact(A,D){
   const slide=blocked||o.damage<=0||A.rt.comboCount>1?0:o.counter?.18:pid>=2?.1:0;   // a lone hook, uppercut or counter drives him back across the floor; combinations still connect
   if(slide) D.slide={di:ui,dj:uj,left:slide*kb};
   if(o.damage>=1) popup(sparringState.T_DMG+Math.min(30,Math.max(1,Math.round(o.damage)))-1,px,py-14,blocked?appearanceState.C_GRAY:appearanceState.C_WHITE,1,32);
-  spray(A,D,pid,low,blocked,o);
-  if(blocked||o.damage>0) hitSpark(A,D,blocked?'block':o.counter?'counter':'hit',pid,low);
+  spray(A,D,pid,low,blocked,o);   // the hit shows in the head's snap and what flies off him, not in a flash
   if(blocked) sfxBlock(0.6); else sfxPunch(Math.min(1.4,0.55+0.25*pid+(o.counter?0.2:0)),low?1:0.35+pid*0.15,true);
   hitFeel(blocked,o.damage,o.counter,pid,low);
-  D.vib=S.freeze; D.vibI=ui; D.vibJ=uj; if(!blocked&&o.damage>0) D.flash=o.counter?3:2;
+  D.vib=S.freeze; D.vibI=ui; D.vibJ=uj;
   if(o.failedSlip&&D===S.P) say('Spóźniony slip'); else if(o.counter&&A===S.P) say('Kontra'); else if(interrupted&&A===S.P) say('Przerwany zamach');
   if(D.rt.hp<=0){
     const brutal=D.kdN>=2||(D.kdN===1&&o.counter&&pid===3);
@@ -810,7 +809,7 @@ function timeScale(){
 export function isoFightTick(){ if(state.venue==='pub'){ followPubFight((state.P.i+state.O.i)/2,(state.P.j+state.O.j)/2); return withPubCamera(tickFight); } if(state.venue==='port') return withThamesCamera(tickFight); return tickFight(); }
 function tickFight(){
   const S=state; if(!S.on) return;
-  for(const F of [S.P,S.O]) if(F){ if(F.flash>0) F.flash--; if(F.vib>0) F.vib--; }   // the body's flash and the struck man's tremble run on real frames, through the hit-stop
+  for(const F of [S.P,S.O]) if(F&&F.vib>0) F.vib--;   // the struck man's tremble runs on real frames, through the hit-stop
   if(S.freeze>0){
     // Hit-stop freezes combat logic, but the struck torso still begins to fold
     // over the impact: otherwise the visual response starts frames after contact.
@@ -1017,11 +1016,15 @@ function blendJoints(A,B,k){
   return f;
 }
 
-/** The joints of a fighter on his feet: stance, steps, punch, slip, guard, flinch, and the body's own secondary motion
- * (the chest and head lag a sudden move, the shoulders turn against the hips with every step, the arms swing). @param {any} F */
 /** Side of the hand throwing a punch: its own hand, or the stance's default for that punch. @param {any} F @param {any} pk */
 const strikeSide=(F,pk)=>pk.hand??(F.leadSide===-1?[-1,1,1,1][pk.pid]:HAND[pk.pid]);
 
+/** A struck head's recoil over the seconds since the blow: a damped spring that peaks at 1 within a few frames, rebounds a little
+ *  past rest and settles. @param {number} u */
+function headSnap(u){ return u<0?0:Math.exp(-u/0.09)*Math.sin(u*34)/0.62; }
+
+/** The joints of a fighter on his feet: stance, steps, punch, slip, guard, flinch, and the body's own secondary motion
+ * (the chest and head lag a sudden move, the shoulders turn against the hips with every step, the arms swing). @param {any} F */
 function fighterJoints(F, t=state.t, clinch=state.clinch){
   const mv=F.moving;
   const sw1=F.ft[1].sw?Math.sin(Math.PI*Math.min(1,F.ft[1].sw)):0;
@@ -1171,9 +1174,10 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
       -Math.abs(F.hLagF)*0.12
   ];
   if(!F.hurtLow){
-    headHint[0]-=(F.hurtDir===2?0.4:F.hurtDir===3?0.8:1.3)*h;
-    headHint[1]+=(F.hurtDir===2?1.3*F.leadSide:0)*h;
-    headHint[2]+=(F.hurtDir===3?0.6:0)*h;
+    const hs=F.hurtT>0?headSnap(F.hurtDuration-F.hurtT)*F.hurtPower:0;   // the head whips on the neck: out past the chest, back past rest, settled
+    headHint[0]-=(F.hurtDir===2?0.4:F.hurtDir===3?0.8:1.3)*hs;
+    headHint[1]+=(F.hurtDir===2?1.3*F.leadSide:0)*hs;
+    headHint[2]+=(F.hurtDir===3?0.6:0)*hs;
   }
   jf.head=headSocket(chest,headHint);
   return jf;
@@ -1186,16 +1190,6 @@ function tellOf(F){
   return F.tell;
 }
 
-/** A glint on the fist as the tell begins, the cue to watch for. @param {any} F */
-function drawTellGlint(F){
-  const tl=tellOf(F); if(!tl||tl.chain||F.pk) return;
-  const age=state.t-tl.at; if(!(age>=0&&age<0.1)) return;
-  const h=fighterJoints(F)(tl.hand).hd, w=world(F,h[0],h[1]), x=Math.round(isoX(w.i,w.j)), y=Math.round(isoY(w.i,w.j,h[2])), r=age<0.04?3:2;
-  const W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb, px=(/** @type {number} */ x,/** @type {number} */ y,/** @type {number} */ c)=>{ if(x>=0&&y>=0&&x<W&&y<H) fb[y*W+x]=c; };
-  for(let k=1;k<=r;k++){ const c=k<r?appearanceState.C_WHITE:appearanceState.C_SPARK; px(x-k,y,c); px(x+k,y,c); px(x,y-k,c); px(x,y+k,c); }
-  px(x,y,appearanceState.C_WHITE);
-}
-
 /** Draw one fighter as the hub figure: on his feet, getting up (from the ragdoll's last pose to his stance) or as a ragdoll on the boards. @param {any} F */
 function drawFighter(F){
   if((F.ko||F.down)&&F.rd){ figureHD(F,ragdollJoints(F),F.look,{pose:0,base:0,noShadow:true,light:true,tilt:true}); return; }
@@ -1203,8 +1197,29 @@ function drawFighter(F){
   F.i+=F.vibI*v; F.j+=F.vibJ*v;
   let jf=fighterJoints(F);
   if(F.rise){ jf=blendJoints(F.rise.joints,jf,smooth(Math.min(1,F.rise.t))); }
-  figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0,flash:F.flash>0?(F.flash>=2?0.75:0.35):0});
+  const fist=fistCue(F);
+  figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0,fist:fist||undefined});
+  if(fist) appearanceState.PAL.set(fist.saved,fist.rp*3);
   F.i-=F.vibI*v; F.j-=F.vibJ*v;
+}
+
+/** The fist under a tell flushes deep red and swells a little as the punch gathers. */
+const TELL_RED=[rgb('#4a1210'),rgb('#8a231c'),rgb('#b03a2c')];
+/** The rival's cue before a punch: the fist he will throw grows and reddens over the tell. It borrows the hit-flash ramp (unused in
+ *  this scene) for his skin blended to red; the caller restores the ramp from `saved` after drawing.
+ * @param {any} F @returns {{side:number,grow:number,rp:number,saved:Uint32Array}|null} */
+function fistCue(F){
+  const tl=state.phase==='fight'&&!F.pk&&!F.ko&&!F.down?tellOf(F):null; if(!tl) return null;
+  const u=smooth(Math.max(0,Math.min(1,(state.t-tl.at)/Math.max(0.05,tl.until-tl.at)))); if(u<=0) return null;
+  const A=appearanceState, rp=A.R_FLASH, near=((F.fi||0)-(F.fj||0))>=0?1:-1, sk=F.look.sk[tl.hand===near?0:1], saved=A.PAL.slice(rp*3,rp*3+3), red=0.6*u;
+  for(let j=0;j<3;j++) A.PAL[rp*3+j]=mixC(A.PAL[sk*3+j],TELL_RED[j],red);
+  return {side:tl.hand,grow:0.28*u,rp,saved};
+}
+
+/** Blend two packed colours. @param {number} a @param {number} b @param {number} t */
+function mixC(a,b,t){
+  const ch=(/** @type {number} */ sh)=>Math.round(((a>>>sh)&255)+(((b>>>sh)&255)-((a>>>sh)&255))*t)<<sh;
+  return (0xff000000|ch(16)|ch(8)|ch(0))>>>0;
 }
 
 /** A DEBUG-only consumer receives real joint coordinates and metrics for the
@@ -1303,8 +1318,10 @@ function bars(x,y,w,F,right){
   rect(x,y+5,w,3,0xff2a2418); fill(y+5,3,cap,0xff4a4230); fill(y+5,3,sta,staCol);
 }
 
-/** Render a fighter's existing head model once for the fight HUD. @param {any} F */
-function fightPortrait(F){
+/** A fighter's HUD portrait: the painted, living bust of the hero or Harry (fight-portraits.js), else his head model rendered once.
+ * @param {any} F @param {boolean} hero @returns {{ink:any,buf:Uint32Array}|{head:Uint32Array}} */
+function fightPortrait(F,hero){
+  if(hasPainted(F,hero)){ let ink=null; F.wrap(()=>{ ink=portraitInks(F.look,appearanceState.PAL,hero); }); return {ink,buf:new Uint32Array(PW*PH)}; }
   const W=appearanceState.W, H=appearanceState.H, buf=new Uint32Array(W*H), previous=setFramebuffer(buf);
   const C={i:5,j:5,fi:0.7071,fj:0.7071}, J=(s)=>({hip:[0,s*1.2,7],knee:[0,s*1.2,4],foot:[0,s*1.2,1],sh:[0,s*2.5,12],el:[0,s*2.5,10],hd:[0,s*1.5,13]});
   J.pel=[0,0,7]; J.chest=[0,0,12]; J.head=[0,0,16];
@@ -1312,13 +1329,19 @@ function fightPortrait(F){
   const cx=Math.round(isoX(C.i,C.j)), cy=Math.round(isoY(C.i,C.j,15.4));
   const portrait=new Uint32Array(12*14);
   for(let y=0;y<14;y++) for(let x=0;x<12;x++){ const sx=cx+x-6, sy=cy+y-6; if(sx>=0&&sy>=0&&sx<W&&sy<H) portrait[y*12+x]=buf[sy*W+sx]; }
-  return portrait;
+  return {head:portrait};
 }
 
-/** Paint a framed portrait beside the bars. @param {Uint32Array} portrait @param {number} x @param {number} phase @param {any} F */
-function drawFightPortrait(portrait,x,phase,F){
+/** Paint a framed portrait beside the bars. @param {any} entry from fightPortrait @param {number} x @param {number} phase 0 left, 1 right @param {any} F */
+function drawFightPortrait(entry,x,phase,F){
   const K=gymState.ISO_K, W=appearanceState.W, fb=rendererState.fb;
   rect(x,4,16,18,appearanceState.C_OUT); rect(x+1,5,14,16,0xff30241c);
+  if(entry.ink){
+    paintPortrait(entry.buf,entry.ink,portraitPose(F,state.t,phase?1:-1));
+    for(let y=0;y<16*K;y++){ const sy=Math.floor(y*PH/(16*K)); for(let xx=0;xx<14*K;xx++) fb[(5*K+y)*W+(x+1)*K+xx]=entry.buf[sy*PW+Math.floor(xx*PW/(14*K))]; }
+    return;
+  }
+  const portrait=entry.head;
   const bob=Math.round(Math.sin(state.t*2+phase)*0.65);
   for(let y=0;y<16*K;y++) for(let xx=0;xx<14*K;xx++){
     const sx=Math.floor(xx*12/(14*K)), sy=Math.floor((y-bob)*14/(16*K));
@@ -1419,12 +1442,10 @@ function stopIsoRagdoll(F){
 
 const BLOOD=rgb('#7a121a'), BLOOD_DRY=rgb('#38090e'), BLOOD_HI=rgb('#98222b');
 const DUST=rgb('#8c8170');
-/** Hit sparks in the period's light: ivory, sodium yellow and a burnt orange; a block glances off cold steel-grey. */
-const SPARK_HOT=rgb('#fff3d6'), SPARK_ORANGE=rgb('#d0782c'), BLOCK_HI=rgb('#c3d0da'), BLOCK_LO=rgb('#6f8494');
 const SWEAT_MIST=rgb('#586a74'), SWEAT_DROP=rgb('#7c909a'), SWEAT_FLOOR=rgb('#181a1e');
 const rnd=(/** @type {number} */ a,/** @type {number} */ b)=>a+Math.random()*(b-a);
 
-/** Throw a small amount of sweat on damaging hits; blood replaces it below 60% health and grows as health falls.
+/** Throw sweat on damaging hits, more as the stamina runs out; blood replaces it on head blows below 60% health and grows as health falls.
  * @param {any} A @param {any} D @param {number} pid @param {boolean} low @param {boolean} blocked @param {{damage:number,counter:boolean}} o @param {boolean} [ko] */
 function spray(A,D,pid,low,blocked,o,ko){
   const [ui,uj]=toward(A,D), si=-uj, sj=ui, pose=fighterJoints(D), z0=low?pose.abd[2]+0.6:pose.head[2]-0.5, hpF=D.rt.hp/D.rt.hpMax, swing=pid===2?1:0, heavy=pid>=1||o.counter||!!ko;
@@ -1436,10 +1457,11 @@ function spray(A,D,pid,low,blocked,o,ko){
         vz:pid===3&&!low?rnd(0.45,0.95)*power:rnd(0.15,0.65)*(0.5+power*0.45),size:kind==='blood'&&heavy&&Math.random()<0.28?2:1,
         age:0,maxAge:mist?10+(Math.random()*8|0):999,creep:0,host:null,df:0,ds:0,pi:D.i,pj:D.j,pz:z0}); } };
   if(blocked||o.damage<=0) return;
-  if(hpF>=0.6&&!ko){
-    fire('mist',Math.max(1,Math.round((3+pid*2+(o.counter?2:0))*0.4)),0.85+pid*0.15);
-    if(heavy) fire('sweat',Math.max(1,Math.round((2+pid+(o.counter?2:0))*0.4)),0.95+pid*0.18);
-  } else if(!low||ko){
+  if(hpF>=0.6&&!ko||low&&!ko){   // sweat thrown off along the blow: a drop or two off a fresh man, a spray off a spent one
+    const tired=1-Math.max(0,Math.min(1,D.rt.sta/D.rt.staCapInitial));
+    fire('sweat',Math.round((1+pid*0.5+(o.counter?1:0))*(1+tired*4)),0.9+pid*0.15+tired*0.2);
+    const mist=Math.round(tired*tired*(4+pid*2)); if(mist) fire('mist',mist,0.85+pid*0.15);
+  } else {
     D.bleed=true;
     const amount=0.4+0.6*Math.max(0,1-hpF/0.6);
     fire('blood',Math.max(1,Math.round((ko?16:3+pid*3+(o.counter?4:0))*amount)),ko?1.45:1+0.18*pid);
@@ -1452,54 +1474,6 @@ function kickDust(F,di,dj){
   for(const s of [1,-1]){ if(Math.random()<0.5) continue; const f=F.ft[s];
     state.parts.push({kind:'dust',i:f.i+rnd(-0.05,0.05),j:f.j+rnd(-0.05,0.05),z:0.3,vi:-di*rnd(0.004,0.012)+rnd(-0.006,0.006),vj:-dj*rnd(0.004,0.012)+rnd(-0.006,0.006),
       vz:rnd(0.12,0.3),size:Math.random()<0.4?2:1,age:0,maxAge:14+(Math.random()*8|0),creep:0,host:null,df:0,ds:0,pi:f.i,pj:f.j,pz:0.3}); }
-}
-
-/** A burst at the point of contact, played on real frames so it runs through the hit-stop: a star for a clean blow (a counter adds a ring),
- *  a glancing arc for a block, a white ring for a parry. It is drawn on the room before the camera's zoom.
- * @param {any} A @param {any} D @param {'hit'|'counter'|'block'|'parry'} kind @param {number} pid @param {boolean} low */
-function hitSpark(A,D,kind,pid,low){
-  // At the attacker's fist (the head, if his punch is already gone); projected when drawn, as the room's camera is set only then.
-  const p=A.pk?fighterJoints(A)(strikeSide(A,A.pk)).hd:fighterJoints(D).head, w=A.pk?world(A,p[0]+0.6,p[1]):world(D,p[0]+1.4,p[1]);
-  const [ui,uj,gap]=toward(A,D), over=(w.i-A.i)*ui+(w.j-A.j)*uj-(gap-0.22);   // a fist reaching past the gap would burst inside him: keep it on his front
-  if(over>0){ w.i-=ui*over; w.j-=uj*over; }
-  state.sparks.push({i:w.i,j:w.j,z:p[2],ai:A.i,aj:A.j,di:D.i,dj:D.j,x:0,y:0,dx:0,dy:0,kind,len:([5,7,9,9][pid]+(kind==='counter'?3:0))*(low?0.8:1),born:boxingState.tick});
-}
-
-/** Draw and age the hit sparks (see hitSpark). */
-function drawSparks(){
-  const W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb, tick=boxingState.tick, WHITE=appearanceState.C_WHITE, YEL=appearanceState.C_SPARK;
-  const px=(/** @type {number} */ x,/** @type {number} */ y,/** @type {number} */ c)=>{ x=Math.round(x); y=Math.round(y); if(x>=0&&y>=0&&x<W&&y<H) fb[y*W+x]=c; };
-  const ray=(/** @type {any} */ s,/** @type {number} */ a,/** @type {number} */ r0,/** @type {number} */ r1,/** @type {number} */ c0,/** @type {number} */ c1)=>{ const c=Math.cos(a), sn=Math.sin(a); for(let r=r0;r<=r1;r++) px(s.x+c*r,s.y+sn*r,r<(r0+r1)/2?c0:c1); };
-  const ring=(/** @type {any} */ s,/** @type {number} */ r,/** @type {number} */ c,/** @type {boolean} */ dither)=>{ const n=Math.max(8,Math.round(r*6)); for(let k=0;k<n;k++){ if(dither&&k&1) continue; const a=k/n*6.283; px(s.x+Math.cos(a)*r,s.y+Math.sin(a)*r,c); } };
-  const live=[];
-  for(const s of state.sparks){
-    s.x=isoX(s.i,s.j); s.y=isoY(s.i,s.j,s.z);
-    const age=tick-s.born, base=Math.atan2(isoY(s.di,s.dj,0)-isoY(s.ai,s.aj,0),isoX(s.di,s.dj)-isoX(s.ai,s.aj));
-    if(s.kind==='hit'||s.kind==='counter'){
-      const life=s.kind==='counter'?7:5; if(age>=life) continue;
-      for(let k=0;k<8;k++){
-        const a=base+k*Math.PI/4, along=Math.cos(k*Math.PI/4), L=s.len*(k&1?0.6:1)*(1+0.4*Math.max(0,along)-0.4*Math.max(0,-along));   // longer in the blow's direction
-        if(age===0) ray(s,a,1,Math.round(L*0.7),WHITE,YEL);
-        else if(age===1) ray(s,a,1,Math.round(L),WHITE,YEL);
-        else if(age===2) ray(s,a,Math.round(L*0.45),Math.round(L),YEL,SPARK_ORANGE);
-        else if(age===3) ray(s,a,Math.round(L*0.75),Math.round(L*1.1),SPARK_ORANGE,SPARK_ORANGE);
-        else if(!(k&1)) px(s.x+Math.cos(a)*L*1.2,s.y+Math.sin(a)*L*1.2,SPARK_ORANGE);
-      }
-      if(age<=1){ px(s.x,s.y,SPARK_HOT); for(const [ox,oy] of age?[[1,0],[-1,0],[0,1],[0,-1]]:[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[-2,0],[0,2],[0,-2]]) px(s.x+ox,s.y+oy,SPARK_HOT); }
-      if(s.kind==='counter'&&age>=1) ring(s,s.len*0.8+age*2,age<4?YEL:SPARK_ORANGE,age>=5);
-    } else if(s.kind==='block'){
-      if(age>=4) continue;
-      const back=base+Math.PI, r=4+age, c=age<2?BLOCK_HI:BLOCK_LO;   // the arc faces the attacker; chips fly back at him
-      for(let k=-4;k<=4;k++){ const a=back+k*0.3; px(s.x+Math.cos(back)*2+Math.cos(a)*r,s.y+Math.sin(back)*2+Math.sin(a)*r,c); }
-      for(const k of [-1,0,1]){ const a=back+k*0.55, r0=r+2+age*2; ray(s,a,r0,r0+1,c,c); }
-    } else {
-      if(age>=7) continue;
-      ring(s,3+age*2,age<3?WHITE:YEL,age>=5);
-      if(age<=1) for(let k=0;k<4;k++) ray(s,base+Math.PI/4+k*Math.PI/2,1,4,WHITE,WHITE);
-    }
-    live.push(s);
-  }
-  state.sparks=live;
 }
 
 /** The blood that keeps jetting from a finished fighter: pulses from the head, arcing away from the attacker and fading out. @param {any} F @param {number} scale */
@@ -1686,14 +1660,13 @@ function renderFight(){
     for(const F of [S.P,S.O].sort((a,b)=>(a.i+a.j)-(b.i+b.j))){ F.draw(); drawSandyFootDust(F); }
   } else renderHub();   /* standard fights remain in their room's depth sorter */
   const K=gymState.ISO_K, W=appearanceState.W/K;
-  drawParts(); drawSparks();
-  if(S.phase==='fight') drawTellGlint(S.O);
+  drawParts();
   if(S.venue==='sandy'&&S.showRig){renderRigOverlay(S.P);renderRigOverlay(S.O);}
   if(S.phase==='intro'||S.phase==='fight') marker(S.P);
   if(S.venue==='pub') Object.assign(S.cam,{z:1,x:appearanceState.W/2,y:appearanceState.H/2,init:false});
   else camera();
   applySlowMoTint();
-  if(!S.portraits) S.portraits=[fightPortrait(S.P),fightPortrait(S.O)];
+  if(!S.portraits) S.portraits=[fightPortrait(S.P,true),fightPortrait(S.O,false)];
   drawFightPortrait(S.portraits[0],4,0,S.P); drawFightPortrait(S.portraits[1],W-20,1,S.O);
   bars(22,6,44,S.P,false); bars(W-66,6,44,S.O,true);
   drawText('TY',30*K,17*K,appearanceState.C_WHITE,1); drawText(plain(String(S.opp.name)),(W-22)*K-(String(S.opp.name).length*2)*K,17*K,appearanceState.C_WHITE,1);

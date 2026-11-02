@@ -246,14 +246,14 @@ function litBegin(lit){
   return {real:setFramebuffer(litBuf),prev:setLightVec(lit.lx,lit.ly)};
 }
 /** Rim light on the edge facing the source, the lit half brighter, the far half darker; then the figure goes onto the room.
- * @param {{str:number,lx:number,ly:number,face:number,flash?:number}} lit @param {{real:Uint32Array,prev:[number,number]}} st @param {number} cx @param {number} cy */
+ * @param {{str:number,lx:number,ly:number,face:number}} lit @param {{real:Uint32Array,prev:[number,number]}} st @param {number} cx @param {number} cy */
 function litEnd(lit,st,cx,cy){
   const W=appearanceState.W, H=appearanceState.H, buf=/** @type {Uint32Array} */ (litBuf), real=st.real, K=state.ISO_K;
   let x0=W, y0=H, x1=0, y1=0;
   for(let k=0;k<state.ipN;k++){ const r=Math.max(state.ipR0[k],state.ipR1[k])+3*K;
     x0=Math.min(x0,state.ipX0[k]-r,state.ipX1[k]-r); x1=Math.max(x1,state.ipX0[k]+r,state.ipX1[k]+r); y0=Math.min(y0,state.ipY0[k]-r,state.ipY1[k]-r); y1=Math.max(y1,state.ipY0[k]+r,state.ipY1[k]+r); }
   x0=Math.max(1,Math.floor(x0)); y0=Math.max(1,Math.floor(y0)); x1=Math.min(W-2,Math.ceil(x1)); y1=Math.min(H-2,Math.ceil(y1));
-  const {str,lx,ly}=lit, flash=lit.flash||0, C_OUT=appearanceState.C_OUT, C_SH=appearanceState.C_SHADOW, dirX=lx>=0?1:-1, dirY=ly>=0?1:-1, span=Math.max(6*K,(x1-x0)*0.45), face=lit.face*0.12*str;
+  const {str,lx,ly}=lit, C_OUT=appearanceState.C_OUT, C_SH=appearanceState.C_SHADOW, dirX=lx>=0?1:-1, dirY=ly>=0?1:-1, span=Math.max(6*K,(x1-x0)*0.45), face=lit.face*0.12*str;
   for(let y=y0;y<=y1;y++){ const row=y*W;
     for(let x=x0;x<=x1;x++){
       const c=buf[row+x]; if(!c) continue;
@@ -264,7 +264,7 @@ function litEnd(lit,st,cx,cy){
         else if(u>0.16) buf[row+x]=shadeC(c,1+(u-0.16)*str*0.32+face);
         else if(u<-0.06) buf[row+x]=shadeC(c,Math.max(0.5,1+(u+0.06)*str*0.72+face));
       }
-      real[row+x]=flash&&buf[row+x]!==C_OUT?shadeC(buf[row+x],1+flash):buf[row+x]; buf[row+x]=0;   // a struck fighter flashes pale for a frame or two
+      real[row+x]=buf[row+x]; buf[row+x]=0;
     }
   }
   setFramebuffer(real); setLightVec(st.prev[0],st.prev[1]);
@@ -282,14 +282,14 @@ function litEnd(lit,st,cx,cy){
  * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,yorks?:number,beard?:boolean,stubble?:boolean,mustache?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
  * Newgate: style 'flatcap' (L.cap ramp), L.chops mutton-chop whiskers, L.scarf a neckerchief colour, L.irons leg irons.
  * The docks: style 'bowler' (billycock) or 'knit' (a seaman's watch cap), both in the L.cap ramp; L.yorks ties each trouser leg below the knee with string of that colour.
- * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,look?:number[],only?:string,side?:number,flash?:number}} [o]   flash: 0..1 brightens a lit figure (a blow's flash); look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
+ * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,look?:number[],only?:string,side?:number,fist?:{side:number,grow:number,rp:number}}} [o]   fist: one hand drawn larger (grow: share of its size) in ramp rp, the rival's cue before a punch; look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
 export function figureHD(C,J,L,o={}){
   state.ipC=C; state.ipN=0; state.ipPose=o.pose||0; state.ipBase=o.base||0;
   const shape=figureProportions(L), heavy=shape.heavy;
   // All figures share the same anatomical cross-sections; bodyType/bulk only changes muscle and fat volumes.
   const inhale=heavy?Math.sin((C.bullClock??(C.t||0)/60)*7)*((C.bull?.mode==='EXHAUSTED')?0.32:0.12):0;
-  const lit=o.light?(o.flash?{...figureLight(C),flash:o.flash}:figureLight(C)):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+  const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   // Facial fixtures and hair volume shrink together; reducing only the skull would leave detached details.
   const HK=shape.headScale, headAdd=(f0,s0,z0,r0,f1,s1,z1,r1,rp,rp2,zz1,zz2,rp3)=>ipAdd(f0,s0,z0,r0*HK,f1,s1,z1,r1*HK,rp,rp2,zz1,zz2,rp3);
   /* Upright, the trousers' tops sit under the coat: thighs and seat may not sort in front of the waist, and a thigh sorts mostly by its
@@ -305,7 +305,8 @@ export function figureHD(C,J,L,o={}){
     ipAdd(...A.knee,shape.calf, ...A.foot,shape.ankle, PT);                                                                   // shin
     ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15+heelLift,shape.heel, ...toe,shape.toe, L.shoe);                                   // prison shoe
     ipAdd(...A.sh,shape.upperArm, ...A.el,shape.elbow, TP); ipAdd(...A.el,shape.forearm, ...wr,shape.wrist, L.rolledSleeves?SK:TP);
-    ipAdd(...wr,shape.wrist*0.92, ...A.hd,shape.fist, SK);                                                                          // hand
+    const fist=o.fist?.side===s?o.fist:null;
+    ipAdd(...wr,shape.wrist*0.92, ...A.hd,shape.fist*(1+(fist?.grow||0)), fist?fist.rp:SK);                                       // hand
     if(upright) legTops.push(state.ipN);
     ipAdd(A.hip[0],A.hip[1],A.hip[2]+0.3,shape.pelvis*0.72, A.hip[0],A.hip[1]*0.4,A.hip[2]+0.4,shape.pelvis*0.75, L.waist||PT);            // seat of the trousers
   }
