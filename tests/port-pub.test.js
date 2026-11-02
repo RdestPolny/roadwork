@@ -18,3 +18,15 @@ test('the wall loner brings the cigarette filter to his mouth and exhales from i
     if(l.exhale) exhales++; }
   assert.ok(drags>0&&exhales>0);
 });
+
+test('the drunk hangs on the barrel, goes down, lies low and gets up again', async () => {
+  const { drunkAt, LOOPS, DRUNK } = await import('../src/port-life.js');
+  const seen = new Set(); let lowest = Infinity;
+  for (let t = 0; t < LOOPS.DRUNK_LOOP.T; t += 3) { const d = drunkAt(t); seen.add(d.state);
+    assert.ok([d.pose.pel, d.pose.chest, d.pose.head, d.pose.L.hd, d.pose.R.foot].flat().every(Number.isFinite), `finite pose at ${t}`);
+    if (d.state === 'LIE' || d.state === 'FALL') { for (const p of [d.pose.pel, d.pose.chest, d.pose.head, d.pose.L.foot, d.pose.R.hd]) { const w = toWorld(DRUNK, p); if (w[2] < 7) assert.ok(Math.hypot(w[0] - 37.95, w[1] - 7.8) > 0.4 * 0.9, `inside the barrel at ${t}`); } }
+    if (d.state === 'LIE') { lowest = Math.min(lowest, d.pose.head[2]); assert.ok(d.tilt && d.pose.look === null); } }
+  for (const s of ['HANG', 'SLIP', 'FALL', 'LIE', 'ROLL', 'PUSH', 'DRAPE']) assert.ok(seen.has(s), s);
+  assert.ok(lowest < 4, `head ${lowest} units up while lying`);
+  assert.deepEqual(drunkAt(5000), drunkAt(5000), 'the fall replays identically');
+});

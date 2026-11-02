@@ -7,7 +7,7 @@ import { state as rendererState } from './renderer.js';
 import { mix } from './cast.js';
 import { quad, isoBox, isoX, isoY, shadeC } from './gym.js';
 import { h2 } from './boxing.js';
-import { DISTRICT, DECK_Z } from './port-district.js';
+import { DISTRICT, DECK_Z, ANCHORS } from './port-district.js';
 import { pubCraftDetails, tradeCraftDetails, pierCraftDetails, yardCraftProps } from './port-details.js';
 import { portLifeProps } from './port-scenes.js';
 import { C, floor, stroke, thin, rope, vn, frac, barrel, crate, chimney,
@@ -344,7 +344,7 @@ export function portDistrictProps(t){
     [30.5,()=>pubWindowsFX(t)],
     [59,()=>yardCraftProps(t)],
     [36.9,()=>{barrel(31.45,6.75);barrel(31.9,6.85);}],
-    [47.8,()=>{barrel(39.4,8.4);barrel(39.5,9.2);}],
+    [47.8,()=>{ for(const [i,j] of ANCHORS.pub_street_barrels) barrel(i,j); }],
     [57.2,()=>{crate(43.1,5.2,1.3,1.15,7,0,0,1);crate(43.2,5.25,1.15,1,5,7,2);}],
     [61,()=>{crate(49.25,10.7,1,1.1,5,0,1);crate(50.4,10.6,1,1.2,6,0,0);}],
     [59.2,()=>{for(let k=0;k<6;k++)isoBox(48.5,11.4+k*.22,51.1,11.55+k*.22,k*.75,k*.75+.44,C.woodLight,WOOD,WOOD_DARK);}],

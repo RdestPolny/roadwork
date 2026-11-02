@@ -262,9 +262,9 @@ function drawCat(c, t){
 /** Draw a person using the joint positions from a background routine. */
 function person(a,top,look={style:'workcap'}){
   const p=a.P, pose=a.pose, J=s=>s>0?pose.R:pose.L;
-  J.pel=pose.pel; J.chest=pose.chest; J.head=pose.head;
+  J.pel=pose.pel; J.chest=pose.chest; J.head=pose.head; J.abd=pose.abd;
   contact(p.i-.15,p.j-.15,p.i+.15,p.j+.15,p.z0||0,.4);
-  docker(p,J,top,{look:pose.look},look);
+  docker(p,J,top,{look:pose.look,tilt:!!a.tilt},look);
 }
 /** Draw a vessel from its bottom and axis, including its tipped drinking pose. */
 function vessel(v,kind){
@@ -303,16 +303,24 @@ function crackedBarrel(i,j){
   for(const [a,z] of [[.8,1.9],[.84,1.2]]) thin(...P(a,z),...P(a,Math.max(0,z-1.8)),shadeC(C.woodDark,.55));
   contact(i+.15,j+.2,i+.5,j+.52,0,.3);
 }
-/** A glazed plate with a cob loaf, a slice cut from it and a knife left across the rim. */
-function breadPlate(i,j,z){
-  const cream=rgb('#d3caae'), rim=rgb('#4c6d84');
-  cyl(i,j,.22,z,z+.22,(zz,s)=>shadeC(cream,roundLit(s)),(s,v)=>Math.hypot(s,v)>.84?shadeC(rim,1.1):Math.hypot(s,v)>.74?shadeC(cream,.9):shadeC(cream,1.08-v*.06));
-  const crust=rgb('#9b6531'), crumb=rgb('#e2cf9c');
-  cyl(i-.04,j-.02,.115,z+.22,z+.95,(zz,s)=>shadeC(crust,roundLit(s)*(.9+.2*Math.sin((zz-z)*9+s*2))),(s,v)=>s>.05&&v>-.45?shadeC(crumb,.95+v*.1):shadeC(crust,1.15-v*.1),.22);
-  isoBox(i+.1,j+.04,i+.2,j+.14,z+.22,z+.44,crumb,shadeC(crumb,.78),shadeC(crust,.9));
-  stroke(i-.15,j+.13,z+.24,i+.12,j+.16,z+.24,rgb('#9aa0a0'));
-  thin(i-.19,j+.13,z+.24,i-.15,j+.13,z+.24,rgb('#3a2b20'));
-  thin(i+.04,j+.2,z+.22,i+.07,j+.21,z+.22,crumb); thin(i+.12,j-.1,z+.22,i+.13,j-.09,z+.22,crumb);
+/** The busker's felt hat upside down on the setts, with a few coins in it. */
+function buskerHat(i,j){
+  const felt=rgb('#43372b'), band=rgb('#211a14'), lining=rgb('#14100d');
+  cyl(i,j,.3,0,.07,(zz,s)=>shadeC(felt,roundLit(s)),(s,v)=>shadeC(felt,1.1-v*.1));
+  cyl(i,j,.21,.07,.3,(zz,s)=>shadeC(zz<.14?band:felt,roundLit(s)),(s,v)=>Math.hypot(s,v)>.8?shadeC(felt,1.1):shadeC(lining,1));
+  for(const [di,dj,c] of [[-.05,.02,'#c9a24a'],[.06,-.04,'#a9a79a'],[.02,.07,'#b98a3c']]) isoBox(i+di-.03,j+dj-.03,i+di+.03,j+dj+.03,.2,.23,rgb(c),shadeC(rgb(c),.8),shadeC(rgb(c),.7));
+  thin(i+.07,j-.05,.24,i+.08,j-.05,.24,rgb('#f2d98a'));
+}
+/** Eighth notes drifting up and sideways from the concertina while it plays: four overlapping lives, each a head, a stem and a flag. */
+function musicNotes(m,t){
+  const [a,b]=m.box, i0=(a[0]+b[0])/2+.5, j0=(a[1]+b[1])/2-.5, z0=(a[2]+b[2])/2+4, LIFE=220;
+  for(let k=0;k<4;k++){
+    const age=(t+k*LIFE/4)%LIFE, u=age/LIFE, n=Math.floor((t+k*LIFE/4)/LIFE)+k*7;
+    const side=(n%2?1:-1)*(.12+.5*u)+.18*Math.sin(u*9+n), i=i0+side*.7+u*.5, j=j0-side*.7+u*.5, z=z0+u*16, fade=Math.min(1,u/.12,(1-u)/.4), c=mix(rgb('#4a2f27'),rgb('#f0c14a'),fade*fade);
+    for(let r=0;r<5;r++){ const e=r%4?0:.03; thin(i+e,j-e,z+r*.4,i+.1-e,j-.1+e,z+r*.4,c); }
+    thin(i+.1,j-.1,z,i+.1,j-.1,z+3.6,c);
+    thin(i+.1,j-.1,z+3.6,i+.18,j-.18,z+2.5,c);
+  }
 }
 /** The concertina: a box at each hand, the hexagonal bellows between them folding as the hands move apart and together. */
 function concertina(m){
@@ -371,9 +379,9 @@ function board(b){
 /** Put stationary props and animated figures into the port's existing depth queue. */
 export function portLifeProps(t){
   const L=portLife(lifeTime(t)), out=[], add=(i,j,fn)=>out.push([i+j,fn]);
-  for(const [i,j] of [ANCHORS.pub_barrel_table_1,ANCHORS.pub_barrel_table_2,ANCHORS.pub_barrel_table_3]) add(i,j,()=>barrel(i,j,0));
+  for(const [i,j] of [ANCHORS.pub_barrel_table_1,ANCHORS.pub_barrel_table_2]) add(i,j,()=>barrel(i,j,0));
   add(ANCHORS.pub_barrel_table_2[0]+.01,ANCHORS.pub_barrel_table_2[1]+.01,()=>crackedBarrel(...ANCHORS.pub_barrel_table_2));
-  add(ANCHORS.pub_barrel_table_3[0]+.01,ANCHORS.pub_barrel_table_3[1]+.01,()=>breadPlate(ANCHORS.pub_barrel_table_3[0],ANCHORS.pub_barrel_table_3[1],TABLE.h));
+  add(ANCHORS.pub_musician_hat[0],ANCHORS.pub_musician_hat[1],()=>buskerHat(...ANCHORS.pub_musician_hat));
   add(BOTTLE_SPOT[0],BOTTLE_SPOT[1],()=>standingBottle(BOTTLE_SPOT));
   const bk=L.bucket;
   add(bk.i,bk.j,()=>{
@@ -529,8 +537,8 @@ export function portLifeProps(t){
     person(ln,['#262929','#41413a','#625d4c']); cigarette(c,ln.drag);
     smoke(tip[0],tip[1],tip[2],t,5,6,380,SMOKE_PALE,.55+.3*ln.drag);
     if(ln.exhale){ const m=ln.mouth; smoke(m[0],m[1],m[2],t,9,10,230,SMOKE_PALE,.9); } });
-  const mu=L.musician; add(mu.P.i,mu.P.j,()=>{ person(mu,['#2a272b','#4b3f46','#6f6168']); concertina(mu); });
-  add(L.keeper.P.i,L.keeper.P.j,()=>{person(L.keeper,['#322c23','#564637','#75634d']); for(const p of L.keeper.mugs) vessel({bottom:p,up:[0,0,1]},'mug'); vessel(L.keeper.held,'mug');});
+  const mu=L.musician; add(mu.P.i,mu.P.j,()=>{ person(mu,['#2a272b','#4b3f46','#6f6168']); concertina(mu); if(mu.play>.05) musicNotes(mu,lifeTime(t)); });
+  add(L.drunk.at[0],L.drunk.at[1],()=>person(L.drunk,['#322c23','#564637','#75634d'],{style:'short'}));
 
   // Falling offcut severed from the timber deal on the 12th stroke
   const woodOff=L.yard.wood.offcut;

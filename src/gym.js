@@ -338,6 +338,7 @@ export function figureHD(C,J,L,o={}){
   for(const S of [SL,SR]) ipAdd(Q[0]-0.15,Q[1],Q[2]+0.55,shape.clavicle, S[0],S[1]*0.82,S[2]-0.15,shape.shoulderCap,T0);                               // shoulders
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
   ipAdd(Q[0],Q[1],Q[2]+0.3,shape.neckLower, ...hp(-0.15,0,-1.3),shape.neckUpper, HS);                                            // neck
+  const headFrom=state.ipN;   /* primitives of the head: skull, jaw, ears and then hair or headgear */
   const cropped=L.style==='fringe'||L.style==='crop';   /* the hero: hair over the whole skull, the face in front of it */
   ipAdd(...H,shape.headRadius, ...H,shape.headRadius, cropped?L.hair:HS);                                                       // skull beneath the hair
   if(cropped) headAdd(...hp(0.9,0,-0.2),1.15, ...hp(1.0,0,-0.65),1.0, S0);                     // face in front of the hair
@@ -364,6 +365,8 @@ export function figureHD(C,J,L,o={}){
   if(L.heavyMustache) headAdd(...hp(1.7,-0.75,-0.68),0.56, ...hp(1.7,0.75,-0.68),0.56,L.hair);
   if(L.beard) headAdd(...hp(0.75,0,-0.75),1.18, ...hp(0.95,0,-1.6),0.92, L.hair);
   if(L.chops) for(let s=-1;s<=1;s+=2) headAdd(...hp(0.35,s*1.45,-0.1),0.52, ...hp(0.8,s*1.2,-1.25),0.5, L.hair);   /* mutton chops down to the jaw */
+  /* Depth is the i+j of a primitive's middle, so turning the head swaps skull and hair or cap, and the skin shows through. Whatever sits on the skull is drawn after it. */
+  if(st!=='hood') for(let k=headFrom+1;k<state.ipN;k++) if(state.ipD[k]<state.ipD[headFrom]) state.ipD[k]=state.ipD[headFrom];
   for(let k=0;k<state.ipN;k++) state.ipOrd[k]=k;
   for(let a=1;a<state.ipN;a++){ const v=state.ipOrd[a]; let b=a-1; while(b>=0&&state.ipD[state.ipOrd[b]]>state.ipD[v]){ state.ipOrd[b+1]=state.ipOrd[b]; b--; } state.ipOrd[b+1]=v; }
   if(!state.ipPose&&!o.noShadow){ bodyPt(0,0,0); shadowEll(Math.round(state.bpX),Math.round(state.bpY),4,1); }

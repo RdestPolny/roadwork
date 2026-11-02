@@ -49,8 +49,9 @@ export const ANCHORS={
   pub_barrel_table_2:[37.95,7.8],
   pub_keeper_angle:2.25,
   pub_wall_lean:{i:33.95,j:6.42,a:0},
-  pub_barrel_table_3:[41.3,8.2],
+  pub_street_barrels:[[39.4,8.4],[39.5,9.2]],
   pub_musician:{i:40.2,j:6.7,a:.85},
+  pub_musician_hat:[41.0,7.0],
   timber_workbench:{i0:47.3,j:7.9},
   timber_raw_stack:{i0:50.59,i1:51.13,j0:5.0,j1:7.4,along:'j',near:'i0'},
   timber_finished_stack:{i0:49.75,i1:51.8,j0:9.58,j1:10.14,along:'i',near:'j0'},
@@ -60,7 +61,6 @@ export const ANCHORS={
 /** Ground footprints of the new furniture: barrel tables, the fisherman's bucket and box, bench, bin, timber stacks and cat crate. */
 const LIFE_BLOCKS=[
   [32.2,8.3,33.1,9.2],[37.5,7.35,38.4,8.25],
-  [40.85,7.75,41.75,8.65],
   [48.78,23.91,49.54,24.69],[49.87,23.55,50.43,23.91],
   [45.0,20.2,45.8,21.0],
   [47.2,7.6,49.8,8.2],[50.5,4.9,51.25,7.5],[49.65,9.5,51.9,10.25],
