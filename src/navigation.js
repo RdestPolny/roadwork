@@ -68,7 +68,7 @@ export function exitToHub(){
   if(boxingState.gstate==='pushup'&&pushupsState.puVenue==='cell'){ const it=gymState.cellList.find(x=>x.t==='cfloor'); enterHub(it?stationOf(it):null); pushupsState.puVenue=''; return; }
   if(boxingState.gstate==='isofight'){
     const {idx,venue:room,won,station}=isoFightOutcome();
-    if(room==='port'){ stopIsoFight(); inputState.overEl.hidden=true; document.body.classList.remove('spar'); resumeThamesPort(); return; }
+    if(room==='port'||room==='pub'){ stopIsoFight(); inputState.overEl.hidden=true; document.body.classList.remove('spar'); resumeThamesPort(); return; }
     if(room==='sandy'){ const back=sandyFightReturnRoom(); setRoomRaw(back); enterHub(null); setRigged(false); setFightLimit(0); return; }
     if(gymState.hubRoom!==room) setRoomRaw(room);
     enterHub(station); if(room!=='canteen'&&room!=='laznia') finishPrisonFight(idx,won,room==='yard'); setRigged(false); setFightLimit(0);

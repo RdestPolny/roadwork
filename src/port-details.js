@@ -192,13 +192,21 @@ export function yardCraftProps(t){
   for(let j=7.4;j<8.6;j+=.24){
     rope([41.1,j,2.65],[42.95,j+.13,2.5],.23,shadeC(C.rope,.7));
   }
-  // Coiled mooring line over the pier planks.
+  // Thick, overlapping turns of worn hemp, with a dark centre and twisted highlights.
   const bi=49.9,bj=22.8;
-  for(let k=0;k<22;k++){
-    const a=k*Math.PI*2/22,b=(k+1)*Math.PI*2/22;
-    const ri=.75-.25*k/22,rj=.48-.13*k/22;
-    thin(bi+Math.cos(a)*ri,bj+Math.sin(a)*rj,.4,
-         bi+Math.cos(b)*ri,bj+Math.sin(b)*rj,.4,C.rope);
+  for(let turn=0;turn<4;turn++){
+    const ri=.88-turn*.13, rj=.6-turn*.085, z=.38+turn*.18;
+    for(let k=0;k<24;k++){
+      const a=k*Math.PI*2/24,b=(k+1)*Math.PI*2/24;
+      const i0=bi+Math.cos(a)*ri,j0=bj+Math.sin(a)*rj,i1=bi+Math.cos(b)*ri,j1=bj+Math.sin(b)*rj;
+      quad(bi+Math.cos(a)*(ri+.1),bj+Math.sin(a)*(rj+.1),z+.3,
+        bi+Math.cos(b)*(ri+.1),bj+Math.sin(b)*(rj+.1),z+.3,
+        bi+Math.cos(b)*(ri-.1),bj+Math.sin(b)*(rj-.1),z+.3,
+        bi+Math.cos(a)*(ri-.1),bj+Math.sin(a)*(rj-.1),z+.3,
+        ()=>shadeC(C.rope,k%2?.95:.8));
+      stroke(i0,j0,z,i1,j1,z,C.ropeD);
+      thin(i0,j0,z+.5,i1,j1,z+.5,shadeC(C.rope,1.2));
+    }
   }
   // A hanging tackle hook on the front workshop wall.
   stroke(50.4,5.12,18,50.4,5.12,10.4,PITCH);

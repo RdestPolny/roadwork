@@ -10,12 +10,17 @@ import { pubShellStatic, pubShellFireplace, pubShellProps, pubShellFX } from './
 import { pubBarStatic, pubBarProps } from './pub-bar.js';
 import { pubTablesStatic, pubTablesProps } from './pub-tables.js';
 import { PUB } from './pub-layout.js';
+import { figureHD } from './gym.js';
+import { state as npcsState, cnLookHD } from './npcs.js';
 export { PUB };
 
 /** Walking margin round furniture and walls (half the body's width). */
 const R=.24;
+export const PUB_RIVAL={i:10.25,j:5.75,fi:1,fj:0};
+/** Whether the player can challenge Harry. */
+export function pubRivalNear(){ return Math.hypot(state.i-PUB_RIVAL.i,state.j-PUB_RIVAL.j)<1.7; }
 /** Chairs pulled up to the dining tables on the room side (the banquette runs along the wall behind them). */
-function seatBoxes(){ return PUB.dining.map(({box:[a,b,c]})=>[a,b-.55,c,b]); }
+function seatBoxes(){ return PUB.dining.map(({box:[a,b,c]})=>[a,b-.9,c,b]); }
 
 /** Runtime values owned by the pub. */
 export const state={inside:false,i:12,j:5.75,fi:-1,fj:0,ph:0,moving:false,cy:48,ox:0,bake:/** @type {Uint32Array|null} */(null)};
@@ -58,8 +63,8 @@ export function pubTick(/** @type {number} */dx,/** @type {number} */dy){
 /** Camera: the room is wider and taller than the 432×288 frame, so it pans both ways after the player.
  * CX is the bake's origin (2× units, a multiple of 2 so ×1.5 lands on whole native pixels); ox (native px, multiples of 3) and cy (even) pick the window. */
 const CX=2*Math.ceil(6*PUB.J), CY_TOP=2*PUB.H, CY_BOTTOM=2*Math.floor((192-6*(PUB.I+PUB.J))/2), OX_MAX=Math.max(0,Math.ceil(1.5*(CX+12*PUB.I))-432);
-function follow(/** @type {boolean} */snap){
-  const want=Math.max(CY_BOTTOM,Math.min(CY_TOP,128-(state.i+state.j)*6)), wx=Math.max(0,Math.min(OX_MAX,1.5*(CX+12*(state.i-state.j))-216));
+function follow(/** @type {boolean} */snap, i=state.i, j=state.j){
+  const want=Math.max(CY_BOTTOM,Math.min(CY_TOP,128-(i+j)*6)), wx=Math.max(0,Math.min(OX_MAX,1.5*(CX+12*(i-j))-216));
   state.cy=snap?want:state.cy+(want-state.cy)*.08; state.ox=snap?wx:state.ox+(wx-state.ox)*.08;
 }
 
@@ -98,16 +103,32 @@ function bake(){
 }
 
 /** The pub frame (inside withHD, at the native 432×288). */
-export function renderPub(){
+/** Follow the fighters using the same camera as the room. */
+export function followPubFight(i,j){ follow(false,i,j); }
+
+let pubCameraActive=false;
+/** Use the pub camera for its fight and effects, including nested room drawing. */
+export function withPubCamera(fn){
+  if(pubCameraActive) return fn();
+  const cy=2*Math.round(state.cy/2), ox=3*Math.round(state.ox/3);
+  pubCameraActive=true; try{ return withPortView(CX-ox/1.5,cy,fn); } finally{ pubCameraActive=false; }
+}
+
+/** Prepare the room before its camera is installed. */
+export function preparePub(){ if(!state.bake) state.bake=bake(); }
+
+export function renderPub(fighters=null){
   const t=boxingState.tick, fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H;
-  if(!state.bake) state.bake=bake();
+  preparePub();
   const cy=2*Math.round(state.cy/2), oy=(CY_TOP-cy)*1.5, ox=3*Math.round(state.ox/3), B=state.bake;
   for(let y=0;y<H;y++) fb.set(B.subarray((oy+y)*BW+ox,(oy+y)*BW+ox+W),y*W);
-  withPortView(CX-ox/1.5,cy,()=>{
+  withPubCamera(()=>{
     const hero=state, side=hero.fi-hero.fj>=0?1:-1, g=hero.moving?hero.ph%1:.25;
     /** @type {PubProp[]} */
-    const props=[...pubShellProps(t),...pubBarProps(t),...pubTablesProps(t),
-      {box:[hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22],draw:()=>{ contact(hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22,0,.45); portHero(hero,walkJoints(g,false,side)); }}];
+    const actors=fighters?fighters.map(F=>({box:[F.i-.22,F.j-.22,F.i+.22,F.j+.22],draw:()=>F.draw()})):[
+      {box:[hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22],draw:()=>{ contact(hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22,0,.45); portHero(hero,walkJoints(g,false,side)); }},
+      {box:[PUB_RIVAL.i-.22,PUB_RIVAL.j-.22,PUB_RIVAL.i+.22,PUB_RIVAL.j+.22],draw:()=>figureHD(PUB_RIVAL,walkJoints(.25,false,1),{...cnLookHD(npcsState.CN[0]),irons:false})}];
+    const props=[...pubShellProps(t),...pubBarProps(t),...pubTablesProps(t),...actors];
     for(const p of depthOrder(props)) p.draw();
     pubShellFX(t);
   });

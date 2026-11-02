@@ -6,7 +6,7 @@ test('extended port builds at least twice the original plan with connected timbe
   assert.ok(PLAN_AREA>2*30*13,`expanded plan: ${PLAN_AREA} tiles²`);
   assert.equal(portSurface(15,7),'stone');
   assert.equal(portSurface(35,8),'stone');
-  assert.equal(portSurface(35,14.5),'terrace');
+  assert.equal(portSurface(35,14.5),null,'the sloping shore is not walkable');
   assert.equal(portSurface(47,20),'pier');
   assert.equal(portSurface(46.5,12.9),'stone');
   assert.equal(portSurface(46.5,13.1),'pier');
@@ -15,10 +15,10 @@ test('extended port builds at least twice the original plan with connected timbe
 });
 
 test('buildings and stored goods block travel, with public passages left open',()=>{
-  for(const [i,j] of [[33,3],[44,2],[49,3],[43.5,5.7],[49.5,11.4],[40.5,12]]){
+  for(const [i,j] of [[33,3],[44,2],[49,3],[43.5,5.7],[49.5,11.4],[48.5,18.7]]){
     assert.equal(districtBlocked(i,j),true,`blocked at ${i},${j}`);
   }
-  for(const [i,j] of [[29,6],[30.2,6.8],[35.5,8],[41,5.2],[47,9],[36,14.5],[47,21]]){
+  for(const [i,j] of [[29,6],[30.2,6.8],[35.5,8],[41,5.2],[40.5,12],[41.2,12.1],[40.25,11.2],[47,9],[47,21]]){
     assert.equal(districtBlocked(i,j),false,`open at ${i},${j}`);
   }
   assert.deepEqual(DISTRICT.pier,[42.2,13,51.8,25]);

@@ -11,7 +11,7 @@ function drawCat(c, t){
   const P=c.P, cosA=Math.cos(P.a), sinA=Math.sin(P.a);
   const toW=(f,s,z)=>[P.i+(f*cosA-s*sinA)/7.5,P.j+(f*sinA+s*cosA)/7.5,P.z+z];
   // Shadows always belong to the pier or crate, never to the airborne cat.
-  const onCrate=Math.abs(P.i-CAT_CRATE.i)<.4&&Math.abs(P.j-CAT_CRATE.j)<.4&&P.z>DECK_Z+CAT_CRATE.h*.7;
+  const onCrate=Math.abs(P.i-CAT_CRATE.i)<CAT_CRATE.w/2&&Math.abs(P.j-CAT_CRATE.j)<CAT_CRATE.d/2&&P.z>DECK_Z+CAT_CRATE.h*.7;
   contact(P.i-.30,P.j-.30,P.i+.30,P.j+.30,onCrate?DECK_Z+CAT_CRATE.h:DECK_Z,.55);
 
   // Warm ginger tabby dock cat with ivory chest bib, white socks, luminous eyes and salmon nose
@@ -56,14 +56,14 @@ function drawCat(c, t){
   const mTop=toW(fMid,0,midZ+0.75);
   const mL=toW(fMid,-sW*1.15,midZ);
   const mR=toW(fMid,sW*1.15,midZ);
-  const mBellyL=toW(fMid,-sW*0.8,Math.max(0.2,midZ-1.1));
-  const mBellyR=toW(fMid,sW*0.8,Math.max(0.2,midZ-1.1));
+  const mBellyL=toW(fMid,-sW*(0.8+0.2*sit),Math.max(0.2,midZ-1.1-0.8*sit));
+  const mBellyR=toW(fMid,sW*(0.8+0.2*sit),Math.max(0.2,midZ-1.1-0.8*sit));
 
   const cTop=toW(fChest,0,chestZ+0.65);
   const cL=toW(fChest,-sW,chestZ);
   const cR=toW(fChest,sW,chestZ);
-  const cBellyL=toW(fChest,-sW*0.7,Math.max(0.3,chestZ-1.1));
-  const cBellyR=toW(fChest,sW*0.7,Math.max(0.3,chestZ-1.1));
+  const cBellyL=toW(fChest,-sW*(0.7+0.2*sit),Math.max(0.3,chestZ-1.1-1.2*sit));
+  const cBellyR=toW(fChest,sW*(0.7+0.2*sit),Math.max(0.3,chestZ-1.1-1.2*sit));
 
   // 1. Dorsal lit back
   quad(rTop[0],rTop[1],rTop[2], mTop[0],mTop[1],mTop[2], mL[0],mL[1],mL[2], rL[0],rL[1],rL[2], ()=>C_COAT_HI);
@@ -89,7 +89,7 @@ function drawCat(c, t){
   // 5. Front chest & crisp cream bib
   const throat=toW(fChest+0.6,0,chestZ+0.3);
   const bibMid=toW(fChest+0.5,0,Math.max(0.8,chestZ-0.65));
-  const bibLow=toW(fChest+0.3,0,Math.max(0.6,chestZ-1.25));
+  const bibLow=toW(fChest+0.3,0,Math.max(0.35,chestZ-1.25-1.2*sit));
   quad(cTop[0],cTop[1],cTop[2], throat[0],throat[1],throat[2], bibMid[0],bibMid[1],bibMid[2], cL[0],cL[1],cL[2], ()=>C_BIB);
   quad(cTop[0],cTop[1],cTop[2], cR[0],cR[1],cR[2], bibMid[0],bibMid[1],bibMid[2], throat[0],throat[1],throat[2], ()=>C_BIB);
   quad(cL[0],cL[1],cL[2], bibMid[0],bibMid[1],bibMid[2], bibLow[0],bibLow[1],bibLow[2], cBellyL[0],cBellyL[1],cBellyL[2], ()=>C_BIB);
@@ -231,6 +231,8 @@ function drawCat(c, t){
     toW(fChest+.1,-sW*1.22+.22*tWag,.24)
   ];
   const T=tailWalk.map((p,k)=>blend3(p,tailSit[k],sit));
+  for(let k=0;k<3;k++){ const a=T[k], b=T[k+1], r=.38-k*.07;
+    quad(a[0],a[1],a[2]-r,b[0],b[1],b[2]-r,b[0],b[1],b[2]+r,a[0],a[1],a[2]+r,()=>[C_COAT_SHADE,C_COAT,C_COAT_HI][k]); }
   stroke(...T[0],...T[1],C_COAT_SHADE);
   stroke(...T[1],...T[2],C_COAT);
   stroke(...T[2],...T[3],C_COAT_HI);
@@ -441,7 +443,7 @@ export function portLifeProps(t){
   });
   add(TACKLE.i,TACKLE.j,()=>crate(TACKLE.i,TACKLE.j,TACKLE.w,TACKLE.d,TACKLE.h,DECK_Z));
   const cc=L.catCrate||CAT_CRATE;
-  add(cc.i,cc.j,()=>crate(cc.i,cc.j,cc.w,cc.d,cc.h,DECK_Z));
+  add(cc.i,cc.j,()=>crate(cc.i-cc.w/2,cc.j-cc.d/2,cc.w,cc.d,cc.h,DECK_Z));
   const cat=L.cat;
   add(cat.P.i,cat.P.j,()=>drawCat(cat,t));
 

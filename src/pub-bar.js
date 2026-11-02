@@ -381,8 +381,8 @@ function mirrorPanel(/** @type {number} */i0,/** @type {number} */z0,/** @type {
   });
   if(word){ const w=word.length*4*ws-ws; textJ(J,(i0+i1)/2-w/36-.0,z1-.55,word,rgb('#e7d08a'),ws); }
 }
-/** Lying spirit cask: round painted head with brass hoops, a tap and its name. */
-function cask(i,z,Ri,Rz,name,tint){
+/** Lying spirit cask: round painted head with brass hoops, and a tap. */
+function cask(i,z,Ri,Rz,tint){
   const J=BB[3]-.05, L=.4;
   const head=(/** @type {number} */jj,/** @type {(a:number,b:number)=>number} */fn)=>faceJ(jj,i-Ri-.02,z-Rz-.1,i+Ri+.02,z+Rz+.1,(a,b)=>{ const u=(a-i)/Ri, v=(b-z)/Rz; return u*u+v*v<=1?fn(u,v):0; });
   // body swept back from the head, with hoops
@@ -395,8 +395,6 @@ function cask(i,z,Ri,Rz,name,tint){
     if(d>.8) return shadeC(tint,.55);
     return shadeC(mix(tint,rgb('#d9c79a'),.28),.95+.2*vn(u*4,v*4));
   });
-  const tw=name.length*4-1;
-  textJ(J,i-tw/36,z+1.0,name,rgb('#1c0f08'),1);
   // brass tap at the foot of the head
   lathe(i,J+.02,z-Rz*.82,z-Rz*.45,h=>.04,(h,s)=>brass(s)); rod(i,J+.02,z-Rz*.5,i+.04,J+.2,z-Rz*.5,[BR.l,BR.m]); rod(i+.04,J+.2,z-Rz*.5,i+.04,J+.24,z-Rz*.9,[BR.l,BR.m]);
   rod(i-.1,J+.03,z-Rz*.55,i+.1,J+.03,z-Rz*.55,[BR.h]);
@@ -431,9 +429,9 @@ function backBar(){
   for(let m=0;m<3;m++) mirrorPanel(LP[m]+.1,ZB,LP[m+1]-.1,18.5,'',1);
   for(const c of LP) faceJ(SJ+.08,c-.1,ZB,c+.1,25.3,(i,z)=>{ const u=(i-c)/.1; if(Math.abs(u)>.8) return mahog(i,z,u<0?1.45:.5); if(Math.abs(u)<.1) return mahog(i,z,.4); return mahog(i*.3,z*.2,1.1-.3*Math.max(0,u)); });
   // --- casks on the working shelf (left two thirds)
-  cask(i0+.7,ZB+3.0,.34,2.7,'GIN',rgb('#6a4326'));
-  cask(i0+1.42,ZB+3.0,.34,2.7,'RUM',rgb('#5b3820'));
-  cask(i0+2.6,ZB+4.4,.68,4.3,'BRANDY',rgb('#744a28'));
+  cask(i0+.7,ZB+3.0,.34,2.7,rgb('#6a4326'));
+  cask(i0+1.42,ZB+3.0,.34,2.7,rgb('#5b3820'));
+  cask(i0+2.6,ZB+4.4,.68,4.3,rgb('#744a28'));
   // --- bottles and glass: right panel, two shelves
   const right=LP[2]+.3, rEnd=LP[3]-.25;
   for(const zs of [13.6]) { topZ(zs,right-.1,SJ,rEnd+.1,.62,(i,j)=>mahog(i,j*2,1.0)); faceJ(.62,right-.1,zs-.55,rEnd+.1,zs,(i,z)=>z>zs-.12?mix(mahog(i,z,1),rgb('#d89a62'),.5):mahog(i,z*2,.85)); }

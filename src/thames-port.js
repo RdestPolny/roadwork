@@ -8,10 +8,10 @@ import { setInfo, setPortSackPrompt } from './input.js';
 import { startIsoFight } from './iso-fight.js';
 import { horse, coachWheel } from './carriage.js';
 import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTick, storyShot, storyLine, storyCaption, storyFade, storyBars, storyVanDoor, storyCast, state as storyState } from './port-story.js';
-import { portSurface, districtBlocked } from './port-district.js';
+import { DISTRICT, portSurface, districtBlocked } from './port-district.js';
 import { walkJoints } from './port-life.js';
 import { DEBUG } from './config.js';
-import { pubInside, enterPub, leavePub, pubTick, renderPub } from './pub.js';
+import { pubInside, enterPub, leavePub, pubTick, renderPub, pubRivalNear } from './pub.js';
 import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX } from './port-extension.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
@@ -78,6 +78,7 @@ export function thamesBlocked(i,j){
 /** Set a movement key for the port player. */
 export function thamesKey(code,down,repeat=false){
   if(storyPlaying()) return true;
+  if(code==='KeyE'&&pubInside()){ if(down&&!repeat&&pubRivalNear()){ clearThamesInput(); startIsoFight(0,'pub'); } return true; }
   if(code==='KeyE'){
     if(down&&!repeat&&player.lift<0&&!portJob.entry){
       if(player.carrying){ playerSack.i=player.i+player.fi*.55; playerSack.j=player.j+player.fj*.55; player.carrying=false; }
@@ -1136,6 +1137,11 @@ function carriageGate(F){
     const [a0,z0]=P(p,1), [a1,z1]=P(q,1), [a2,z2]=P(q,1.32), [a3,z3]=P(p,1.32);
     quad(...pt(F,a0,z0),...pt(F,a1,z1),...pt(F,a2,z2),...pt(F,a3,z3),(x,y)=>stone(x,y,k===5?1.25:k%2?.95:1.05)); fl(F,a0,z0,a3,z3,shadeC(C.lintel,.5)); }
 }
+const pierPiles=[DISTRICT.pier].flatMap(([i0,j0,i1,j1])=>{
+  const piles=[];
+  for(let i=i0+.35;i<i1;i+=2.3) for(const j of [j0+.7,j1-.5]) piles.push([i+.275,j+.3]);
+  return piles;
+});
 /** River surface: wind-streaked ripples, shadow under the quay and the shimmering columns of the lamps' reflections. */
 function water(t){
   const refl=LAMPS.filter(l=>!l.wall).map(l=>({x:isoX(l.i,l.j),y:isoY(l.i,l.j,2*WL-l.z),top:isoY(l.i,13,WL),k:glow[LAMPS.indexOf(l)]}));
@@ -1146,6 +1152,12 @@ function water(t){
     px=x; py=y;
     const [i,j]=ground(x,y,WL), r=fbm((i-j)*.45+t*.0025,(i+j)*2.6-t*.009), hi=Math.max(0,Math.min(1,(r-.6)*9))*(.5+vn((i-j)*.2,(i+j)*.3));
     let c=hi>0?mix(C.water,C.waterHi,hi*.75):C.water; c=shadeC(c,(j<15&&i<52.5?.62+.38*Math.max(0,j-13)/2:1)*(.85+(r-.5)*.3));
+    for(const [pi,pj] of pierPiles){
+      const di=i-pi, dj=j-pj;
+      if(Math.abs(di)>1.2||Math.abs(dj)>1.2) continue;
+      const d=Math.hypot(di,dj), ripple=Math.max(0,1-Math.abs(d-(.65+.08*Math.sin(t*.04+pi)))/.17);
+      c=mix(c,C.waterHi,ripple*(.28+.12*vn(i*4+t*.02,j*4)));
+    }
     for(const l of refl){ if(y<l.top||Math.abs(x-l.x)>12) continue; const dx=x-l.x+(vn(y*.35,t*.03+l.x)-.5)*7, w=Math.exp(-dx*dx/14)*Math.max(0,1-Math.abs(y-l.y)/46)*l.k;
       if(w>.02) c=mix(c,C.lamp,Math.min(.85,w*(.25+.9*hi+.3*Math.max(0,Math.sin(y*1.3+t*.07+x*.2))))); }
     return pc=c; };
@@ -1155,7 +1167,7 @@ function water(t){
 /** Chimney stacks [i, j, base z, width]; the first pot of each lit one smokes. */
 const CHIMNEYS=[[-4.6,6,81.5,1.2,true],...[[2.5,74,1.6,true],[8,74,1.2,false],[15.4,62,1.6,true],[25.2,68,1.6,true]].map(([i,h,w,lit])=>[i,-4.4,h+.8+10.4*(4.4/6),w,lit])];
 /** Marks the river's pixels in the baked background, for the per-frame water to fill. */
-const RIVER=0xff010203;
+export const RIVER=0xff010203;
 /** Sky, roofs, warehouses, the quay walls and the setts: nothing here moves, so it is drawn once per camera position. */
 function background(t){
     const keep=glow; glow=LAMPS.map(()=>1);
@@ -1166,7 +1178,7 @@ function background(t){
     sideWall(t); fronts(t);
     // The former solid end wall (i=30) is now the open continuation of Wapping.
     floor(-30,13,80,70,WL,()=>RIVER); floor(52,-8,80,13,WL,()=>RIVER);
-    quad(0,13,WL-.5,52,13,WL-.5,52,13,0,0,13,0,(x,y)=>{ const [a,z]=onJ(13,x,y); return quayFace(a,z); });
+    for(const [a,b] of [[0,31.5],[39.3,52]]) quad(a,13,WL-.5,b,13,WL-.5,b,13,0,a,13,0,(x,y)=>{ const [i,z]=onJ(13,x,y); return quayFace(i,z); });
     quad(52,0,WL-.5,52,13,WL-.5,52,13,0,52,0,0,(x,y)=>{ const [a,z]=onI(52,x,y); return shadeC(quayFace(a,z),.78); });
     for(let i=1;i<30;i+=2.6){ isoBox(i,13.02,i+.4,13.42,WL-.6,-1,C.woodLight,C.wood,C.woodDark); thin(i+.2,13.43,WL+.6,i+.2,13.43,-1.2,C.woodDark); }
     for(let z=WL+.4;z<0;z+=1.2) thin(12.4,13.05,z,12.95,13.05,z,C.ironHi); for(const i of [12.4,12.95]) thin(i,13.05,WL,i,13.05,.9,C.iron);
@@ -1176,7 +1188,7 @@ function background(t){
     portDistrictStatic(t);
     // Timber decks, piles and joists do not move: bake once per camera pose.
     portDecks();
-    thin(0,13,0,52,13,0,C.edge); thin(52,0,0,52,13,0,C.edge);
+    thin(0,13,0,31.5,13,0,C.edge); thin(39.3,13,0,52,13,0,C.edge); thin(52,0,0,52,13,0,C.edge);
     for(const j of [10.9,11.6]){ thin(0,j+.07,0,52,j+.07,0,C.black); thin(0,j,0,52,j,0,shadeC(C.ironHi,1.6)); }
     glow=keep;
 }
@@ -1311,7 +1323,15 @@ function atmosphere(t){
       fb[k]=(0xff000000|(b<<16)|(g<<8)|r)>>>0;
     }
   } }
-  LAMPS.forEach((l,k)=>{ const x=isoX(l.i,l.j), y=isoY(l.i,l.j,l.z-(l.wall?1:0)); spot(x,y,30,26,.2*glow[k],C.lamp); spot(x,y,9,8,.45*glow[k],C.flame); });
+  LAMPS.forEach((l,k)=>{
+    const x=isoX(l.i,l.j), y=isoY(l.i,l.j,l.z-(l.wall?1:0));
+    spot(x,y,30,26,.2*glow[k],C.lamp); spot(x,y,9,8,.45*glow[k],C.flame);
+    for(let n=0;n<4;n++){
+      const phase=t*(.045+n*.009)+k*3+n*2.3;
+      const ix=Math.round(x+Math.cos(phase)*(6+n*2)+Math.sin(phase*2.3)), iy=Math.round(y+Math.sin(phase*1.3)*(4+n)+Math.cos(phase*3));
+      if(ix>=0&&ix<W&&iy>=0&&iy<H) fb[iy*W+ix]=mix(C.woodDark,C.flame,.35+.15*Math.sin(phase*5));
+    }
+  });
 }
 /* drawing helpers shared with the vehicles (carriage.js) and the story's cast (port-story.js) */
 export { C, contact, toWorld, spot, thin, stroke, floor, rod, rope, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, withRamps, barrel, crate, chimney, onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, docker, dockPerson, hull, gasLamp, bollard };

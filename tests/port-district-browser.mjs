@@ -22,7 +22,7 @@ export async function checkPortDistrict(page){
     ['02-old-new-continuation',30.5,7.2,30],
     ['03-pub-full-facade',34.5,9.9,45],
     ['04-pub-entrance-people',35.7,7.6,120],
-    ['05-pub-water-terrace',36,14.25,160],
+    ['05-pub-sandy-shore',36,12,160],
     ['06-dock-lane',41,6.2,120],
     ['07-trade-yard',46.7,8.3,180],
     ['08-timber-pier-and-boat',46.8,20.2,110],

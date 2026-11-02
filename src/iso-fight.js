@@ -1,4 +1,5 @@
 import { renderThamesPort, withThamesCamera, portFightOutfit, thamesBlocked, startPortAfterFight } from './thames-port.js';
+import { renderPub, withPubCamera, pubBlocked, PUB_RIVAL, followPubFight, preparePub } from './pub.js';
 import { PORT_BRAWL } from './port-story.js';
 import { DASH, dashTravel, dashPose, dashDirection } from './combat-dash.js';
 import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming } from './heavy-bruiser.js';
@@ -102,7 +103,7 @@ function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
 
 /** Where the two stand: on the floor of the room, facing each other along the screen's horizontal, as in the side view.
  * @param {string} room @returns {[number[],number[]]} */
-function fightBlocked(i,j){ return state.venue==='sandy'?Math.hypot(i-5.55,j-5.15)>3.6:state.venue==='port'?thamesBlocked(i,j):hubBlocked(i,j); }
+function fightBlocked(i,j){ return state.venue==='sandy'?Math.hypot(i-5.55,j-5.15)>3.6:state.venue==='port'?thamesBlocked(i,j):state.venue==='pub'?pubBlocked(i,j):hubBlocked(i,j); }
 function startSpots(room){
   const [w,h]=hubBounds(), pref=room==='cell'?[5.55,5.15]:[w/2,h/2], d=[0.7071,-0.7071], half=0.78;
   for(let r=0;r<6;r+=0.4) for(let a=0;a<(r?16:1);a++){
@@ -122,17 +123,17 @@ function foeFigure(venue,idx,O){
 /** Begin a brawl against rival `idx` of `venue` in that venue's isometric room; `station` is where the hero returns to.
  * @param {number} idx @param {string} [venue] @param {any} [station] */
 export function startIsoFight(idx,venue,station){
-  const S=state, save=progressionState.save, V=venue??sparringState.sparVenue, sandbox=V==='sandy', room=V==='port'?'port':V==='yard'||V==='laznia'?V:'cell';
+  const S=state, save=progressionState.save, V=venue??sparringState.sparVenue, sandbox=V==='sandy', room=V==='port'||V==='pub'?'port':V==='yard'||V==='laznia'?V:'cell';
   const returnRoom=sandbox?(S.on&&S.venue==='sandy'?S.returnRoom:gymState.hubRoom):null;
   S.portraits=null;
   initAudio(); inputState.overEl.hidden=true;
-  setSparFight(idx,sandbox?'cell':V,station);
-  if(sandbox){ setRigged(false); setFightLimit(0); } // the preview never inherits Sunday-match cheats or a timer
+  setSparFight(idx,sandbox||V==='pub'?'cell':V,station);
+  if(sandbox||V==='pub'){ setRigged(false); setFightLimit(0); } // the preview never inherits Sunday-match cheats or a timer
   if(room!=='port'&&gymState.hubRoom!==room){ setRoomRaw(room); hubRebake(); }
   const O=V==='port'?{...oppDef(idx),name:'PIJANY',title:'Pijany doker'}:oppDef(idx), st=save.stats, PS=fighterStats({str:st.str.lvl,spd:st.spd.lvl,end:st.end.lvl}), OS=fighterStats(oppLevels(O));
-  const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:startSpots(room);
+  const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:V==='pub'?[[11.5,5.5],[PUB_RIVAL.i,PUB_RIVAL.j]]:startSpots(room);
   S.P=makeFighter(pa[0],pa[1],0.7071,-0.7071,hero.look,hero.wrap,{hpMax:100+PS.hpBonus,staCap:3*Math.max(25,cap),pow:PS.pow,regen:PS.regen,hunger:hungerLevel()},PS,-1);
-  S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
+  S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V==='pub'?'cell':V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
   if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.bullClock=0; }
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
   Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,push:null,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
@@ -253,7 +254,7 @@ export function isoFightPointerLeave(){ state.pointer=null; }
 export function isoFightBodyAim(held){ state.low=!!held&&state.on&&state.phase==='fight'&&!inputState.paused; }
 
 /** Direction from the fighter's feet to the pointer in room coordinates. @returns {[number,number]} */
-function pointerDirection(){ return state.venue==='port'?withThamesCamera(pointerDirectionInRoom):pointerDirectionInRoom(); }
+function pointerDirection(){ return state.venue==='pub'?withPubCamera(pointerDirectionInRoom):state.venue==='port'?withThamesCamera(pointerDirectionInRoom):pointerDirectionInRoom(); }
 /** Resolve the pointer using the current room projection. */
 function pointerDirectionInRoom(){
   const S=state; if(!S.pointer||!S.P) return [0,0];
@@ -261,8 +262,8 @@ function pointerDirectionInRoom(){
   // Camera coordinates belong to the active framebuffer (3× in all isometric venues).
   const frame=isometricFrame(S.venue), scale=frame.W/144;
   // The port's camera is already in legacy 2× pixels between render calls.
-  const projectionScale=S.venue==='port'?scale/2:scale;
-  const C=S.cam, W=frame.W, H=frame.H, z=(Math.abs(C.z-2.35)<0.03?2.35:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
+  const projectionScale=S.venue==='port'||S.venue==='pub'?scale/2:scale;
+  const C=S.cam, W=frame.W, H=frame.H, z=S.venue==='pub'?1:(Math.abs(C.z-2.35)<0.03?2.35:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
   const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
   const sx=isoX(S.P.i,S.P.j), sy=isoY(S.P.i,S.P.j,0);
   const dx=S.pointer.x-(W/2+(sx*projectionScale-cx)*z)/scale;
@@ -665,7 +666,7 @@ function timeScale(){
 }
 
 /** One 60 Hz step of the fight. The fight's own dt is scaled by the slow motion; the input clock (uiT) and the pause are not. */
-export function isoFightTick(){ if(state.venue==='port') return withThamesCamera(tickFight); return tickFight(); }
+export function isoFightTick(){ if(state.venue==='pub'){ followPubFight((state.P.i+state.O.i)/2,(state.P.j+state.O.j)/2); return withPubCamera(tickFight); } if(state.venue==='port') return withThamesCamera(tickFight); return tickFight(); }
 function tickFight(){
   const S=state; if(!S.on) return;
   if(S.freeze>0){
@@ -776,6 +777,11 @@ function showResult(){
     inputState.overTitle.textContent=state.winner===state.P?'WYGRANA — TEST HD':'PRZEGRANA — TEST HD';
     inputState.overStats.textContent='Bohater kontra Harry · arena piaskowa 432×288 · bez XP i zmian zapisu';
     inputState.againFn=()=>startIsoFight(0,'sandy'); inputState.overEl.hidden=false; inputState.againBtn.focus(); setInfo(); return;
+  }
+  if(state.venue==='pub'){
+    inputState.overTitle.textContent=state.winner===state.P?'WYGRANA — BÓJKA W PUBIE':'PRZEGRANA — BÓJKA W PUBIE';
+    inputState.overStats.textContent='Rywal: '+state.opp.title+' · Esc — powrót do pubu';
+    inputState.againFn=()=>startIsoFight(0,'pub'); inputState.overEl.hidden=false; inputState.againBtn.focus(); setInfo(); return;
   }
   if(state.venue==='port'){
     inputState.overTitle.textContent=state.winner===state.P?'WYGRANA — BÓJKA W PORCIE':'PRZEGRANA — BÓJKA W PORCIE';
@@ -1280,12 +1286,13 @@ function comicCaption(){
 }
 
 /** Frame: the room with both fighters, bars, sparks and the notice. Called inside the 2× frame. */
-export function renderIsoFight(){ if(state.venue==='port') return withThamesCamera(renderFight); return renderFight(); }
+export function renderIsoFight(){ if(state.venue==='pub'){ preparePub(); return withPubCamera(renderFight); } if(state.venue==='port') return withThamesCamera(renderFight); return renderFight(); }
 function renderFight(){
   const S=state; if(!S.on) return;
   if(S.venue!=='sandy'&&S.kdSlow>0&&knockdownComicOnScreen(3.8-S.kdSlow,S.kdSlow)){ drawKnockdownComic(3.8-S.kdSlow,comicCaption()); return; }
   if(gymState.fightSpectators) for(const C of gymState.fightSpectators) C.t=S.t*60;
-  if(S.venue==='port') renderThamesPort([S.P,S.O]);
+  if(S.venue==='pub') renderPub([S.P,S.O]);
+  else if(S.venue==='port') renderThamesPort([S.P,S.O]);
   else if(S.venue==='sandy'){
     renderSandyArena(); drawDecals();
     for(const F of [S.P,S.O].sort((a,b)=>(a.i+a.j)-(b.i+b.j))){ F.draw(); drawSandyFootDust(F); }
@@ -1293,7 +1300,8 @@ function renderFight(){
   const K=gymState.ISO_K, W=appearanceState.W/K;
   drawParts();
   if(S.phase==='intro'||S.phase==='fight') marker(S.P);
-  camera();
+  if(S.venue==='pub') Object.assign(S.cam,{z:1,x:appearanceState.W/2,y:appearanceState.H/2,init:false});
+  else camera();
   applySlowMoTint();
   if(!S.portraits) S.portraits=[fightPortrait(S.P),fightPortrait(S.O)];
   drawFightPortrait(S.portraits[0],4,0,S.P); drawFightPortrait(S.portraits[1],W-20,1,S.O);

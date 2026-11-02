@@ -387,7 +387,7 @@ export function catAt(t){
     pawInBucket=u>=.35&&u<.65; reach=ease(clamp01((u-.16)/.26))*(1-ease(clamp01((u-.61)/.17))); hasFish=u>=.65; crouch=.5*(1-rearUp);
     tail={yaw:.22*Math.sin(t*.28),pitch:.4*rearUp,wag:Math.sin(t*.28)};
   } else if(S.s==='SPRINT'){
-    const TAKEOFF=[46.10,21.23];
+    const TAKEOFF=[46.45,21.55];
     if(u<.70){
       const v=ease(u/.70);
       pos=[lerp(CAT_STEAL_SPOT.i,TAKEOFF[0],v),lerp(CAT_STEAL_SPOT.j,TAKEOFF[1],v)];
@@ -409,7 +409,7 @@ export function catAt(t){
     crouch=eating?.85:0;
     tail=!eating?{yaw:.3*Math.cos(t*.07),pitch:-.6,wag:Math.cos(t*.07)}:{yaw:.35*Math.sin(t*.1),pitch:-.3,wag:Math.sin(t*.1)};
   } else if(S.s==='RETURN'){
-    const LAND=[46.00,21.06];
+    const LAND=[46.45,21.55];
     if(u<.20){
       const v=ease(u/.20);
       pos=[lerp(CAT_CRATE.i,LAND[0],v),lerp(CAT_CRATE.j,LAND[1],v)];

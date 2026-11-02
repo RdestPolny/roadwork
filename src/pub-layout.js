@@ -25,7 +25,7 @@ export const PUB={
   servery:[5.8,.75,11.0,2.4],                             // where the barman works (no player access)
   stools:[[5.6,4.0],[6.9,4.0],[8.2,4.0],[9.5,4.0],[10.8,4.0]], stoolR:.28,
   standing:[{i:4.4,j:7.4,r:.55},{i:6.2,j:7.4,r:.55},{i:8.0,j:7.4,r:.55},{i:9.8,j:7.4,r:.55}],   // four identical tall drinking tables, evenly spaced
-  dining:[{box:[10.2,12.05,12.2,13.05],axis:'i'},{box:[3.9,12.05,6.4,13.05],axis:'i'},{box:[7.1,12.05,9.6,13.05],axis:'i'}], // chairs only on the room side (j0-.55..j0)
+  dining:[{box:[10.2,12.05,12.2,13.05],axis:'i'},{box:[3.9,12.05,6.4,13.05],axis:'i'},{box:[7.1,12.05,9.6,13.05],axis:'i'}], // chairs only on the room side (j0-.9..j0)
   banquette:{box:[1.05,13.15,12.45,13.8],leg:[0,10.45,1.05,13.8],back:6.8,legBack:11,backFrom:3.8}, // one continuous buttoned leather banquette: the long run along the front-left wall j=J from wall i=0 to the front, and an L leg along wall i=0 (beside the fireplace) whose padded front faces the camera; back top z kept low so table tops stay visible, the leg against the back wall stands taller (legBack); the long run's backrest starts at i=backFrom so it does not hide the leg's seat
   coatStand:{i:11.95,j:9.2,r:.3},
   clock:{box:[11.6,0,12.3,.55]},                          // longcase clock against wall j=0 beyond the bar end

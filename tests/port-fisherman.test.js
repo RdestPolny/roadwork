@@ -60,7 +60,7 @@ test('fisherman routine completes full fishing cycle and Thames physiological br
 test('dock cat routine executes observation, stalk, theft, sprint, eating on crate and return without solid penetration', ()=>{
   const visited = new Set();
   const T = LOOPS.CAT.T;
-  const CAT_CRATE_BLOCK = [45.0, 20.2, 45.8, 21.0];
+  const CAT_CRATE_BLOCK = [CAT_CRATE.i-CAT_CRATE.w/2, CAT_CRATE.j-CAT_CRATE.d/2, CAT_CRATE.i+CAT_CRATE.w/2, CAT_CRATE.j+CAT_CRATE.d/2];
   const within = (i, j, r) => i >= r[0] && j >= r[1] && i <= r[2] && j <= r[3];
 
   for(let t = 0; t < T; t++){

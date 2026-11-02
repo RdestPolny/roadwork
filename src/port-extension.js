@@ -12,7 +12,7 @@ import { pubCraftDetails, tradeCraftDetails, pierCraftDetails, yardCraftProps } 
 import { portLifeProps } from './port-scenes.js';
 import { C, floor, stroke, thin, rope, vn, frac, barrel, crate, chimney,
   onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, contact, cyl, roundLit,
-  smoke, spot, hull } from './thames-port.js';
+  smoke, spot, hull, RIVER } from './thames-port.js';
 
 const WOOD=rgb('#4b3527'), WOOD_HI=rgb('#75604a'), WOOD_DARK=rgb('#211b17');
 const BRICK_PUB=[rgb('#493126'),rgb('#53382c'),rgb('#392b27'),rgb('#604135')];
@@ -40,33 +40,85 @@ function renderDeck(rect,seed){
     const [a,b]=ground(x,y,DECK_Z);
     return plankAt(a,b,seed);
   });
-  // Explicit plank seams, frame edges, exposed beam ends.
-  for(let j=j0+.32;j<j1;j+=.33) thin(i0,j,DECK_Z+.03,i1,j,DECK_Z+.03,shadeC(WOOD_DARK,.85));
+  // Frame edges and exposed beam ends.
   for(const j of [j0,j1]) stroke(i0,j,.4,i1,j,.4,C.woodLight);
   for(let i=i0;i<=i1;i+=2.3) thin(i,j1,-.5,i,j1,DECK_Z+.7,C.iron);
   pierCraftDetails(rect);
+  if(rect===DISTRICT.pier){
+    // Broken plank ends expose dark water between the remaining joists.
+    const rows=[[47.95,49.35],[47.65,49.65],[47.45,49.8],[47.6,49.9],[47.4,49.75],[47.7,49.6],[47.85,49.3]];
+    rows.forEach(([a,b],k)=>{
+      const j=17.7+k*.32, end=j+.32;
+      floor(a,j,b,end,DECK_Z+.08,()=>RIVER);
+      thin(a,j,DECK_Z+.1,a+.18,j+.12,DECK_Z-.5,WOOD_HI);
+      thin(b,j,DECK_Z+.1,b-.16,j+.18,DECK_Z-.45,WOOD_HI);
+    });
+    thin(48.5,17.95,DECK_Z-.35,48.5,19.75,DECK_Z-.35,WOOD_DARK);
+    thin(47.9,18.62,DECK_Z-.4,49.15,18.84,DECK_Z-.8,WOOD);
+  }
 }
 /** A low timber rail with posts; from..to (shares of its length) redraws one stretch of it over people standing behind it. */
-export function rail(i0,j0,i1,j1,from=0,to=1){
+export function rail(i0,j0,i1,j1,from=0,to=1,wooden=false){
   const length=Math.hypot(i1-i0,j1-j0),n=Math.ceil(length/1.4), at=u=>[i0+(i1-i0)*u,j0+(j1-j0)*u];
   for(let k=0;k<=n;k++){
     const u=k/n,[i,j]=at(u); if(u<from-1e-6||u>to+1e-6) continue;
-    stroke(i,j,DECK_Z,i,j,6.4,WOOD_DARK);
-    thin(i,j,6.4,i,j,7,WOOD_HI);
+    if(wooden) isoBox(i-.12,j-.12,i+.12,j+.12,DECK_Z,7,WOOD_HI,WOOD,WOOD_DARK);
+    else { stroke(i,j,DECK_Z,i,j,6.4,WOOD_DARK); thin(i,j,6.4,i,j,7,WOOD_HI); }
   }
   const [a0,b0]=at(from),[a1,b1]=at(to);
-  stroke(a0,b0,6.5,a1,b1,6.5,C.woodLight);
-  thin(a0,b0,3.4,a1,b1,3.4,WOOD_HI);
+  if(wooden){
+    for(const z of [3.2,6.1]) isoBox(Math.min(a0,a1)-.1,Math.min(b0,b1)-.1,Math.max(a0,a1)+.1,Math.max(b0,b1)+.1,z,z+.65,WOOD_HI,WOOD,WOOD_DARK);
+  } else { stroke(a0,b0,6.5,a1,b1,6.5,C.woodLight); thin(a0,b0,3.4,a1,b1,3.4,WOOD_HI); }
 }
-/** Both raised timber surfaces are walkable and connected to the old quay. */
+const shore=[[31.5,13,0],[31.7,13.85,-1.4],[32,15,-3.1],[32.6,16.15,-4.8],[33.4,16.9,-6.3],[34.5,17.3,-6.95],[35.5,17.6,-6.95],[36.5,18,-6.95],[37.4,17.45,-6.95],[38.4,16.35,-6.95],[39.3,13.2,-6.95]];
+/** The sandy bank and the timber pier along the quay. */
 export function portDecks(){
-  renderDeck(DISTRICT.terrace,41);
+  floor(31.5,11.65,39.3,13.06,.04,(x,y)=>{
+    const [i,j]=ground(x,y,.04), boundary=11.85+.35*vn(i*1.8,3.7)+.12*vn(i*6,1.2);
+    const edge=Math.min(1,Math.max(0,(j-boundary)*5));
+    const fade=edge*Math.min(1,(i-31.5)*3,(39.3-i)*2);
+    const sand=shadeC(rgb('#817253'),.72+.24*vn(x*.13,y*.14)+(h2(x|0,y|0)-128)/850);
+    return mix(under(x,y),sand,fade);
+  });
+  for(let k=0;k<shore.length-1;k++){
+    const [a,ja,za]=shore[k], [b,jb,zb]=shore[k+1];
+    quad(a,13,0,b,13,0,b,jb,zb,a,ja,za,(x,y)=>shadeC(rgb('#817253'),.72+.24*vn(x*.13,y*.14)+(h2(x|0,y|0)-128)/850));
+    if(za<-6&&zb<-6) thin(a,ja,za+.05,b,jb,zb+.05,shadeC(C.waterHi,.8));
+  }
+  for(const [i,j,z] of [[34.3,13.8,-1.6],[35.2,14.3,-2],[36.4,14.6,-2.3],[37.8,14.2,-2],[38.5,13.7,-1.6]]){
+    thin(i,j,z,i+.12,j+.05,z+.08,shadeC(WOOD_DARK,1.3));
+    thin(i+.14,j-.13,z+.2,i+.22,j-.1,z+.25,shadeC(WOOD_HI,.8));
+  }
+  thin(35.1,13.6,-.95,35.65,13.9,-1.4,WOOD_DARK);
+  // A crumpled, weathered net on the sloping sand.
+  const netZ=j=>-1.45*(j-13)+.08, net=rgb('#2c2b20'), ni=33.3, nj=15.85;
+  for(let n=-3;n<=3;n++){
+    const u=n/4, span=Math.sqrt(1-u*u), i=ni+u*.9, j=nj+u*.7;
+    const j0=nj-span*.67, j1=nj+span*(.67+.1*Math.sin(n*3));
+    const i0=ni-span*.87, i1=ni+span*(.87+.06*Math.cos(n*2));
+    stroke(i,j0,netZ(j0),i+.06*Math.sin(n*2),j1,netZ(j1),net);
+    if(n!==2) thin(i0,j,netZ(j),i1,j+.07*Math.cos(n),netZ(j+.07*Math.cos(n)),shadeC(net,1.4));
+    if(n%2===0){ const end=j1+.1+(n+3)*.015; thin(i+.06*Math.sin(n*2),j1,netZ(j1),i+.13,end,netZ(end),net); }
+  }
+  for(let n=0;n<16;n++){
+    if(n>=1&&n<=7) continue;
+    const a=n*Math.PI/8,b=(n+1)*Math.PI/8, j0=nj+Math.sin(a)*.67,j1=nj+Math.sin(b)*.67;
+    thin(ni+Math.cos(a)*.87,j0,netZ(j0),ni+Math.cos(b)*.87,j1,netZ(j1),net);
+  }
+  // A small headless fish, with flesh exposed at the torn end.
+  const fishI=33.35, fishJ=15.82, fishZ=netZ(fishJ)+.24;
+  quad(fishI-.3,fishJ,fishZ,fishI-.15,fishJ-.12,fishZ+.17,
+    fishI+.17,fishJ-.1,fishZ+.14,fishI+.2,fishJ+.1,fishZ-.14,(x,y)=>shadeC(rgb('#4a5d52'),h2(x|0,y|0)%4===0?1.3:1));
+  quad(fishI-.3,fishJ,fishZ,fishI+.2,fishJ+.1,fishZ-.14,
+    fishI+.08,fishJ+.13,fishZ-.19,fishI-.16,fishJ+.1,fishZ-.14,()=>rgb('#36473f'));
+  thin(fishI-.3,fishJ,fishZ,fishI-.45,fishJ-.12,fishZ+.17,rgb('#46594d'));
+  thin(fishI-.3,fishJ,fishZ,fishI-.45,fishJ+.12,fishZ-.17,rgb('#46594d'));
+  stroke(fishI+.17,fishJ-.1,fishZ+.14,fishI+.2,fishJ+.1,fishZ-.14,rgb('#a45c50'));
+  thin(fishI+.17,fishJ-.06,fishZ+.1,fishI+.19,fishJ+.05,fishZ-.07,rgb('#d2977e'));
   renderDeck(DISTRICT.pier,86);
   // Open at the quay entrances; low rails only at the waterward edges.
-  rail(33.1,16.2,39.3,16.2);
-  rail(33.1,13,33.1,16.2);rail(39.3,13,39.3,16.2);
-  rail(42.2,25,51.8,25);
-  rail(42.2,13,42.2,25);rail(51.8,13,51.8,25);
+  rail(42.2,25,51.8,25,0,1,true);
+  rail(42.2,13,42.2,25,0,1,true);rail(51.8,13,51.8,25,0,1,true);
   // Shore-to-pier apron: it should read as beams extending over the river wall.
   for(const i of [43.2,46.2,49.2]) stroke(i,12.75,DECK_Z+.15,i,14.5,DECK_Z+.15,C.woodLight);
 }
@@ -82,6 +134,14 @@ function pierBoat(t){
 }
 /** Dark ship silhouettes and a slow steam tug across the open Thames. */
 export function portRiverDistance(t){
+  const wash=.1+.06*(1+Math.sin(t*.025)), low=.015;
+  for(let k=5;k<shore.length-2;k++){
+    const [a,ja]=shore[k], [b,jb]=shore[k+1], at=(j,u)=>j+(13-j)*u;
+    quad(a,at(ja,low),-6.95*(1-low),b,at(jb,low),-6.95*(1-low),
+      b,at(jb,wash),-6.95*(1-wash),a,at(ja,wash),-6.95*(1-wash),
+      (x,y)=>mix(under(x,y),C.waterHi,.18));
+    thin(a,at(ja,wash),-6.95*(1-wash)+.05,b,at(jb,wash),-6.95*(1-wash)+.05,mix(C.waterHi,rgb('#aa9f7d'),.55));
+  }
   const vessels=[[32.5,41,12],[51,46,16],[19.5,53,11]];
   for(const [i,j,h] of vessels){
     const haze=.55+vn(i,j)*.18,ink=shadeC(C.smoke,haze);
@@ -348,10 +408,14 @@ export function portDistrictProps(t){
     [57.2,()=>{crate(43.1,5.2,1.3,1.15,7,0,0,1);crate(43.2,5.25,1.15,1,5,7,2);}],
     [61,()=>{crate(49.25,10.7,1,1.1,5,0,1);crate(50.4,10.6,1,1.2,6,0,0);}],
     [59.2,()=>{for(let k=0;k<6;k++)isoBox(48.5,11.4+k*.22,51.1,11.55+k*.22,k*.75,k*.75+.44,C.woodLight,WOOD,WOOD_DARK);}],
-    [57,()=>{for(let k=0;k<3;k++)barrel(41.2+k*.4,12.1-k*.4);}],
-    [60.6,()=>{crate(43.4,15.1,1.2,1.3,7,DECK_Z,2,0);crate(44.8,15.4,1.1,1.1,6,DECK_Z,1,1);}],
-    [70.4,()=>{for(let k=0;k<4;k++)isoBox(48.4,18+k*.55,50.7,18.24+k*.55,DECK_Z,DECK_Z+1.2+k*.05,WOOD_HI,WOOD,WOOD_DARK);}],
-    [49.9,()=>{contact(40,10.5,41,11.4);barrel(40.25,11.2);crate(40.3,11.7,.85,.7,5);}],
+    [52.1,()=>{
+      const dark=rgb('#405035'), light=rgb('#6b7645');
+      for(const [i,j] of [[39.8,11.75],[40.5,11.7],[40.7,12.05],[40.45,12.45],[39.85,12.4]]){
+        thin(i,j,.04,i-.08,j-.03,.85,dark);
+        thin(i,j,.04,i+.06,j+.03,1.2,light);
+        thin(i,j,.04,i+.12,j-.05,.65,dark);
+      }
+    }],
   ];
   // The people of the new quay and what they work with, sorted with the dock props.
   result.push(...portLifeProps(t));
