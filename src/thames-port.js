@@ -1,6 +1,6 @@
 import { rgb, setRamp, state as appearanceState } from './appearance.js';
 import { state as rendererState, line, taper, zoomBlit, setFramebuffer } from './renderer.js';
-import { state as boxingState, setGstate, h2 } from './boxing.js';
+import { state as boxingState, setGstate, h2, drawText } from './boxing.js';
 import { state as gymState, quad, isoLine, isoLineThin, isoX, isoY, isoBox, figureHD, withCellOutfit, setPropCamera, shadeC } from './gym.js';
 import { mix } from './cast.js';
 import { setPanelMode, enterPrisonFromPort } from './navigation.js';
@@ -8,7 +8,7 @@ import { setInfo, setPortSackPrompt } from './input.js';
 import { startIsoFight } from './iso-fight.js';
 import { horse, coachWheel } from './carriage.js';
 import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTick, storyShot, storyLine, storyCaption, storyFade, storyBars, storyVanDoor, storyCast, state as storyState } from './port-story.js';
-import { DISTRICT, portSurface, districtBlocked } from './port-district.js';
+import { DISTRICT, portSurface, districtBlocked, propBlocked, propDraws, PORT_PROPS, propKey } from './port-district.js';
 import { walkJoints } from './port-life.js';
 import { DEBUG } from './config.js';
 import { pubInside, enterPub, leavePub, pubTick, renderPub, pubRivalNear } from './pub.js';
@@ -36,6 +36,10 @@ const FRONTS=[{i0:0,i1:11,h:74,pal:C.brick,seed:19},{i0:11,i1:21,h:62,pal:C.stoc
 const LAMPS=[{i:4.6,j:12.1,z:25.5,r:5.5},{i:13.6,j:12.1,z:25.5,r:5.5},{i:21,j:12.1,z:25.5,r:5.5},{i:.95,j:11.2,z:30,r:4.5,wall:'i'},{i:17.25,j:.95,z:30,r:4.5,wall:'j'},{i:40.2,j:12.05,z:25.5,r:6.2},{i:48.2,j:12.2,z:25.5,r:6.2},{i:36.1,j:6.85,z:30,r:5.2,wall:'j'}];
 /** Per-frame lamp brightness, flickering independently. */
 let glow=LAMPS.map(()=>1);
+/** ?debug=1, F8: draw the prop footprints, their depth keys and the real collision over the port. */
+let propMap=false;
+/** Show or hide the prop map (debug scripts). @param {boolean} on */
+export function setPropMap(on){ propMap=DEBUG&&on; }
 
 /** Move the view across the larger port without changing its zoom. */
 /** pose: the joints a story scene gives him, in place of his own walk. */
@@ -63,20 +67,14 @@ function sackPrompt(){
 export function thamesBlocked(i,j){
   if(i<.5||j<.5||!portSurface(i,j)||districtBlocked(i,j)) return true;
   if(i<30&&j>12.4) return true;
-  const boxes=[[.5,.5,2.3,2.2],[4.55,1.65,5.65,2.75],[5.6,9.7,9.55,10.85],
-    [2.1,9.9,3,10.8],[6.7,3.6,10.6,6.1],[11,3.5,14,6.3],
-    [17.6,2.2,21.55,3.6],[21.6,1,24.6,3.6],
-    [20.85,3.95,22.5,5.6],[19.4,6.25,20.8,8.05],
-    [25.85,10.3,27.75,12.2],[28.3,7.9,29.9,9.8]];
-  if(boxes.some(([a,b,c,d])=>i>a-.2&&i<c+.2&&j>b-.2&&j<d+.2)) return true;
-  if(Math.hypot(i-27.65,j-1.7)<.55) return true;
+  if(propBlocked(i,j)) return true;
   if(LAMPS.some(l=>!l.wall&&Math.hypot(i-l.i,j-l.j)<.48)) return true;
-  if([2.2,8.5,16.5,21.8,28.2].some(x=>Math.hypot(i-x,j-12.6)<.36)) return true;
   if(Math.hypot(i-26.8,j-6.6)<craneAt(boxingState.tick,-2.4).heap.r+.2) return true;
   return !player.carrying&&(player.lift<0||player.lift/120<.45)&&Math.hypot(i-playerSack.i,j-playerSack.j)<.48;
 }
 /** Set a movement key for the port player. */
 export function thamesKey(code,down,repeat=false){
+  if(DEBUG&&code==='F8'){ if(down&&!repeat) propMap=!propMap; return true; }
   if(storyPlaying()) return true;
   if(code==='KeyE'&&pubInside()){ if(down&&!repeat&&pubRivalNear()){ clearThamesInput(); startIsoFight(0,'pub'); } return true; }
   if(code==='KeyE'){
@@ -1305,29 +1303,31 @@ function renderPortFrame(fighters){
         if(lifting?.held) sackAt(lifting.held,lifting.dir[0],lifting.dir[1],lifting.tilt);
         else if(player.carrying) sackAt(toWorld(player,.2,side*2.4,14.4-.22*Math.cos(4*Math.PI*g)-.15),player.fi,player.fj,1); };
         if(portJob.entry&&player.j<.35) behindFront(draw,archHole,Math.max(0,Math.min(1,(.3-player.j)/1.6))); else draw(); }]]:[]),
-      [HOIST.i+HOIST.j,()=>{ hoistStack(H.stack); hoistLoad(t,H); }],
       [6.05,()=>hoistMan(t,H)],
-      [2,()=>{ barrel(.85,.85); barrel(1.8,.9); barrel(.9,1.8); barrel(1.35,1.3,7); }],
+      ...propDraws({   // fixed props: footprints, keys and collision in PORT_PROPS (port-district.js)
+        gate_barrels:()=>{ barrel(.85,.85); barrel(1.8,.9); barrel(.9,1.8); barrel(1.35,1.3,7); },
+        hoist:()=>{ hoistStack(H.stack); hoistLoad(t,H); },
+        smoker_crate:()=>{ crate(2.1,9.9,.9,.9,4,0,2); dockPerson(2.6,10.4,true,0,0,1); smoke(2.65,11.15,12.4,t,5,5,260,C.fog,.6); },
+        police_van:()=>policeVan(t,storyVanDoor()),
+        quay_crates:()=>{ crate(5.6,9.75,1.25,1.1,8,0,0,0); crate(6.95,9.7,1.2,1.15,8,0,1); crate(8.3,9.8,1.25,1.05,7,0,2,1); crate(6.3,9.8,1.2,1.05,7,8,2); },
+        warehouse_crates:()=>{ crate(17.6,2.2,1.3,1.2,8,0,0,1); crate(19,2.3,1.3,1.2,8,0,1); crate(20.35,2.4,1.2,1.2,8,0,2,0); crate(17.75,2.25,1.2,1.15,7,8,2); crate(19.1,2.35,1.15,1.1,6,8,0,1); },
+        tarp_cargo:()=>tarpCargo(21.6,1,3,2.6,7.5),
+        crane_barrels:()=>{ barrel(21.2,4.3); barrel(22.05,4.45); barrel(21.6,5.15); },
+        sack_stack:()=>sackStack(D.phase==='lift'&&D.u>=.45?D.n-1:D.n),
+        coal_sacks:()=>coalSacks(t),
+        crane:()=>{ crane(t,K); craneHand(t,K); },
+        autumn_tree:()=>autumnTree(t),
+        bollard:p=>bollard(p.circle[0],p.circle[1]),
+      }),
       [3.6,()=>{ for(const j of [GATE.j0-.3,GATE.j1+.3]){ contact(.05,j-.2,.45,j+.2,0,.6); cyl(.25,j,.2,0,2.2,(z,s)=>shadeC(C.lintel,roundLit(s)*(.85+.1*z)),(s,v)=>shadeC(C.lintel,1.15)); } }],
-      [16.3,()=>{ crate(5.6,9.75,1.25,1.1,8,0,0,0); crate(6.95,9.7,1.2,1.15,8,0,1); crate(8.3,9.8,1.25,1.05,7,0,2,1); crate(6.3,9.8,1.2,1.05,7,8,2); }],
       [6,()=>{ for(const L of LAMPS) if(L.wall) wallLamp(L,glow[LAMPS.indexOf(L)],t); }],
-      [21.2,()=>{ crate(17.6,2.2,1.3,1.2,8,0,0,1); crate(19,2.3,1.3,1.2,8,0,1); crate(20.35,2.4,1.2,1.2,8,0,2,0); crate(17.75,2.25,1.2,1.15,7,8,2); crate(19.1,2.35,1.15,1.1,6,8,0,1); }],
-      [25,()=>tarpCargo(21.6,1,3,2.6,7.5)],
-      [29.35,()=>autumnTree(t)],
-      [25.6,()=>{ barrel(21.2,4.3); barrel(22.05,4.45); barrel(21.6,5.15); }],
-      [31.4,()=>coalSacks(t)],
       [HEAVER.i+HEAVER.j-.2,()=>heaver(t,K.heap.r)],
       [CRANE.i+6.6,()=>coalHeap(CRANE.i,CRANE.j-CRANE.reach,K.heap.r,K.heap.h)],
-      [26.8,()=>sackStack(D.phase==='lift'&&D.u>=.45?D.n-1:D.n)],
-      [13,()=>policeVan(t,storyVanDoor())],
-      [12.9,()=>{ crate(2.1,9.9,.9,.9,4,0,2); dockPerson(2.6,10.4,true,0,0,1); smoke(2.65,11.15,12.4,t,5,5,260,C.fog,.6); }],
       [36.3,()=>{ for(let k=0;k<3;k++){ const i=29+k*.1,j=11.6+k*.1; rope([i,j,.05],[i+.8-k*.2,j,.05],0,C.rope); rope([i+.8-k*.2,j,.05],[i+.8-k*.2,j+.5-k*.2,.05],0,C.rope); rope([i+.8-k*.2,j+.5-k*.2,.05],[i,j+.5-k*.2,.05],0,C.rope); } }],
-      [CRANE.i+CRANE.j,()=>{ crane(t,K); craneHand(t,K); }],
       [D.i+D.j,()=>sackCarrier(t)],
       ...portDistrictProps(t,[[player.i,player.j]]),
     ];
     for(let k=0;k<LAMPS.length;k++){ const l=LAMPS[k]; if(!l.wall) props.push([l.i+l.j,()=>gasLamp(l.i,l.j,glow[k],t)]); }
-    for(const i of [2.2,8.5,16.5,21.8,28.2]) props.push([i+12.6,()=>bollard(i,12.6)]);
     props.sort((a,b)=>a[0]-b[0]).forEach(p=>p[1]());
     const B=barge(t), L=lighter(t);
     for(const [i,bi] of [[2.2,2.6],[16.5,17.5]]) rope([i,12.6,3],[bi,B.jf(bi),B.top(bi)],1.2,C.rope);
@@ -1340,9 +1340,26 @@ function renderPortFrame(fighters){
     gulls(t);
     portDistrictFX(t);
     atmosphere(t);
+    if(propMap) drawPropMap();
     if(!fighters) sackPrompt();
     if(!fighters&&storyPlaying()){ sceneFrame(); say(); }
   } finally { setPropCamera(previous); }
+}
+/** Debug map: red dots where thamesBlocked stops walking; footprints of PORT_PROPS (orange blocks, cyan walk-through,
+ * grey drawn by another module) labelled with their id and depth key. */
+function drawPropMap(){
+  const W=appearanceState.W, H=appearanceState.H, hit=rgb('#e0402a');
+  for(let j=0;j<=26;j+=.25) for(let i=0;i<=53;i+=.25){ const x=Math.round(isoX(i,j)), y=Math.round(isoY(i,j,0)); if(x>=0&&y>=0&&x<W&&y<H&&thamesBlocked(i,j)) rendererState.fb[y*W+x]=hit; }
+  for(const p of PORT_PROPS){
+    const c=rgb(p.art?'#9a9a92':p.block===false?'#5ed0e0':'#f0a030');
+    let ci, cj;
+    if(p.circle){ const [i,j,r]=p.circle; ci=i; cj=j; for(let k=0;k<12;k++){ const a=k*Math.PI/6, b=a+Math.PI/6; stroke(i+r*Math.cos(a),j+r*Math.sin(a),0,i+r*Math.cos(b),j+r*Math.sin(b),0,c); } }
+    else { const [i0,j0,i1,j1]=/** @type {number[]} */ (p.box); ci=(i0+i1)/2; cj=(j0+j1)/2;
+      stroke(i0,j0,0,i1,j0,0,c); stroke(i1,j0,0,i1,j1,0,c); stroke(i1,j1,0,i0,j1,0,c); stroke(i0,j1,0,i0,j0,0,c); }
+    const x=Math.round(isoX(ci,cj)), y=Math.round(isoY(ci,cj,0));
+    const sc=1/rendererState.uiK;   // drawText scales by uiK: native 3×5 letters
+    drawText(p.id.toUpperCase().replace(/_/g,'-'),x,y-8,c,sc); drawText(String(Math.round(propKey(p)*100)/100).replace('.',','),x,y-1,c,sc);
+  }
 }
 /** Two layers of drifting river fog, thicker over the water, then halos round the lamps and a vignette. */
 function atmosphere(t){

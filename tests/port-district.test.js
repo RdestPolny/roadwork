@@ -15,7 +15,8 @@ test('extended port builds at least twice the original plan with connected timbe
 });
 
 test('buildings and stored goods block travel, with public passages left open',()=>{
-  for(const [i,j] of [[33,3],[44,2],[49,3],[43.5,5.7],[49.5,11.4],[48.5,18.7]]){
+  // [31.7,6.8] and [39.45,8.8]: the barrels by the pub; [48.7,12.6]: the edge of the plank stack in the timber yard.
+  for(const [i,j] of [[33,3],[44,2],[49,3],[43.5,5.7],[49.5,11.4],[48.5,18.7],[31.7,6.8],[39.45,8.8],[48.7,12.6]]){
     assert.equal(districtBlocked(i,j),true,`blocked at ${i},${j}`);
   }
   for(const [i,j] of [[29,6],[30.2,6.8],[35.5,8],[41,5.2],[40.5,12],[41.2,12.1],[40.25,11.2],[47,9],[47,21]]){
@@ -38,4 +39,22 @@ test('background routines remain deterministic on the port and cycle through the
   }
   for(const state of ['WAIT','CAST','REEL','UNHOOK','DROP_FISH']) assert.ok(fish.has(state),state);
   for(const state of ['PICK_UP_PLANK','WALK_TO_BENCH','SAW','PLACE_ON_STACK']) assert.ok(work.has(state),state);
+});
+
+test('fixed props: one footprint each, collision from the footprint, depth key from the centre unless hand-tuned',async()=>{
+  const { PORT_PROPS, propBlocked, propKey, propDraws } = await import('../src/port-district.js');
+  const ids=PORT_PROPS.map(p=>p.id).filter(id=>id!=='bollard');
+  assert.equal(new Set(ids).size,ids.length,'ids are unique (bollards share their art)');
+  for(const p of PORT_PROPS){
+    assert.ok(!!p.box!==!!p.circle,`${p.id}: a box or a circle`);
+    if(p.box) assert.ok(p.box[0]<p.box[2]&&p.box[1]<p.box[3],`${p.id}: box runs from the near to the far corner`);
+    const [i,j]=p.circle?p.circle:[(p.box[0]+p.box[2])/2,(p.box[1]+p.box[3])/2];
+    assert.equal(propBlocked(i,j),p.block!==false||PORT_PROPS.some(q=>q!==p&&q.block!==false&&q.box&&i>=q.box[0]&&i<=q.box[2]&&j>=q.box[1]&&j<=q.box[3]),`${p.id}: centre blocked as declared`);
+  }
+  const crates=PORT_PROPS.find(p=>p.id==='quay_crates');
+  assert.equal(propBlocked(crates.box[0]-.15,crates.box[1]+.5),true,'the clearance pad widens the old quay footprints');
+  assert.equal(propKey({id:'x',box:[1,2,3,4]}),5);assert.equal(propKey({id:'x',circle:[2,3,.5]}),5);assert.equal(propKey(crates),16.3);
+  const drawn=[];const pairs=propDraws({bollard:p=>drawn.push(p.circle[0])});
+  assert.equal(pairs.length,5);pairs.forEach(([,draw])=>draw());assert.deepEqual(drawn,[2.2,8.5,16.5,21.8,28.2]);
+  assert.throws(()=>propDraws({no_such_prop:()=>{}}),/without a footprint/);
 });

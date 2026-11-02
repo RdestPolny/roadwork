@@ -46,6 +46,7 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 ## Sceny portu (grafika kodem)
 
 - Podgląd: `node scripts/shot.mjs --scene=port --at=i:j --out=nazwa` zapisuje PNG w `artifacts/tmp/`; przytnij i powiększ go (PIL, NEAREST). Pozycje obiektów są w `ANCHORS` w `src/port-district.js` (np. grajek ok. 40,6.7, wóz policyjny ok. 11,5). Przy zleceniu „usuń to coś obok” najpierw rozpoznaj na zrzucie, co to jest (np. siatka z `yardCraftProps`), dopiero potem tnij kod.
+- Stałe rekwizyty portu (beczki, skrzynie, wóz, dźwig, pachołki, meble tła) mają jeden wpis w `PORT_PROPS` (`src/port-district.js`): obrys `box`/`circle`, z którego liczy się kolizja (`pad`, `block:false`) i klucz głębi (`key`, domyślnie środek obrysu), a rysunek jest rejestrowany pod tym samym `id` w `propDraws({...})` w `thames-port.js` albo `port-extension.js`. Nowy rekwizyt = wpis + funkcja rysująca; nie dopisuj osobnych prostokątów kolizji ani ręcznych pozycji w liście sortowania. Podgląd obrysów, kluczy i rzeczywistej kolizji: F8 pod `?debug=1` albo `node scripts/shot.mjs --scene=port --at=i:j --eval="(await import('/src/thames-port.js')).setPropMap(true)"`.
 - Izometria: jednostka `z` to ok. 1 px, ekranowa pozioma to `(di, −dj)`. Kształt z jednej linii `thin()` wygląda na „otwarty”; pełny kształt składaj z kilku gęstych rządków. Bardzo ciemne kolory giną na ceglanej ścianie.
 - `horse()` w `src/carriage.js` rysuje konie i w porcie, i przy dorożce; zmiana proporcji dotyczy obu scen.
 - Renderer nie ma alfy: zanikanie rób mieszaniem koloru z tłem (`mix`).
