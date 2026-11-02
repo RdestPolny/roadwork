@@ -16,7 +16,6 @@ import { state as rendererState, zoomBlit, screenToView, setFramebuffer, isometr
 import { mix } from './cast.js';
 import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
 import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets, elbowAngle} from './combat-anatomy.js';
-import {mocapJoints, clipDuration} from './mocap-retarget.js';
 import {ragdollLengths, stepRagdoll, ragdollJointsIn} from './ragdoll.js';
 import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors, fixBoneLength} from './fighter-rig.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
@@ -183,7 +182,6 @@ export function isoFightKey(e,down){
   if(c==='Escape'){ if(down){ e.preventDefault(); exitToHub(); } return true; }
   if(S.venue==='sandy'&&down&&c==='KeyR'){ e.preventDefault(); startIsoFight(0,'sandy'); return true; }
   if(S.venue==='sandy'&&down&&c==='F7'){ e.preventDefault(); S.showRig=!S.showRig; return true; }
-  if(S.venue==='sandy'&&down&&c==='F6'){ e.preventDefault(); cycleMocap(); return true; }
   if(S.venue==='sandy'&&down&&c==='F9'){ e.preventDefault(); const a=document.createElement('a'); a.download='roadwork-sandy-432x288.png'; a.href=rendererState.hd3.off.toDataURL('image/png'); a.click(); return true; }
   if(S.phase==='end'){ if(down&&(c==='Enter'||c==='Space')){ e.preventDefault(); inputState.againFn(); } return true; }
   if(S.phase==='finisher'){ e.preventDefault(); if(down&&!e.repeat) finisherKey(c); return true; }
@@ -969,34 +967,9 @@ function blendJoints(A,B,k){
   return f;
 }
 
-/** DEBUG: a captured clip (art/mocap, see scripts/mixamo-to-clip.py) posing one fighter instead of the rig, to compare it with the hand-made animation.
- * @type {null|{who:'player'|'opponent',clip:any,loop:boolean,plus:'L'|'R',time:number|null,t0:number}} */
-let mocapPreview=null;
-/** @param {any} F */
-function mocapPose(F){
-  const m=mocapPreview;
-  if(!m||F!==(m.who==='opponent'?state.O:state.P))return null;
-  return mocapJoints(m.clip,m.time??(performance.now()-m.t0)/1000,{loop:m.loop,plus:m.plus});
-}
-/** Pose the player (or opponent) from a clip; `time` seconds freezes a frame, `null` plays it live. Call with no clip to stop.
- * @param {any} [clip] @param {{who?:'player'|'opponent',loop?:boolean,plus?:'L'|'R',time?:number|null}} [o] */
-export function setMocapPreview(clip,o={}){
-  mocapPreview=clip?{who:'player',loop:true,plus:'L',time:null,...o,clip,t0:performance.now()}:null;
-}
-/** F6 in the HD test: step through the clips listed in art/mocap/index.json, then back to the rig. */
-let mocapNames=null, mocapIdx=-1;
-async function cycleMocap(){
-  mocapNames??=await fetch('/art/mocap/index.json').then(r=>r.json()).catch(()=>[]);
-  mocapIdx++;
-  if(mocapIdx>=mocapNames.length){ mocapIdx=-1; setMocapPreview(); say('Szkielet gry'); return; }
-  const clip=await fetch('/art/mocap/'+mocapNames[mocapIdx]+'.json').then(r=>r.json());
-  setMocapPreview(clip); say('Mocap: '+mocapNames[mocapIdx]+' ('+clipDuration(clip).toFixed(2)+' s)');
-}
-
 /** The joints of a fighter on his feet: stance, steps, punch, slip, guard, flinch, and the body's own secondary motion
  * (the chest and head lag a sudden move, the shoulders turn against the hips with every step, the arms swing). @param {any} F */
 function fighterJoints(F, t=state.t, clinch=state.clinch){
-  const captured=mocapPose(F); if(captured)return captured;
   const mv=F.moving;
   const sw1=F.ft[1].sw?Math.sin(Math.PI*Math.min(1,F.ft[1].sw)):0;
   const sw2=F.ft[-1].sw?Math.sin(Math.PI*Math.min(1,F.ft[-1].sw)):0;
