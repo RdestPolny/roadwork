@@ -326,7 +326,8 @@ export function figureHD(C,J,L,o={}){
   const look=o.look?(()=>{ const [y,p]=o.look, cy=Math.cos(y), sy=Math.sin(y), cp=Math.cos(p), sp=Math.sin(p); return [cy*cp,sy*cp,-sp,-sy,cy,0,cy*sp,sy*sp,cp]; })():null;
   const rawHp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],look||(o.tilt?frame(Q,J.head):null));
   const hp=(x,y,z)=>rawHp(x*HK,y*HK,z*HK);
-  const tp=at(Q,o.tilt?frame(J.abd||P,Q):null), pp=at(P,o.tilt?frame(P,J.abd||Q):null), H=hp(0,0,0);
+  const kS=shape.surface, tp0=at(Q,o.tilt?frame(J.abd||P,Q):null), pp0=at(P,o.tilt?frame(P,J.abd||Q):null), H=hp(0,0,0);
+  const tp=(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>tp0(a*kS,b*kS,c), pp=(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>pp0(a*kS,b*kS,c);   // fixtures sit on the torso's surface
   // Split waist, lower ribs and chest even for idle NPCs. When J.abd is present,
   // the same surfaces follow the actual folding joint instead of a rigid tube.
   const B=J.abd||J.belly||mix(P,Q,0.46), waistK=state.ipN;
