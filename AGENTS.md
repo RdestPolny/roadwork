@@ -28,6 +28,16 @@ Uruchomienie: `npm run dev` (http://127.0.0.1:5173, w aplikacji podgląd `roadwo
 - Port: stały rekwizyt to jeden wpis w `PORT_PROPS` (`src/port-district.js`) plus rysunek pod tym samym `id` w `propDraws({...})`; kolizja i klucz głębi biorą się z obrysu. Tło portu jest wypiekane w kafle, więc tekstury w kodzie tła liczą szum ze współrzędnych świata (`x-camera.x`), nie ekranu. Szczegóły: `.claude/skills/roadwork-scene-art/references/port.md`.
 - Postacie rysuje kod, nie sprite'y: w pokojach, bójce izometrycznej i porcie `figureHD()` (`src/gym.js`) na szkielecie `src/fighter-rig.js`; `drawBoxer()` (`src/boxing.js`) tylko w scenach bocznych (Cień, pompki, praca, `cast.js`). Wzorce PNG trzymaj lokalnie w `art/` (poza repozytorium).
 
+## Grafika pikselowa
+
+- Filtrowanie wszędzie metodą najbliższego sąsiada (nearest), bez wygładzania (`imageSmoothingEnabled=false`). Sprite'y bez mipmap i bez stratnej kompresji.
+- Kamerę i pozycję każdego sprite'a przyciągaj do pełnych pikseli.
+- Jeden rozmiar piksela dla wszystkiego: żaden sprite, kafel, efekt ani element UI nie jest skalowany inaczej niż ×1.
+- Nie obracaj grafiki pikselowej w czasie gry: używaj narysowanych obrotów albo kroków co 90°.
+- Fonty pikselowe w ich natywnym rozmiarze, z wyłączonym antyaliasingiem.
+- Cząsteczki i efekty na tej samej siatce pikseli co sprite'y.
+- Zanim dodasz nowy zasób, postaw go obok kafla w skali 1× i sprawdź, czy rozmiary pikseli się zgadzają.
+
 ## Weryfikacja
 
 Gra ma sztywne okno; pracuj w kadrze 1280×800 i nie sprawdzaj innych rozmiarów ekranu bez polecenia. Uruchamiaj najmniejszy zestaw, który pokrywa zmianę, i podawaj krótki wynik, nie logi.
