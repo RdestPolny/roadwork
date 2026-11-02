@@ -58,6 +58,17 @@ export function sfxSlap(v){   // hands strike the floor: short bright tick
 
 export function sfxBreath(){ if(!state.actx||!state.soundOn)return; const t=state.actx.currentTime; const src=state.actx.createBufferSource(); src.buffer=state.noiseBuf; const f=state.actx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=500; f.Q.value=0.8; const g=state.actx.createGain(); g.gain.setValueAtTime(0.06,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.06); src.connect(f).connect(g).connect(state.master); src.start(t); src.stop(t+0.08); }
 
+/** A sharp breath through the nose as a fighter loads a punch: louder, lower and with a grunt for the power punches, so the tell can be heard.
+ * @param {number} pid 0 jab … 3 uppercut */
+export function sfxTell(pid){
+  if(!state.actx||!state.soundOn)return; const t=state.actx.currentTime, power=pid>=2, dur=power?0.12:0.07;
+  const src=state.actx.createBufferSource(); src.buffer=state.noiseBuf;
+  const f=state.actx.createBiquadFilter(); f.type='bandpass'; f.Q.value=1.1; f.frequency.setValueAtTime(power?700:1100,t); f.frequency.exponentialRampToValueAtTime(power?320:600,t+dur);
+  const g=state.actx.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.05+0.025*pid,t+0.015); g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  src.connect(f).connect(g).connect(state.master); src.start(t); src.stop(t+dur+0.02);
+  if(power) tone('sine',150,105,0.1,0.06);
+}
+
 export function sfxClap(){ if(!state.actx||!state.soundOn)return; const t=state.actx.currentTime; const src=state.actx.createBufferSource(); src.buffer=state.noiseBuf; const f=state.actx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1400; const g=state.actx.createGain(); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.07); src.connect(f).connect(g).connect(state.master); src.start(t); src.stop(t+0.09); }
 
 /** A soft low pulse and a rush of air on a perfect evade. */

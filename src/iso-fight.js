@@ -23,7 +23,7 @@ import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setR
 import { setRoomRaw } from './rooms.js';
 import { state as inputState, setInfo } from './input.js';
 import { exitToHub } from './navigation.js';
-import { initAudio, sfxPunch, sfxWhoosh, sfxBlock, sfxKO, sfxBell, sfxCrack, sfxLand, sfxPerfectEvade } from './audio.js';
+import { initAudio, sfxPunch, sfxWhoosh, sfxBlock, sfxKO, sfxBell, sfxCrack, sfxLand, sfxPerfectEvade, sfxTell } from './audio.js';
 import { createCombatant, tickCombatant, punchCost, beginPunch, whiffPunch, setGuard, beginSlip, evadeCost, classifyEvade, resolveNearMiss, resolvePunch, secondWind, TUNING, ZONES, PUNCH_DAMAGE } from './realtime-rules.js';
 import { state as progressionState, resetSessXP, addXP, persist, sessXPText, statShort, passTrial, recordFight } from './progression.js';
 import { fighterStats } from './stats.js';
@@ -46,6 +46,11 @@ const punchT=(F,pid)=>bullTiming(PT[pid],!!F.bull);
 /** Farthest hip-to-hip distance (room units) at which each punch lands: the old side-on ranges 33/31/27/26 px scaled to the rooms. */
 const RANGE=[1.45,1.40,1.20,1.10];
 const LUNGE=[1.2,1.6,1.8,1.4];
+/** Seconds the rival shows each punch (jab, cross, hook, uppercut) before he throws it: a power punch can be read and answered.
+ *  TELL_CHAIN: a later punch of his combination or his counter after an evade is shown only briefly. */
+const TELL=[.13,.23,.33,.33], TELL_CHAIN=.08;
+/** The tell's length for a rival of this rank: ×1.3 at rank 0, down to ×0.85 from rank 20. @param {number} rank */
+const tellScale=rank=>Math.max(.85,1.3-.0225*rank);
 /** Default hand sides for the rival. */
 const HAND=[1,-1,1,-1];
 const MIN_SEP=0.8;
@@ -72,6 +77,14 @@ const DRIVE=[
   {yaw:0.95,hip:0.55,lean:0.7, drop:0.45,tilt:0,   head:[0.7,-0.7], rise:0.55,heel:0.55},     // cross: the rear hip and shoulder turn through, the weight over the front knee
   {yaw:1.05,hip:0.5, lean:0.2, drop:0.25,tilt:-0.4,head:[0.2,-0.3], rise:0.90, heel:0.35},   // hook: the elbow up level with the fist, the whole trunk swings it
   {yaw:0.65,hip:0.45,lean:0.1, drop:-0.3,tilt:0.5, head:[0.1,-0.2], rise:-0.2,heel:0.45}];   // uppercut: sit into the legs, then drive up under the chin
+/** Each punch's tell at full load: the shoulders' and the hips' turn taking the punching side back, the lean (negative: the weight
+ *  on the back foot), the drop of the hips, the sideways lean towards the punching side, and the punching fist's and elbow's shift from
+ *  the guard [forward, outwards, up], in body units. A body shot dips lower still. */
+const TELL_POSE=[
+  {yaw:0.25,hip:0.1, lean:-0.35,drop:0.45,side:0,   hand:[-1.3,0,-1.4],   pole:[-0.4,0.1,-0.6]},   // jab: the lead hand drops to the chest and draws back
+  {yaw:0.8, hip:0.35,lean:-0.95,drop:0.4, side:0,   hand:[-2.1,0.4,0.2],  pole:[-1.2,0.6,0]},      // cross: the rear shoulder and hip turn away, the weight on the back foot
+  {yaw:0.75,hip:0.35,lean:-0.4, drop:0.35,side:-0.5,hand:[-1.1,0.8,1.3],  pole:[-0.7,1.2,2.1]},    // hook: the elbow cocked up over the shoulder, the trunk wound the other way
+  {yaw:0.35,hip:0.2, lean:0.45, drop:1.3, side:0.3, hand:[-0.6,0.4,-2.4], pole:[-0.5,0.6,-1.0]}];  // uppercut: sat into the knees, the fist dropped to the hip  // uppercut: sat into the knees, the fist dropped to the hip
 /** Upper arm and forearm (to the middle of the fist), thigh and shin: the bones keep their length in every pose. */
 const ARM_U=ARM_UPPER, ARM_L=ARM_FORE, LEG_U=3.2, LEG_L=3.2;
 
@@ -88,7 +101,7 @@ const emptyCounts=()=>({thrown:0,landed:0,power:0,body:0,counters:0,evades:0,blo
  * @param {{hpMax:number,staCap:number,pow:number,regen:number,hunger?:number}} rules @param {{stunDealt:number,stunTaken:number}} S @param {number} [leadSide] */
 function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
   const F={i,j,fi,fj,leadSide,lastHand:0,evadeHookHand:0,dash:null,dashReadyAt:0,lastMove:[fi,fj],moving:false,mf:0,ms:0,rt:createCombatant(rules),pk:null,buf:null,slipSince:-9,slipDir:1,evKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */ ('slip'),evDi:0,evDj:0,evFwd:0,evSide:0,hurtT:0,hurtDuration:.3,hurtDir:0,hurtLow:false,hurtPower:1,hurtBlocked:false,hurtSide:0,stagger:0,stun:0,dmg:0,faceDamage:0,
-    grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,tire:0,tiredAt:0,aiAt:1,combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
+    grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,tire:0,tiredAt:0,aiAt:1,tell:/** @type {any} */ (null),combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
     stunDealt:S.stunDealt,stunTaken:S.stunTaken,c:emptyCounts(),wounds:/** @type {any} */ ({cuts:0,ribs:0}),bleed:false,hist:/** @type {any[]} */ ([]),draw:()=>{}};
   F.ft={1:{},'-1':{}}; F.li=i; F.lj=j; for(const s of [1,-1]) Object.assign(F.ft[s],stance(F,s),{sw:0,from:null,to:null});
   F.wrap=wrap; F.draw=()=>F.wrap(()=>drawFighter(F));
@@ -276,7 +289,7 @@ function startClinch(byRival=false){
   if(!S.on||S.phase!=='fight'||busy(P)||busy(O)||O.finStun||toward(P,O)[2]>1.25) return false;
   if(P.rt.guarding) setGuard(P.rt,false,S.t);
   if(O.rt.guarding) setGuard(O.rt,false,S.t);
-  P.buf=O.buf=null; O.combo=[]; S.clinch=true; S.clinchAt=S.t; S.guardHeld=false;
+  P.buf=O.buf=null; O.combo=[]; O.tell=null; S.clinch=true; S.clinchAt=S.t; S.guardHeld=false;
   say(byRival?'Rywal cię klinczuje · Spacja: odepchnij':'Klincz · Spacja: odepchnij');
   return true;
 }
@@ -338,11 +351,29 @@ function press(F,pid,low,special){
   if(!beginPunch(F.rt,pid,now,F===state.P)) return false;
   if(F.dash) F.dash.hitChain=true;
   if(counterEvade) F.slipSince=-Infinity;
-  const hand=pid===2&&!special&&F.evadeHookHand?F.evadeHookHand:pid>=2&&F.lastHand&&!special?-F.lastHand:(F.leadSide===-1?[-1,1,1,1][pid]:HAND[pid]);
+  const hand=punchHand(F,pid,special);
   if(!special){ F.lastHand=hand; F.evadeHookHand=0; }
   F.pk={pid,low,t:0,hit:false,special,hand,fastCounter:counterEvade,exhausted}; F.lowAim=low; F.buf=null; F.c.thrown++;
   if(F===state.P){ F.hist.push({pid,low,at:now}); if(F.hist.length>4) F.hist.shift(); }
   sfxWhoosh(0.25+0.1*pid);
+  return true;
+}
+
+/** The hand F throws punch pid with: an evade's hook comes off the evading side, power punches alternate, otherwise the stance decides.
+ * @param {any} F @param {number} pid @param {string} [special] */
+function punchHand(F,pid,special){
+  return pid===2&&!special&&F.evadeHookHand?F.evadeHookHand:pid>=2&&F.lastHand&&!special?-F.lastHand:(F.leadSide===-1?[-1,1,1,1][pid]:HAND[pid]);
+}
+
+/** The rival shows the punch he is about to throw (its own pose, a glint of the fist and a breath); ai() throws it when the tell runs out.
+ *  A feint is shown but not thrown. A clean hit, a stagger, a clinch or the boards cancel it.
+ * @param {any} F @param {number} pid @param {boolean} low @param {boolean} [chain] a follow-up or a counter: a short tell @param {number} [mult] */
+function startTell(F,pid,low,chain=false,mult=1){
+  const now=state.t, rank=state.opp?.rank||0, sec=(chain?TELL_CHAIN:TELL[pid]*tellScale(rank))*mult;
+  const feint=!chain&&pid>=1&&rank>=10&&Math.random()<(rank-8)*0.012;
+  if(F.rt.guarding) setGuard(F.rt,false,now);
+  F.tell={pid,low,at:now,until:now+(feint?sec*0.7:sec),feint,chain,hand:punchHand(F,pid)};
+  if(!chain) sfxTell(pid);
   return true;
 }
 
@@ -429,7 +460,7 @@ function updateCrowdGrab(F){
   if(!C) return;
   F.grab={person:C,until:S.t+2,origin:{i:C.i,j:C.j,fi:C.fi,fj:C.fj}}; F.grabExempt=C; C.grabbing=F; C.act='grab';
   C.i=F.i-F.fi*0.6; C.j=F.j-F.fj*0.6; C.fi=F.fi; C.fj=F.fj;
-  F.pk=null; F.dash=null; F.buf=null; F.combo=[]; F.slipSince=-Infinity; F.rt.slipSince=-Infinity;
+  F.pk=null; F.dash=null; F.buf=null; F.combo=[]; F.tell=null; F.slipSince=-Infinity; F.rt.slipSince=-Infinity;
   if(F.rt.guarding) setGuard(F.rt,false,S.t);
   S.clinch=false; S.push=null;
   if(F===S.P){ S.eTap=null; say('Tłum cię trzyma'); } else say('Tłum trzyma rywala');
@@ -438,7 +469,7 @@ function updateCrowdGrab(F){
 /** The end of the brawl: a knockout or a stoppage, the time, the knuckle-duster. @param {any} W winner @param {string} how */
 function endBout(W,how){
   const S=state; if(S.phase!=='fight'||S.rigKO&&how!=='KASTET') return;
-  S.phase='ko'; S.pt=0; S.winner=W; S.how=how;
+  S.phase='ko'; S.pt=0; S.winner=W; S.how=how; S.P.tell=S.O.tell=null;
   banner(how==='TKO'?'TKO!':how==='KASTET'?'KASTET!':'KO!',appearanceState.C_RED,150); sfxKO();
   setInfo();
 }
@@ -481,6 +512,7 @@ function impact(A,D){
   if(D.ko||D.down) return;
   if(gap>R){
     whiffPunch(A.rt,now);
+    if(A===S.O) A.pk.whiff=true;   // the rival's miss carries him over his front foot: an opening to punish
     if(A.bull) registerBullMiss(A.bull,pid,now);
     if(resolveNearMiss(A.rt,D.rt,{gap,range:R,now})){ onPerfectEvade(D); return; }   // out of reach by a hair while evading sideways or back
     if(pid>=1&&A.rt.sta<22){ A.stagger=.55; A.pk=null; popup(sparringState.T_OVER,hx(A),hy(A)-8,appearanceState.C_SPARK,1,28); }
@@ -527,6 +559,8 @@ function impact(A,D){
   D.hurtPower=(blocked?0.25:1)*(1+0.8*(1-Math.max(0,Math.min(1,D.rt.sta/D.rt.staCapInitial))))*(low&&!blocked?1+pid*.08:1);
   const [sideI,sideJ]=toward(D,A);
   D.hurtSide=Math.max(-1,Math.min(1,(sideI*-D.fj+sideJ*D.fi)*1.8+(A.pk.hand||1)*0.3));
+  const interrupted=!blocked&&o.damage>0&&(!!D.tell||D.bull?.mode==='WINDUP');   // a clean blow while he loads a punch takes it away
+  if(interrupted&&D.tell){ D.tell=null; D.aiAt=Math.max(D.aiAt,now+.3); }
   if(!blocked&&o.damage>0&&D.bull?.mode==='WINDUP'){ D.bull.mode='RECOVERY'; D.bull.until=now+0.48; }
   if(!stagger&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit) D.pk=null;   /* a clean hit interrupts the windup */
   const [ui,uj]=toward(A,D); walk(D,A,ui,uj,(blocked?.05:A===S.P&&A.rt.comboCount>1?.06:.12)*(A.bull?BULL.knockback:1));
@@ -534,7 +568,7 @@ function impact(A,D){
   spray(A,D,pid,low,blocked,o);   // the hit shows as drops, not a comic flash
   if(blocked) sfxBlock(0.6); else sfxPunch(Math.min(1.4,0.55+0.25*pid+(o.counter?0.2:0)),low?1:0.35+pid*0.15,true);
   hitFeel(blocked,o.damage,o.counter);
-  if(o.failedSlip&&D===S.P) say('Spóźniony slip'); else if(o.counter&&A===S.P) say('Kontra');
+  if(o.failedSlip&&D===S.P) say('Spóźniony slip'); else if(o.counter&&A===S.P) say('Kontra'); else if(interrupted&&A===S.P) say('Przerwany zamach');
   if(D.rt.hp<=0){
     const brutal=D.kdN>=2||(D.kdN===1&&o.counter&&pid===3);
     if(!D.down&&!brutal){
@@ -576,7 +610,7 @@ const FIN_HOLD=1.2;
 /** The player's blow took the rival's last health: he is stunned on his feet. @param {any} A @param {any} D @param {string} how */
 function startFinisher(A,D,how){
   const S=state, pk=A.pk;
-  D.pk=null; D.dash=null; D.buf=null; D.combo=[]; D.rt.hp=0; D.finStun=true; D.stun=0; D.stagger=0;
+  D.pk=null; D.dash=null; D.buf=null; D.combo=[]; D.tell=null; D.rt.hp=0; D.finStun=true; D.stun=0; D.stagger=0;
   if(D.rt.guarding) setGuard(D.rt,false,S.t);
   S.clinch=false; S.push=null;
   S.tape.push(snapshot());
@@ -667,7 +701,7 @@ function bullAi(F,P,ui,uj,gap){
   let pid=r<0.08?0:r<0.30?1:r<0.85?2:3;
   if(gap>RANGE[pid]) pid=gap>RANGE[1]?0:1;
   if(gap>RANGE[pid]) return;
-  b.pid=pid; b.mode='WINDUP';
+  b.pid=pid; b.mode='WINDUP'; b.at=now; sfxTell(pid);
   b.until=now+(pid===0?0.25:pid===1?0.38:pid===2?0.57:0.51);
   F.aiAt=b.until+0.22;
 }
@@ -679,16 +713,18 @@ function ai(F,P){
   F.moving=false;
   if(F.finStun) return;   // stunned on his feet: nothing but the sway
   if(F.bull){ bullAi(F,P,ui,uj,gap); return; }
-  if(F.grab||F.ko||F.down||P.ko||P.down){ if(F.rt.guarding) setGuard(F.rt,false,now); return; }
+  if(F.grab||F.ko||F.down||P.ko||P.down){ F.tell=null; if(F.rt.guarding) setGuard(F.rt,false,now); return; }
   if(F.rt.guarding&&now>=F.guardUntil) setGuard(F.rt,false,now);
+  if(F.stagger>0) F.tell=null;
+  if(F.tell){ if(now>=F.tell.until){ const t=F.tell; F.tell=null; if(t.feint) F.aiAt=Math.max(F.aiAt,now+.25); else press(F,t.pid,t.low); } return; }   // committed to the shown punch
   if(F.stagger>0||F.pk) return;
   if(S.venue==='port'){
     if(now<F.aiAt) return;
     if(gap>1.25){ walk(F,P,ui,uj,WALK*.4*S.scale); F.moving=true; F.mf=1; F.ms=0; return; }
-    if(gap<=RANGE[0]) press(F,0,false);
+    if(gap<=RANGE[0]) startTell(F,0,false);
     F.aiAt=now+1.2; return;
   }
-  if(F.combo.length&&now>=F.comboAt){ const n=F.combo.shift(); if(gap<=RANGE[n.pid]*0.9&&F.rt.sta>=10&&press(F,n.pid,n.low)){ F.comboAt=now+(n.pid===0?.15:.22); } else F.combo.length=0; return; }
+  if(F.combo.length&&now>=F.comboAt){ const n=F.combo.shift(); if(gap<=RANGE[n.pid]*0.9&&F.rt.sta>=10&&startTell(F,n.pid,n.low,true)){ F.comboAt=now+(n.pid===0?.15:.22); } else F.combo.length=0; return; }
   if(now-F.slipSince<TUNING.slipActive||F.rt.guarding) return;
   const hist=P.hist.filter((/** @type {any} */ h)=>now-h.at<5), recentStraights=hist.filter((/** @type {any} */ h)=>h.pid<=1).length, recentLow=hist.filter((/** @type {any} */ h)=>h.low).length, adaptSlip=recentStraights>=3?0.25:0;
   const pp=P.pk, nextEvCost=evadeCost(F.rt,now);
@@ -730,7 +766,7 @@ function ai(F,P){
   if(gap>RANGE[pid]) pid=gap>RANGE[1]?0:1;
   if(gap>RANGE[0]){ F.aiAt=now+.12; return; }
   const aimBody=(P.rt.guarding&&Math.random()<0.70)||Math.random()<arch.bodyBias;
-  if(press(F,pid,aimBody)){
+  if(startTell(F,pid,aimBody)){
     if(F.rt.sta>=20&&Math.random()<arch.comboChance*(playerHurt?1.35:1)*(zone?0.6:1)){
       const second=pid===0?1:(pid===1?2:(pid===2?3:2));
       F.combo=[{pid:second,low:aimBody?false:(Math.random()<arch.bodyBias)}];
@@ -749,7 +785,7 @@ function tiredAi(F,P,ui,uj,gap){
   if(now>=F.tiredAt){
     F.tiredAt=now+.45+Math.random()*.3; const r=Math.random();
     if(gap<1.2&&!P.pk&&r<0.3&&startClinch(true)){ F.aiAt=now+.4; return true; }
-    if(gap<=RANGE[2]&&r<0.55&&press(F,2,false)){ F.aiAt=now+.9; return true; }
+    if(gap<=RANGE[2]&&r<0.55&&startTell(F,2,false,false,1.2)){ F.aiAt=now+.9; return true; }
   }
   if(gap>=2.4) return false;
   walk(F,P,-ui,-uj,WALK*0.8*ZONES[2].walk*state.scale); F.moving=true; F.mf=-1; F.ms=0;   // no guard while backing off: a held guard costs the breath he needs
@@ -781,6 +817,7 @@ function tickFight(){
   tickFeet(P,scale); tickFeet(O,scale); tickSpurt(P,scale); tickSpurt(O,scale); tickParts(scale);
   for(const F of [P,O]){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/27)>=1) F.rise=null; }
   if(S.kdSlow>3&&S.venue!=='sandy') recordKnockdownFrame();
+  if(O.rt.guarding&&!O.gWas) O.gPop=1; O.gWas=O.rt.guarding; O.gPop=Math.max(0,(O.gPop||0)-dt*5);   // the rival's guard snaps up past its place and settles: a block you can see coming
   for(const F of [P,O]){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*ZONES[F.rt.zone].guard*scale; F.tire+=(F.rt.zone/2-F.tire)*0.04*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
   const [pi,pj]=toward(P,O), [oi,oj]=toward(O,P);
   for(const [F,ti,tj] of [[P,pi,pj],[O,oi,oj]]){ if(F.ko||F.down) continue; const turn=F.bull?0.11:0.22; F.fi+=(ti-F.fi)*turn*scale; F.fj+=(tj-F.fj)*turn*scale; const m=Math.hypot(F.fi,F.fj)||1; F.fi/=m; F.fj/=m; }
@@ -997,6 +1034,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     lean+=D.lean*e;
     bob-=D.drop*e+(upper?0.9:hook?0.2:0)*wind;
     lung=LUNGE[pk.pid]*e;
+    if(pk.whiff&&!striking){ const o=Math.sin(Math.PI*Math.min(1,(pk.t-T.hit)/(T.end-T.hit))); lean+=0.9*o; lung+=0.6*LUNGE[pk.pid]*o; bob-=0.35*o; }
     if(pk.low)bob-=0.80*e; // crouch in the knees, not a collapsed spine
   }
   const ps=pk?(pk.hand??(F.leadSide===-1?[-1,1,1,1][pk.pid]:HAND[pk.pid])):0;
@@ -1008,6 +1046,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     else {lateral+=2.8*F.slipDir*w;lean+=0.6*F.evFwd*w;bob-=1.1*w;}
   }
   if(clinch){lean+=1.1;bob-=0.5;}
+  const pop=Math.sin(Math.PI*(F.gPop||0))*F.gUp; bob-=0.35*pop;
 
   const body=F.hurtLow?bodyHitMotion(F.hurtT,F.hurtDuration,F.hurtPower,F.hurtBlocked):{fold:0,knees:0,cover:0};
   const fold=Math.min(1.15,body.fold), absorb=body.knees, cover=body.cover;
@@ -1025,9 +1064,11 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const tire=F.finStun?1.25:F.tire||0;
   if(F.finStun){ const k=t*3.1+F.seed; lean-=0.7+0.6*Math.sin(k); lateral+=1.0*Math.sin(k*0.7); bob-=0.5+0.3*Math.sin(k*1.9); }   // out on his feet: he sways and lolls
   if(tire>0.01){bob-=(0.45+0.2*Math.sin(t*(5.5+2*tire)+F.seed))*tire;lean+=0.45*tire;lateral+=0.35*tire*Math.sin(t*1.7+F.seed);}
-  const breathing=F.bull?.mode==='EXHAUSTED',loading=F.bull?.mode==='WINDUP';
+  const breathing=F.bull?.mode==='EXHAUSTED';
   if(breathing){lean+=2.1;bob-=1.25+0.28*Math.sin(t*9);lateral+=0.14*Math.sin(t*4);}
-  if(loading){lean-=0.5;lateral+=0.6*F.leadSide;bob-=0.55;}
+  const tl=pk?null:tellOf(F), TP=tl?TELL_POSE[tl.pid]:null, ts=tl?tl.hand:0;
+  const tw=tl?smooth(Math.min(1,(t-tl.at)/Math.max(0.05,(tl.until-tl.at)*0.6))):0;   // loads over most of the tell, then holds
+  if(TP){lean+=TP.lean*tw;bob-=(TP.drop+(tl.low?0.6:0))*tw;lateral+=TP.side*ts*tw;}
 
   // Anatomical pelvis, abdomen, ribcage and neck form one continuous chain.
   // The rotating pelvis and shoulders are sockets of that chain, not separate
@@ -1036,9 +1077,9 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const walkRot=-stride*0.58-F.lagS*0.25, hipRot=stride*0.42;
   const asin=(v)=>Math.asin(Math.max(-1,Math.min(1,v)));
   const shoulderYaw=-asin(walkRot/2.7)
-    -(D?ps*(D.yaw*e*(1+0.18*follow)-(hook?0.4:upper?0.3:0)*wind):0);
+    -(D?ps*(D.yaw*e*(1+0.18*follow)-(hook?0.4:upper?0.3:0)*wind):0)+(TP?ts*TP.yaw*tw:0);
   const hipYaw=-asin(hipRot*0.45/1.25)
-    -(D?ps*(D.hip*e-(hook||upper?0.15:0)*wind):0);
+    -(D?ps*(D.hip*e-(hook||upper?0.15:0)*wind):0)+(TP?ts*TP.hip*tw:0);
   const tilt=D?D.tilt*e+(upper?-0.6*wind:0):0;
   const feet={};
   for(const side of [-1,1]){
@@ -1074,15 +1115,16 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     if(F.gUp>0.02){
       pole=lerp3(pole,[sh[0]+0.7,sh[1]+s*0.12,sh[2]-1.48],F.gUp);
       hand=lerp3(hand,[sh[0]+2.7,sh[1]-s*1.58,sh[2]+1.85],F.gUp);
+      if(pop>0.01){ hand=[hand[0]+0.4*pop,hand[1]-s*0.2*pop,hand[2]+0.7*pop]; pole=[pole[0],pole[1]-s*0.2*pop,pole[2]+0.3*pop]; }
     }
     if(tire>0.01&&!punching){ hand[2]-=1.3*tire; pole[2]-=0.5*tire; }   // the fists sag
     if(breathing){
       pole=[sh[0]+0.5,sh[1]+s*0.55,sh[2]-3.0];
       hand=[sh[0]+1.45,sh[1]+s*0.18,sh[2]-5.45];
     }
-    if(loading){
-      pole=[sh[0]-0.35,sh[1]+s*0.65,sh[2]-1.95];
-      hand=[sh[0]-0.15,sh[1]+s*0.5,sh[2]-0.95];
+    if(TP&&s===ts){
+      hand=[hand[0]+TP.hand[0]*tw,hand[1]+s*TP.hand[1]*tw,hand[2]+TP.hand[2]*tw];
+      pole=[pole[0]+TP.pole[0]*tw,pole[1]+s*TP.pole[1]*tw,pole[2]+TP.pole[2]*tw];
     }
     if(punching){
       const target=strikeArmTargets(pk.pid,s,sh,hand,pole,arm,wind,pk.low);
@@ -1119,6 +1161,23 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   }
   jf.head=headSocket(chest,headHint);
   return jf;
+}
+
+/** The punch F is showing before he throws it: the rival's tell, or the heavy rival's windup. @param {any} F */
+function tellOf(F){
+  const b=F.bull;
+  if(b?.mode==='WINDUP') return {pid:b.pid,low:false,at:b.at??-Infinity,until:b.until,hand:punchHand(F,b.pid),chain:false};
+  return F.tell;
+}
+
+/** A glint on the fist as the tell begins, the cue to watch for. @param {any} F */
+function drawTellGlint(F){
+  const tl=tellOf(F); if(!tl||tl.chain||F.pk) return;
+  const age=state.t-tl.at; if(!(age>=0&&age<0.1)) return;
+  const h=fighterJoints(F)(tl.hand).hd, w=world(F,h[0],h[1]), x=Math.round(isoX(w.i,w.j)), y=Math.round(isoY(w.i,w.j,h[2])), r=age<0.04?3:2;
+  const W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb, px=(/** @type {number} */ x,/** @type {number} */ y,/** @type {number} */ c)=>{ if(x>=0&&y>=0&&x<W&&y<H) fb[y*W+x]=c; };
+  for(let k=1;k<=r;k++){ const c=k<r?appearanceState.C_WHITE:appearanceState.C_SPARK; px(x-k,y,c); px(x+k,y,c); px(x,y-k,c); px(x,y+k,c); }
+  px(x,y,appearanceState.C_WHITE);
 }
 
 /** Draw one fighter as the hub figure: on his feet, getting up (from the ragdoll's last pose to his stance) or as a ragdoll on the boards. @param {any} F */
@@ -1550,6 +1609,7 @@ function renderFight(){
   } else renderHub();   /* standard fights remain in their room's depth sorter */
   const K=gymState.ISO_K, W=appearanceState.W/K;
   drawParts();
+  if(S.phase==='fight') drawTellGlint(S.O);
   if(S.venue==='sandy'&&S.showRig){renderRigOverlay(S.P);renderRigOverlay(S.O);}
   if(S.phase==='intro'||S.phase==='fight') marker(S.P);
   if(S.venue==='pub') Object.assign(S.cam,{z:1,x:appearanceState.W/2,y:appearanceState.H/2,init:false});

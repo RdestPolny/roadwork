@@ -170,6 +170,12 @@ export async function checkIsoFight(page){
       }
       // the opponent fights on his own
       Math.random=rng; b.goRoom('cell'); b.pause(); b.startSpar(0,'cell'); b.step(360); out.aiThrown=S.O.c.thrown;
+      // the rival shows his punch before he throws it; a clean blow while he loads it takes the punch away
+      fresh(); near(1.0); S.O.aiAt=0; for(let n=0;n<120&&!S.O.tell;n++) b.step(1);
+      const tell=S.O.tell; for(let n=0;n<90&&!S.O.pk;n++) b.step(1);
+      out.tell=[!!tell,S.O.pk?.pid===tell?.pid,S.t>=tell?.until];
+      fresh(); near(1.0); S.O.aiAt=0; for(let n=0;n<120&&!S.O.tell;n++) b.step(1);
+      const thrown=S.O.c.thrown; key('Digit1'); b.step(12); out.tellInterrupted=[S.O.tell,S.O.c.thrown-thrown,S.P.c.landed];
       // the count: the rival rises on his own, the player with taps
       fresh(); near(1.0); let replayOutfit=0; const heroWrap=S.P.wrap; S.P.wrap=fn=>heroWrap(()=>{ if(S.kdSlow>0) replayOutfit++; fn(); }); S.O.rt.hp=1; key('Digit1'); b.step(30); out.kd=[S.O.down,S.O.kdN,S.O.rt.hp>1,!!S.O.rd]; out.kdSlow=[S.kdSlow>0,S.scale<1]; out.replayOutfit=replayOutfit>0; b.step(390); out.rose=!S.O.down&&!S.O.rd;
       fresh(); S.P.down=true; S.P.downAt=S.t; S.P.kdN=1; S.P.pk=null; for(let k=0;k<8;k++){ key('Digit1'); b.step(10); } out.mash=[S.P.down,S.P.kdMash>=7];
@@ -242,6 +248,8 @@ export async function checkIsoFight(page){
   assert.equal(r.first.r,'lead','forward: the lead foot first'); assert.equal(r.first.l,'rear','back: the rear foot first');
   assert.equal(r.first.u,'lead','one way sideways: the foot on that side'); assert.equal(r.first.d,'rear','the other way: the other foot');
   assert.ok(r.aiThrown>=2,'the rival fights without commands: '+r.aiThrown);
+assert.deepEqual(r.tell,[true,true,true],'the rival shows the punch, then throws that punch when the tell runs out');
+assert.deepEqual(r.tellInterrupted,[null,0,1],'a clean jab during the tell cancels the rival\'s punch');
   assert.deepEqual(r.kd,[true,1,true,true],'the first knockdown sends the rival to the boards (as a ragdoll) with a fraction of his health'); assert.deepEqual(r.kdSlow,[true,true],'knockdown slows the fight'); assert.equal(r.replayOutfit,true,'the knockdown replay draws the hero with his room outfit palette'); assert.equal(r.rose,true,'he gets up after the count and the ragdoll is released');
   assert.deepEqual(r.mash,[false,true],'taps get the player up');
   assert.deepEqual(r.kdBanner,[0,'NOKDAUN!'],'the knockdown banner is still up when the comic ends');
