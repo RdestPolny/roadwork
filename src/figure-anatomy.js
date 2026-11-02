@@ -5,7 +5,7 @@
  * these render-only dimensions. Values are radii in legacy shape units, before
  * ISO_K scaling. Keep all characters on the same surface anatomy model.
  */
-export const HEAD_SCALE = 0.72; // a head of about 1/6.5 of the height: mocap anatomy, a touch larger to read at pixel scale
+export const HEAD_SCALE = 0.76; // a head of about 1/6 of the height: mocap anatomy, a touch larger to read at pixel scale
 export const FIGURE_PART_CAPACITY = 64;
 
 const bounded = (v, fallback) => Number.isFinite(v) && v > 0 ? Math.max(0.5, Math.min(2.5, v)) : fallback;

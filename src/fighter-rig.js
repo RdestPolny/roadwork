@@ -9,14 +9,14 @@
  * shoulder/hip sockets around their respective spine joints; it never pulls
  * the chest, neck or hips apart as if they were unrelated animation controls.
  *
- * Proportions follow a mocap (CMU/Mixamo) human about 17 units tall: hip joint
- * near 0.53 of the height, shoulders near 0.82, a head of about 1/7. Each rig
+ * Proportions follow a mocap (CMU/Mixamo) human about 16 units tall: hip joint
+ * near 0.53 of the height, shoulders near 0.82, a head of about 1/6. Each rig
  * joint has one mocap bone (MOCAP_JOINTS), so a clip retargets by bone angles.
  */
 export const RIG=Object.freeze({
-  pelvisHeight:8.4, hipHeight:0.3, hipHalf:1.15,
-  lowerSpine:2.55, upperSpine:2.75, shoulderHalf:2.10, shoulderHeight:0.2,
-  neckToHead:2.6, legUpper:4.1, legLower:4.1,
+  pelvisHeight:7.9, hipHeight:0.3, hipHalf:1.15,
+  lowerSpine:2.40, upperSpine:2.60, shoulderHalf:2.10, shoulderHeight:0.2,
+  neckToHead:2.5, legUpper:3.85, legLower:3.85,
   footHeight:0.9, minimumFootClearance:0.05
 });
 
@@ -64,7 +64,7 @@ export function supportPelvis(target,feet,hipYaw){
     cap=Math.min(cap,maxZ);any=true;
   }
   // Keep pelvis grounded in a deep squat even if a distant dash foot is a stale anchor.
-  return [target[0],target[1],any?Math.max(4.9,cap):target[2]];
+  return [target[0],target[1],any?Math.max(4.6,cap):target[2]];
 }
 
 /** With a planted shoe the leg must reach the GROUND, not stop in mid-air.
