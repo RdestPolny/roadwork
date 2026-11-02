@@ -52,9 +52,10 @@ export async function checkCombatDash(page){
       b.step(7); const started=!!S.P.pk&&S.P.pk.pid===pid&&!!S.P.dash;
       b.step(35); attacks.push({buffered,started,thrown:S.P.c.thrown,landed:S.P.c.landed});
     }
+    const rng=Math.random; Math.random=()=>.99;   // the rival's reflex guard is random: keep it down so the body jab lands
     fresh(7.25,5.15); mouse(true);key('KeyF');key('KeyF',false);b.step(4);key('Digit1');
     const lowBuffered=S.P.buf?.low;mouse(false);b.step(7); const lowCommitted=S.P.pk?.low; b.step(35);
-    const lowHits=S.P.c.body;
+    const lowHits=S.P.c.body; Math.random=rng;
     fresh(7.25,5.15);key('ShiftLeft');key('Digit1');key('ShiftLeft',false);
     const shiftStillHead=S.P.pk?.low===false;
     fresh();mouse(true);const downAim=S.low;In.setPaused(true);const pauseCleared=!S.low;

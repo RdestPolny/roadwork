@@ -177,14 +177,14 @@ export async function checkIsoFight(page){
       fresh(); near(1.0); S.O.aiAt=0; for(let n=0;n<120&&!S.O.tell;n++) b.step(1);
       const thrown=S.O.c.thrown; key('Digit1'); b.step(12); out.tellInterrupted=[S.O.tell,S.O.c.thrown-thrown,S.P.c.landed];
       // the count: the rival rises on his own, the player with taps
-      fresh(); near(1.0); let replayOutfit=0; const heroWrap=S.P.wrap; S.P.wrap=fn=>heroWrap(()=>{ if(S.kdSlow>0) replayOutfit++; fn(); }); S.O.rt.hp=1; key('Digit1'); b.step(30); out.kd=[S.O.down,S.O.kdN,S.O.rt.hp>1,!!S.O.rd]; out.kdSlow=[S.kdSlow>0,S.scale<1]; out.replayOutfit=replayOutfit>0; b.step(390); out.rose=!S.O.down&&!S.O.rd;
+      fresh(); near(1.0); let replayOutfit=0; const heroWrap=S.P.wrap; S.P.wrap=fn=>heroWrap(()=>{ if(S.kdSlow>0) replayOutfit++; fn(); }); S.O.rt.hp=1; key('Digit1'); b.step(36); out.kd=[S.O.down,S.O.kdN,S.O.rt.hp>1,!!S.O.rd]; out.kdSlow=[S.kdSlow>0,S.scale<1]; out.replayOutfit=replayOutfit>0; b.step(390); out.rose=!S.O.down&&!S.O.rd;
       fresh(); S.P.down=true; S.P.downAt=S.t; S.P.kdN=1; S.P.pk=null; for(let k=0;k<8;k++){ key('Digit1'); b.step(10); } out.mash=[S.P.down,S.P.kdMash>=7];
       // the knockdown comic: its words outlast it, taps on the boards count in real time, and the port's panels frame the fighters
       fresh(); near(1.0); S.O.rt.hp=1; key('Digit1'); b.step(150);   // panels are built when drawn: render while all three are on screen
        const comicWard=(await import('/src/knockdown-comic.js')).state.panels.slice();
        out.wardComic3x=comicWard.length===3&&comicWard[0].w>240&&comicWard[2].w>400;
        b.step(100); out.kdBanner=[S.kdSlow,S.banner?.text];
-      fresh(); near(1.0); S.P.rt.hp=1; R.beginPunch(S.O.rt,2,S.t); S.O.pk={pid:2,low:false,t:0,hit:false}; for(let n=0;n<60&&S.kdSlow<=0;n++) b.step(1); b.step(6);   // past the blow's hit-stop
+      fresh(); near(1.0); S.P.rt.hp=1; R.beginPunch(S.O.rt,2,S.t); S.O.pk={pid:2,low:false,t:0,hit:false}; for(let n=0;n<60&&S.kdSlow<=0;n++) b.step(1); for(let n=0;n<20&&S.freeze>0;n++) b.step(1); b.step(1);   // past the blow's hit-stop
       for(let k=0;k<12;k++){ key('Digit1'); b.step(6); } out.comicMash=[S.kdSlow>0,S.P.down,S.P.kdMash];
       I.startIsoFight(0,'port'); b.step(60); S.O.aiAt=Infinity; near(1.0); S.O.rt.hp=1; key('Digit2'); b.step(170);
       out.portFraming=(await import('/src/knockdown-comic.js')).state.framing.map(f=>!!f&&Math.abs(f.dx)<0.25&&Math.abs(f.dy)<0.25);

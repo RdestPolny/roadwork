@@ -36,7 +36,7 @@ import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, dr
 
 // Runtime values owned by iso-fight; the fight is reset by startIsoFight().
 export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
-  notice:'',noticeUntil:0,pointer:null,showRig:false,clinch:false,clinchAt:0,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null,
+  notice:'',noticeUntil:0,pointer:null,showRig:false,clinch:false,clinchAt:0,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],sparks:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null,
   tape:/** @type {any[]} */ ([]),fin:/** @type {any} */ (null),windUsed:false,kick:0};
 
 /** Seconds from the start of a punch to contact and to the end of the recovery. */
@@ -101,7 +101,7 @@ const emptyCounts=()=>({thrown:0,landed:0,power:0,body:0,counters:0,evades:0,blo
  * @param {{hpMax:number,staCap:number,pow:number,regen:number,hunger?:number}} rules @param {{stunDealt:number,stunTaken:number}} S @param {number} [leadSide] */
 function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
   const F={i,j,fi,fj,leadSide,lastHand:0,evadeHookHand:0,dash:null,dashReadyAt:0,lastMove:[fi,fj],moving:false,mf:0,ms:0,rt:createCombatant(rules),pk:null,buf:null,slipSince:-9,slipDir:1,evKind:/** @type {'slip'|'in'|'back'|'left'|'right'} */ ('slip'),evDi:0,evDj:0,evFwd:0,evSide:0,hurtT:0,hurtDuration:.3,hurtDir:0,hurtLow:false,hurtPower:1,hurtBlocked:false,hurtSide:0,stagger:0,stun:0,dmg:0,faceDamage:0,
-    grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,tire:0,tiredAt:0,aiAt:1,tell:/** @type {any} */ (null),combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
+    grab:null,grabExempt:null,ko:false,down:false,downAt:0,kdN:0,kdMash:0,kdLast:0,gUp:0,look,lagF:0,lagVF:0,lagS:0,lagVS:0,hLagF:0,hLagS:0,pvf:0,pvs:0,rd:/** @type {any} */ (null),rise:/** @type {any} */ (null),seed:Math.random()*6,tire:0,tiredAt:0,aiAt:1,vib:0,vibI:0,vibJ:0,flash:0,slide:/** @type {any} */ (null),tell:/** @type {any} */ (null),combo:[],comboAt:0,seen:0,strafe:1,strafeUntil:0,guardUntil:0,lowAim:false,
     stunDealt:S.stunDealt,stunTaken:S.stunTaken,c:emptyCounts(),wounds:/** @type {any} */ ({cuts:0,ribs:0}),bleed:false,hist:/** @type {any[]} */ ([]),draw:()=>{}};
   F.ft={1:{},'-1':{}}; F.li=i; F.lj=j; for(const s of [1,-1]) Object.assign(F.ft[s],stance(F,s),{sw:0,from:null,to:null});
   F.wrap=wrap; F.draw=()=>F.wrap(()=>drawFighter(F));
@@ -143,7 +143,7 @@ export function startIsoFight(idx,venue,station){
   S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V==='pub'?'cell':V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
   if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.bullClock=0; }
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
-  Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
+  Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],sparks:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
     notice:'Ciosy 1-4 · LPM: korpus · Spacja: blok · Q: slip · F: dash',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
     const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2],[-2.6,0.3],[2.6,0.3]];
@@ -533,8 +533,9 @@ function impact(A,D){
   }
   const px=hx(D), py=hy(D)+(low?10:0);
   if(o.kind==='parry'){
+    hitSpark(A,D,'parry',pid,low);
     D.c.blocks++; D.c.perfects++; A.stagger=.45; A.pk=null; A.stun+=16; popup(sparringState.T_PARRY,px,py-12,appearanceState.C_SPARK,1,30); sfxBlock(0.95,true);
-    S.freeze=4; say(D===S.P?'Idealny blok · kontruj':'Rywal sparował'); return;
+    S.freeze=8; say(D===S.P?'Idealny blok · kontruj':'Rywal sparował'); return;
   }
   if(o.kind==='slip'){ onPerfectEvade(D); return; }
   const blocked=o.kind==='block';
@@ -554,7 +555,7 @@ function impact(A,D){
   }
   // Body blows are a separate, longer anticipation/compression/recovery sequence.
   // This is visual only: resolvePunch above still owns stamina and HP.
-  D.hurtDuration=low?(blocked?.18:BODY_HIT_SECONDS+pid*.025):.3;
+  D.hurtDuration=low?(blocked?.18:BODY_HIT_SECONDS+pid*.025):!blocked&&pid>=1?.4:.3;
   D.hurtT=D.hurtDuration; D.hurtDir=pid; D.hurtLow=low; D.hurtBlocked=blocked;
   D.hurtPower=(blocked?0.25:1)*(1+0.8*(1-Math.max(0,Math.min(1,D.rt.sta/D.rt.staCapInitial))))*(low&&!blocked?1+pid*.08:1);
   const [sideI,sideJ]=toward(D,A);
@@ -563,11 +564,15 @@ function impact(A,D){
   if(interrupted&&D.tell){ D.tell=null; D.aiAt=Math.max(D.aiAt,now+.3); }
   if(!blocked&&o.damage>0&&D.bull?.mode==='WINDUP'){ D.bull.mode='RECOVERY'; D.bull.until=now+0.48; }
   if(!stagger&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit) D.pk=null;   /* a clean hit interrupts the windup */
-  const [ui,uj]=toward(A,D); walk(D,A,ui,uj,(blocked?.05:A===S.P&&A.rt.comboCount>1?.06:.12)*(A.bull?BULL.knockback:1));
+  const [ui,uj]=toward(A,D), kb=A.bull?BULL.knockback:1; walk(D,A,ui,uj,(blocked?.05:A===S.P&&A.rt.comboCount>1?.06:.12)*kb);
+  const slide=blocked||o.damage<=0||A.rt.comboCount>1?0:o.counter?.18:pid>=2?.1:0;   // a lone hook, uppercut or counter drives him back across the floor; combinations still connect
+  if(slide) D.slide={di:ui,dj:uj,left:slide*kb};
   if(o.damage>=1) popup(sparringState.T_DMG+Math.min(30,Math.max(1,Math.round(o.damage)))-1,px,py-14,blocked?appearanceState.C_GRAY:appearanceState.C_WHITE,1,32);
-  spray(A,D,pid,low,blocked,o);   // the hit shows as drops, not a comic flash
+  spray(A,D,pid,low,blocked,o);
+  if(blocked||o.damage>0) hitSpark(A,D,blocked?'block':o.counter?'counter':'hit',pid,low);
   if(blocked) sfxBlock(0.6); else sfxPunch(Math.min(1.4,0.55+0.25*pid+(o.counter?0.2:0)),low?1:0.35+pid*0.15,true);
-  hitFeel(blocked,o.damage,o.counter);
+  hitFeel(blocked,o.damage,o.counter,pid,low);
+  D.vib=S.freeze; D.vibI=ui; D.vibJ=uj; if(!blocked&&o.damage>0) D.flash=o.counter?3:2;
   if(o.failedSlip&&D===S.P) say('Spóźniony slip'); else if(o.counter&&A===S.P) say('Kontra'); else if(interrupted&&A===S.P) say('Przerwany zamach');
   if(D.rt.hp<=0){
     const brutal=D.kdN>=2||(D.kdN===1&&o.counter&&pid===3);
@@ -590,13 +595,15 @@ function landRun(A,D,now){
   D.c.run=0;
 }
 
-/** Hit-stop and shake grow with the damage of a clean hit; a counter adds a short punch-in of the camera. @param {boolean} blocked @param {number} damage @param {boolean} counter */
-function hitFeel(blocked,damage,counter){
+/** Hit-stop by the punch (longer for a counter), a shake along the blow (an uppercut shakes the frame up and down) and, for a power
+ *  punch or a counter, a short punch-in of the camera. A block stops the action briefly too.
+ * @param {boolean} blocked @param {number} damage @param {boolean} counter @param {number} pid @param {boolean} low */
+function hitFeel(blocked,damage,counter,pid,low){
   const S=state;
-  if(blocked){ S.freeze=1; boxingState.shakeT=boxingState.shakeDur=3; boxingState.shakeAmp=1; boxingState.shakeAxis=0; return; }
-  S.freeze=Math.min(7,Math.max(2,Math.round(1+damage/3.2))+(counter?2:0));
-  boxingState.shakeT=boxingState.shakeDur=Math.min(10,5+Math.round(damage/4)); boxingState.shakeAmp=damage>=10||counter?3:2; boxingState.shakeAxis=0;
-  if(counter||damage>=10) S.kick=Math.max(S.kick,counter?0.1:0.06);
+  if(blocked){ S.freeze=3; boxingState.shakeT=boxingState.shakeDur=4; boxingState.shakeAmp=1; boxingState.shakeAxis=0; return; }
+  S.freeze=Math.min(14,[4,6,8,9][pid]+(damage>=12?1:0)+(counter?4:0));
+  boxingState.shakeT=boxingState.shakeDur=Math.min(12,6+Math.round(damage/3)); boxingState.shakeAmp=damage>=10||counter?3:2; boxingState.shakeAxis=pid===3&&!low?1:0;
+  if(counter||pid>=1) S.kick=Math.max(S.kick,counter?0.1:pid>=2?0.06:0.04);
 }
 
 /* FINISHER. The blow that takes the rival's last health does not drop him: he stands stunned and sways, the player lands up to
@@ -803,6 +810,7 @@ function timeScale(){
 export function isoFightTick(){ if(state.venue==='pub'){ followPubFight((state.P.i+state.O.i)/2,(state.P.j+state.O.j)/2); return withPubCamera(tickFight); } if(state.venue==='port') return withThamesCamera(tickFight); return tickFight(); }
 function tickFight(){
   const S=state; if(!S.on) return;
+  for(const F of [S.P,S.O]) if(F){ if(F.flash>0) F.flash--; if(F.vib>0) F.vib--; }   // the body's flash and the struck man's tremble run on real frames, through the hit-stop
   if(S.freeze>0){
     // Hit-stop freezes combat logic, but the struck torso still begins to fold
     // over the impact: otherwise the visual response starts frames after contact.
@@ -850,6 +858,11 @@ function tickFight(){
       if(moved>1e-6){ F.moving=true; F.mf=D.di*F.fi+D.dj*F.fj; F.ms=D.di*-F.fj+D.dj*F.fi; }
       if(F.buf&&u>=DASH.punchFrom&&!F.pk){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
       if(u>=1) F.dash=null;
+    }
+    if(F.slide){   // the knockback eases out over a few frames, kicking up dust under the shoes
+      const D=F.slide, step=Math.min(D.left,(D.left*0.22+0.003)*scale);
+      if(!F.ko&&!F.down&&!F.grab){ walk(F,G,D.di,D.dj,step); if(step>0.012) kickDust(F,D.di,D.dj); }
+      D.left-=step; if(D.left<=0.001||F.ko||F.down||F.grab) F.slide=null;
     }
     const su=(now-F.slipSince)/TUNING.slipActive;
     if(su>=0&&su<1&&!F.ko&&!F.down){   // the evade is a quick eased move of the whole body, not a jump
@@ -1006,6 +1019,9 @@ function blendJoints(A,B,k){
 
 /** The joints of a fighter on his feet: stance, steps, punch, slip, guard, flinch, and the body's own secondary motion
  * (the chest and head lag a sudden move, the shoulders turn against the hips with every step, the arms swing). @param {any} F */
+/** Side of the hand throwing a punch: its own hand, or the stance's default for that punch. @param {any} F @param {any} pk */
+const strikeSide=(F,pk)=>pk.hand??(F.leadSide===-1?[-1,1,1,1][pk.pid]:HAND[pk.pid]);
+
 function fighterJoints(F, t=state.t, clinch=state.clinch){
   const mv=F.moving;
   const sw1=F.ft[1].sw?Math.sin(Math.PI*Math.min(1,F.ft[1].sw)):0;
@@ -1037,7 +1053,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     if(pk.whiff&&!striking){ const o=Math.sin(Math.PI*Math.min(1,(pk.t-T.hit)/(T.end-T.hit))); lean+=0.9*o; lung+=0.6*LUNGE[pk.pid]*o; bob-=0.35*o; }
     if(pk.low)bob-=0.80*e; // crouch in the knees, not a collapsed spine
   }
-  const ps=pk?(pk.hand??(F.leadSide===-1?[-1,1,1,1][pk.pid]:HAND[pk.pid])):0;
+  const ps=pk?strikeSide(F,pk):0;
   const su=(t-F.slipSince)/TUNING.slipActive;
   if(su>=0&&su<=1){
     const w=Math.sin(Math.PI*su);
@@ -1055,9 +1071,9 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   bob-=0.54*absorb;
   const h=F.hurtLow?0:Math.min(1,F.hurtT/0.3)*F.hurtPower;
   if(!F.hurtLow){
-    lean-=(F.hurtDir===2?0.8:1.5)*h;
-    lateral+=(F.hurtDir===2?1.3*F.leadSide:0)*h;
-    bob-=0.3*h;
+    lean-=(F.hurtDir===2?1.3:2.4)*h;   // overdrawn: the head and chest snap back well past a real recoil
+    lateral+=(F.hurtDir===2?2.0*F.leadSide:0)*h;
+    bob-=0.45*h;
   }
   if(F.stagger>0){lean-=0.8;bob-=0.6;}
   // Tiredness shows before the bar does: a heavy, quick breath in the knees, the trunk bent forward and a sway on the feet.
@@ -1155,9 +1171,9 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
       -Math.abs(F.hLagF)*0.12
   ];
   if(!F.hurtLow){
-    headHint[0]-=(F.hurtDir===2?0.25:F.hurtDir===3?0.5:0.8)*h;
-    headHint[1]+=(F.hurtDir===2?0.8*F.leadSide:0)*h;
-    headHint[2]+=(F.hurtDir===3?0.35:0)*h;
+    headHint[0]-=(F.hurtDir===2?0.4:F.hurtDir===3?0.8:1.3)*h;
+    headHint[1]+=(F.hurtDir===2?1.3*F.leadSide:0)*h;
+    headHint[2]+=(F.hurtDir===3?0.6:0)*h;
   }
   jf.head=headSocket(chest,headHint);
   return jf;
@@ -1183,9 +1199,12 @@ function drawTellGlint(F){
 /** Draw one fighter as the hub figure: on his feet, getting up (from the ragdoll's last pose to his stance) or as a ragdoll on the boards. @param {any} F */
 function drawFighter(F){
   if((F.ko||F.down)&&F.rd){ figureHD(F,ragdollJoints(F),F.look,{pose:0,base:0,noShadow:true,light:true,tilt:true}); return; }
+  const v=F.vib>0?(F.vib&1?1:-1)*0.08*Math.min(1,F.vib/4):0;   // the struck man trembles along the blow during the hit-stop
+  F.i+=F.vibI*v; F.j+=F.vibJ*v;
   let jf=fighterJoints(F);
   if(F.rise){ jf=blendJoints(F.rise.joints,jf,smooth(Math.min(1,F.rise.t))); }
-  figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0});
+  figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0,flash:F.flash>0?(F.flash>=2?0.75:0.35):0});
+  F.i-=F.vibI*v; F.j-=F.vibJ*v;
 }
 
 /** A DEBUG-only consumer receives real joint coordinates and metrics for the
@@ -1399,6 +1418,9 @@ function stopIsoRagdoll(F){
 }
 
 const BLOOD=rgb('#7a121a'), BLOOD_DRY=rgb('#38090e'), BLOOD_HI=rgb('#98222b');
+const DUST=rgb('#8c8170');
+/** Hit sparks in the period's light: ivory, sodium yellow and a burnt orange; a block glances off cold steel-grey. */
+const SPARK_HOT=rgb('#fff3d6'), SPARK_ORANGE=rgb('#d0782c'), BLOCK_HI=rgb('#c3d0da'), BLOCK_LO=rgb('#6f8494');
 const SWEAT_MIST=rgb('#586a74'), SWEAT_DROP=rgb('#7c909a'), SWEAT_FLOOR=rgb('#181a1e');
 const rnd=(/** @type {number} */ a,/** @type {number} */ b)=>a+Math.random()*(b-a);
 
@@ -1423,6 +1445,61 @@ function spray(A,D,pid,low,blocked,o,ko){
     fire('blood',Math.max(1,Math.round((ko?16:3+pid*3+(o.counter?4:0))*amount)),ko?1.45:1+0.18*pid);
     if(ko) D.spurt={t:34,ui,uj,si,sj};
   }
+}
+
+/** Dust kicked up by the shoes of a fighter sliding back from a blow. @param {any} F @param {number} di @param {number} dj */
+function kickDust(F,di,dj){
+  for(const s of [1,-1]){ if(Math.random()<0.5) continue; const f=F.ft[s];
+    state.parts.push({kind:'dust',i:f.i+rnd(-0.05,0.05),j:f.j+rnd(-0.05,0.05),z:0.3,vi:-di*rnd(0.004,0.012)+rnd(-0.006,0.006),vj:-dj*rnd(0.004,0.012)+rnd(-0.006,0.006),
+      vz:rnd(0.12,0.3),size:Math.random()<0.4?2:1,age:0,maxAge:14+(Math.random()*8|0),creep:0,host:null,df:0,ds:0,pi:f.i,pj:f.j,pz:0.3}); }
+}
+
+/** A burst at the point of contact, played on real frames so it runs through the hit-stop: a star for a clean blow (a counter adds a ring),
+ *  a glancing arc for a block, a white ring for a parry. It is drawn on the room before the camera's zoom.
+ * @param {any} A @param {any} D @param {'hit'|'counter'|'block'|'parry'} kind @param {number} pid @param {boolean} low */
+function hitSpark(A,D,kind,pid,low){
+  // At the attacker's fist (the head, if his punch is already gone); projected when drawn, as the room's camera is set only then.
+  const p=A.pk?fighterJoints(A)(strikeSide(A,A.pk)).hd:fighterJoints(D).head, w=A.pk?world(A,p[0]+0.6,p[1]):world(D,p[0]+1.4,p[1]);
+  const [ui,uj,gap]=toward(A,D), over=(w.i-A.i)*ui+(w.j-A.j)*uj-(gap-0.22);   // a fist reaching past the gap would burst inside him: keep it on his front
+  if(over>0){ w.i-=ui*over; w.j-=uj*over; }
+  state.sparks.push({i:w.i,j:w.j,z:p[2],ai:A.i,aj:A.j,di:D.i,dj:D.j,x:0,y:0,dx:0,dy:0,kind,len:([5,7,9,9][pid]+(kind==='counter'?3:0))*(low?0.8:1),born:boxingState.tick});
+}
+
+/** Draw and age the hit sparks (see hitSpark). */
+function drawSparks(){
+  const W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb, tick=boxingState.tick, WHITE=appearanceState.C_WHITE, YEL=appearanceState.C_SPARK;
+  const px=(/** @type {number} */ x,/** @type {number} */ y,/** @type {number} */ c)=>{ x=Math.round(x); y=Math.round(y); if(x>=0&&y>=0&&x<W&&y<H) fb[y*W+x]=c; };
+  const ray=(/** @type {any} */ s,/** @type {number} */ a,/** @type {number} */ r0,/** @type {number} */ r1,/** @type {number} */ c0,/** @type {number} */ c1)=>{ const c=Math.cos(a), sn=Math.sin(a); for(let r=r0;r<=r1;r++) px(s.x+c*r,s.y+sn*r,r<(r0+r1)/2?c0:c1); };
+  const ring=(/** @type {any} */ s,/** @type {number} */ r,/** @type {number} */ c,/** @type {boolean} */ dither)=>{ const n=Math.max(8,Math.round(r*6)); for(let k=0;k<n;k++){ if(dither&&k&1) continue; const a=k/n*6.283; px(s.x+Math.cos(a)*r,s.y+Math.sin(a)*r,c); } };
+  const live=[];
+  for(const s of state.sparks){
+    s.x=isoX(s.i,s.j); s.y=isoY(s.i,s.j,s.z);
+    const age=tick-s.born, base=Math.atan2(isoY(s.di,s.dj,0)-isoY(s.ai,s.aj,0),isoX(s.di,s.dj)-isoX(s.ai,s.aj));
+    if(s.kind==='hit'||s.kind==='counter'){
+      const life=s.kind==='counter'?7:5; if(age>=life) continue;
+      for(let k=0;k<8;k++){
+        const a=base+k*Math.PI/4, along=Math.cos(k*Math.PI/4), L=s.len*(k&1?0.6:1)*(1+0.4*Math.max(0,along)-0.4*Math.max(0,-along));   // longer in the blow's direction
+        if(age===0) ray(s,a,1,Math.round(L*0.7),WHITE,YEL);
+        else if(age===1) ray(s,a,1,Math.round(L),WHITE,YEL);
+        else if(age===2) ray(s,a,Math.round(L*0.45),Math.round(L),YEL,SPARK_ORANGE);
+        else if(age===3) ray(s,a,Math.round(L*0.75),Math.round(L*1.1),SPARK_ORANGE,SPARK_ORANGE);
+        else if(!(k&1)) px(s.x+Math.cos(a)*L*1.2,s.y+Math.sin(a)*L*1.2,SPARK_ORANGE);
+      }
+      if(age<=1){ px(s.x,s.y,SPARK_HOT); for(const [ox,oy] of age?[[1,0],[-1,0],[0,1],[0,-1]]:[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1],[2,0],[-2,0],[0,2],[0,-2]]) px(s.x+ox,s.y+oy,SPARK_HOT); }
+      if(s.kind==='counter'&&age>=1) ring(s,s.len*0.8+age*2,age<4?YEL:SPARK_ORANGE,age>=5);
+    } else if(s.kind==='block'){
+      if(age>=4) continue;
+      const back=base+Math.PI, r=4+age, c=age<2?BLOCK_HI:BLOCK_LO;   // the arc faces the attacker; chips fly back at him
+      for(let k=-4;k<=4;k++){ const a=back+k*0.3; px(s.x+Math.cos(back)*2+Math.cos(a)*r,s.y+Math.sin(back)*2+Math.sin(a)*r,c); }
+      for(const k of [-1,0,1]){ const a=back+k*0.55, r0=r+2+age*2; ray(s,a,r0,r0+1,c,c); }
+    } else {
+      if(age>=7) continue;
+      ring(s,3+age*2,age<3?WHITE:YEL,age>=5);
+      if(age<=1) for(let k=0;k<4;k++) ray(s,base+Math.PI/4+k*Math.PI/2,1,4,WHITE,WHITE);
+    }
+    live.push(s);
+  }
+  state.sparks=live;
 }
 
 /** The blood that keeps jetting from a finished fighter: pulses from the head, arcing away from the attacker and fading out. @param {any} F @param {number} scale */
@@ -1451,7 +1528,7 @@ function tickParts(scale=1){
     p.age+=scale; p.pi=p.i; p.pj=p.j; p.pz=p.z;
     if(p.creep>0&&p.host&&!p.host.ko&&!p.host.down){   // the viscous phase: it slides down the cheek and chin with the head
       p.creep--; p.i=p.host.i+p.host.fi*p.df-p.host.fj*p.ds; p.j=p.host.j+p.host.fj*p.df+p.host.fi*p.ds; p.z-=0.07*scale; live.push(p); continue; }
-    if(p.kind==='mist'){ p.vi*=0.85; p.vj*=0.85; p.vz=p.vz*0.9-0.016; p.i+=p.vi*scale; p.j+=p.vj*scale; p.z+=p.vz*scale; if(p.age<p.maxAge&&p.z>0) live.push(p); continue; }
+    if(p.kind==='mist'||p.kind==='dust'){ p.vi*=0.85; p.vj*=0.85; p.vz=p.vz*0.9-0.016; p.i+=p.vi*scale; p.j+=p.vj*scale; p.z+=p.vz*scale; if(p.age<p.maxAge&&p.z>0) live.push(p); continue; }
     p.vi*=0.96; p.vj*=0.96; p.vz-=0.044*scale; p.i+=p.vi*scale; p.j+=p.vj*scale; p.z+=p.vz*scale;
     if(p.z<=0){
       if(p.i>0.35&&p.j>0.35&&p.i<bw-0.35&&p.j<bh-0.35){
@@ -1499,6 +1576,7 @@ function drawParts(){
   for(const p of state.parts){
     const x=Math.round(isoX(p.i,p.j)), y=Math.round(isoY(p.i,p.j,p.z)), fast=p.creep===0&&Math.hypot(p.vi,p.vj)>0.014, tail=()=>[Math.round(isoX(p.pi,p.pj)),Math.round(isoY(p.pi,p.pj,p.pz))];
     if(p.kind==='mist'){ if(p.maxAge-p.age>4||((x+y+tick)&1)) px(x,y,SWEAT_MIST); }
+    else if(p.kind==='dust'){ if(p.maxAge-p.age>5||((x+y+tick)&1)){ px(x,y,DUST); if(p.size>1) px(x+1,y,DUST); } }
     else if(p.kind==='sweat'){ px(x,y,SWEAT_DROP); if(fast&&p.pz>0){ const [tx,ty]=tail(); px(tx,ty,SWEAT_MIST); } }
     else { if(fast&&p.pz>0){ const [tx,ty]=tail(); px(tx,ty,BLOOD_DRY); } px(x,y,BLOOD); if(p.size>1){ px(x+1,y,BLOOD_DRY); px(x,y+1,BLOOD); } }
   }
@@ -1608,7 +1686,7 @@ function renderFight(){
     for(const F of [S.P,S.O].sort((a,b)=>(a.i+a.j)-(b.i+b.j))){ F.draw(); drawSandyFootDust(F); }
   } else renderHub();   /* standard fights remain in their room's depth sorter */
   const K=gymState.ISO_K, W=appearanceState.W/K;
-  drawParts();
+  drawParts(); drawSparks();
   if(S.phase==='fight') drawTellGlint(S.O);
   if(S.venue==='sandy'&&S.showRig){renderRigOverlay(S.P);renderRigOverlay(S.O);}
   if(S.phase==='intro'||S.phase==='fight') marker(S.P);

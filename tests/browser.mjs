@@ -115,7 +115,7 @@ try {
     assert.equal(snapshot.atStart.venue,'sandy');
     assert.equal(snapshot.atStart.name,'HARRY');
     assert.deepEqual(snapshot.atStart.buffer,[432,288,432*288]);
-    assert.equal(snapshot.atStart.hero,'fringe');
+    assert.equal(snapshot.atStart.hero,'crop');
     assert.equal(snapshot.atStart.harry,'bald');
     assert.equal(snapshot.atStart.room,'cell');
     assert.equal(snapshot.finished,true);
