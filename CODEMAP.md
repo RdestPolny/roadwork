@@ -61,6 +61,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 
 - Jednostkowe: `node --test tests/<mechanika>.test.js` (np. `crank.test.js`, `realtime-rules.test.js`, `save-store.test.js`, `input.test.js`, `roach-rules.test.js`). Wszystkie: `npm test`.
 - Integracyjne/obrazowe: `npm run test:browser -- --only=crank`, `--only=isometric`, `--only=prison`, `--only=Thames`. Filtrowanie dopasowuje **fragment nazwy scenariusza** z `tests/browser.mjs`, nie nazwy plików.
+- Regresja obrazu: `npm run test:visual [-- --only=port | --list | --update]` — 11 scen (port, pub, pokoje, bójki, Cień, korba) porównywanych z `tests/visual/*.png`; lista scen w `tests/visual.mjs`. Start sceny wspólny ze `shot.mjs`: `window.__shot.scene()` w `scripts/lib/harness.mjs`.
 - Typy: `npm run check`. **Źródło prawdy o plikach objętych `checkJs`: `tsconfig.json`** (lista zmienia się w czasie).
 - Zmiany wyłącznie w Markdown: bez testów runtime; sprawdź ścieżki, odnośniki i zgodność z kodem.
 - Lista scenariuszy bez uruchamiania: `npm run test:browser -- --list [--only=…]`; każdy PASS podaje czas.

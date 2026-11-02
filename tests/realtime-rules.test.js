@@ -1,26 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {TUNING,PUNCH_COST,createCombatant,tickCombatant,punchCost,beginPunch,setGuard,beginSlip,evadeCost,classifyEvade,resolveNearMiss,resolvePunch} from '../src/realtime-rules.js';
+import {TUNING,PUNCH_COST,PUNCH_DAMAGE,createCombatant,tickCombatant,punchCost,beginPunch,setGuard,beginSlip,evadeCost,classifyEvade,resolveNearMiss,resolvePunch} from '../src/realtime-rules.js';
 
 const hit=(a,b,now,pid=0,low=false)=>resolvePunch(a,b,{pid,now,low});
+/** Equal up to float rounding. @param {number} actual @param {number} expected */
+const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-9,`${actual} ≈ ${expected}`);
 
-test('repeat costs are independent by punch and reset exactly at two seconds',()=>{
-  const f=createCombatant();
+test('repeat costs are independent by punch, chain into combos and reset exactly at repeatReset',()=>{
+  const f=createCombatant(),R=TUNING.repeatReset,jab=PUNCH_COST[0];
   for(let pid=0;pid<4;pid++)assert.equal(punchCost(f,pid,0),PUNCH_COST[pid]);
   assert.equal(beginPunch(f,0,0),true);
-  assert.equal(punchCost(f,0,1.999),5*1.35);
-  assert.equal(punchCost(f,1,1.999),9);
-  assert.equal(punchCost(f,0,2),5);
-  beginPunch(f,0,2);beginPunch(f,0,2.1);
-  assert.equal(punchCost(f,0,2.2),5*1.7);
-  assert.equal(punchCost(f,0,4.1),5);
+  near(punchCost(f,0,R-.001),jab*(1+TUNING.repeatStep));   // past the combo window: only the repeat counts
+  assert.equal(punchCost(f,1,R-.001),PUNCH_COST[1]);
+  assert.equal(punchCost(f,0,R),jab);
+  beginPunch(f,0,R);beginPunch(f,0,R+.1);
+  near(punchCost(f,0,R+.2),jab*(1+2*TUNING.repeatStep+2*TUNING.comboStep));
+  assert.equal(punchCost(f,0,(R+.1)+R),jab);
 });
 
 test('unaffordable punches do not spend stamina or alter repeat history',()=>{
   const f=createCombatant({staCap:4}),before=structuredClone(f);
   assert.equal(beginPunch(f,0,0),false);assert.deepEqual(f,before);
   assert.equal(beginPunch(f,8,0),false);assert.equal(beginPunch(f,0,NaN),false);
-  const exact=createCombatant({staCap:16});assert.equal(beginPunch(exact,3,0),true);assert.equal(exact.sta,0);
+  const exact=createCombatant();exact.sta=20;exact.sta=punchCost(exact,3,0);
+  near(exact.sta,PUNCH_COST[3]*TUNING.lowStaCostMult);assert.equal(beginPunch(exact,3,0),true);assert.equal(exact.sta,0);
 });
 
 test('an allowed exhausted punch spends the remaining stamina and records the punch',()=>{
@@ -42,26 +45,27 @@ test('stamina recovers at the increased rate without exceeding its cap',()=>{
 });
 
 test('holding guard drains continuously, prevents regeneration and fails at zero',()=>{
-  const a=createCombatant(),b=createCombatant({staCap:9});
+  const a=createCombatant(),b=createCombatant({staCap:TUNING.guardDrain});
   setGuard(b,true,0);tickCombatant(b,1,1);assert.equal(b.sta,0);
-  assert.equal(hit(a,b,1).kind,'hit');assert.equal(b.hp,94);
+  assert.equal(hit(a,b,1).kind,'hit');assert.equal(b.hp,b.hpMax-PUNCH_DAMAGE[0]);
   tickCombatant(b,2,3);assert.equal(b.sta,0);
-  setGuard(b,false,3);tickCombatant(b,.5,3.5);assert.equal(b.sta,7);
-  tickCombatant(b,2,5.5);assert.equal(b.sta,9);
+  setGuard(b,false,3);tickCombatant(b,.5,3.5);near(b.sta,.5*TUNING.regen);
+  tickCombatant(b,2,5.5);assert.equal(b.sta,b.staCap);
 });
 
-test('normal guard absorbs damage with stamina and passes through the unpaid share',()=>{
-  const a=createCombatant(),b=createCombatant({staCap:8});setGuard(b,true,0);
-  assert.deepEqual(hit(a,b,.5),{kind:'block',damage:0,counter:false,failedSlip:false});assert.equal(b.sta,2);
-  assert.equal(hit(a,b,.6).damage,4);assert.equal(b.hp,96);assert.equal(b.sta,0);
+test('normal guard pays the blockable share with stamina, lets chip damage through and passes the unpaid share',()=>{
+  const a=createCombatant(),dmg=PUNCH_DAMAGE[0],chip=dmg*TUNING.blockChip,need=(dmg-chip)*TUNING.guardAbsorbCost;
+  const b=createCombatant({staCap:need*1.5});setGuard(b,true,0);
+  const first=hit(a,b,.5);assert.equal(first.kind,'block');near(first.damage,chip);near(b.sta,need*.5);
+  const second=hit(a,b,.6);near(second.damage,chip+(dmg-chip)*.5);assert.equal(b.sta,0);near(b.hp,b.hpMax-first.damage-second.damage);
 });
 
 test('ideal guard includes the boundary and drains extra attacker stamina only once',()=>{
-  const a=createCombatant(),b=createCombatant();beginPunch(a,1,0);setGuard(b,true,0);
-  assert.equal(hit(a,b,.12,1,true).kind,'parry');assert.equal(b.hp,100);assert.equal(a.sta,100-9-TUNING.parryCost);
-  assert.equal(hit(a,b,.12).kind,'block');
-  setGuard(b,false,.13);setGuard(b,true,.14);assert.equal(hit(a,b,.15).kind,'block');
-  setGuard(b,false,.3);setGuard(b,true,.3);assert.equal(hit(a,b,.31).kind,'parry');
+  const a=createCombatant(),b=createCombatant(),P=TUNING.guardPerfect;beginPunch(a,1,0);setGuard(b,true,0);
+  assert.equal(hit(a,b,P,1,true).kind,'parry');assert.equal(b.hp,b.hpMax);near(a.sta,a.staCapInitial-PUNCH_COST[1]-TUNING.parryCost);
+  assert.equal(hit(a,b,P).kind,'block');
+  setGuard(b,false,P+.01);setGuard(b,true,P+.02);assert.equal(hit(a,b,P+.03).kind,'block','a re-press inside guardRearm is not ideal');
+  setGuard(b,false,TUNING.guardRearm);setGuard(b,true,TUNING.guardRearm);assert.equal(hit(a,b,TUNING.guardRearm+.01).kind,'parry');
 });
 
 test('holding guard does not refresh ideal timing',()=>{
@@ -72,8 +76,8 @@ test('holding guard does not refresh ideal timing',()=>{
 test('ideal slip avoids every basic head/body punch and grants one counter',()=>{
   for(let pid=0;pid<4;pid++)for(const low of [false,true]){
     const a=createCombatant(),b=createCombatant();assert.equal(beginSlip(b,0),true);
-    assert.equal(hit(a,b,.16,pid,low).kind,'slip');assert.equal(b.hp,100);
-    beginPunch(b,0,.2);assert.equal(hit(b,a,.3).damage,9);
+    assert.equal(hit(a,b,TUNING.slipPerfect,pid,low).kind,'slip');assert.equal(b.hp,b.hpMax);
+    beginPunch(b,0,.2);near(hit(b,a,.3).damage,PUNCH_DAMAGE[0]*TUNING.counterPower);
     beginPunch(b,0,.31);assert.equal(hit(b,a,.4).counter,false);
   }
 });
@@ -87,21 +91,24 @@ test('counter expires at one second and is consumed by a defended punch',()=>{
 });
 
 test('bad slip timing amplifies damage only during its vulnerability window',()=>{
-  for(const [at,failed] of [[.16001,true],[.35,true],[.649,true],[.65,false]]){
+  const V=TUNING.slipVulnerable;
+  for(const [at,failed] of [[TUNING.slipPerfect+1e-5,true],[TUNING.slipActive,true],[V-.001,true],[V,false]]){
     const a=createCombatant(),b=createCombatant();beginSlip(b,0);const r=hit(a,b,at);
-    assert.equal(r.failedSlip,failed);assert.equal(r.damage,6*(failed?1.35:1));
+    assert.equal(r.failedSlip,failed);near(r.damage,PUNCH_DAMAGE[0]*(failed?TUNING.failedSlipPower:1));
   }
 });
 
 test('slip requires stamina and respects the exact cooldown boundary',()=>{
-  const f=createCombatant();assert.equal(beginSlip(f,0),true);assert.equal(f.sta,90);
-  assert.equal(beginSlip(f,.649),false);assert.equal(beginSlip(f,.65),true);
-  assert.equal(beginSlip(createCombatant({staCap:9}),0),false);
+  const f=createCombatant(),C=TUNING.slipCooldown;assert.equal(beginSlip(f,0),true);assert.equal(f.sta,f.staCap-TUNING.slipCost);
+  assert.equal(beginSlip(f,C-.001),false);assert.equal(beginSlip(f,C),true);
+  assert.equal(beginSlip(createCombatant({staCap:TUNING.slipCost-1}),0),false);
 });
 
 test('damage respects strength and hunger, clamps hp and keeps stamina nonnegative',()=>{
-  const a=createCombatant({pow:2,hunger:2}),b=createCombatant({hpMax:8});
-  assert.equal(hit(a,b,0).damage,8);assert.equal(b.hp,0);assert.equal(beginPunch(b,0,0),false);
+  const a=createCombatant({pow:2,hunger:2}),raw=PUNCH_DAMAGE[0]*2-2;
+  assert.equal(hit(a,createCombatant(),0).damage,raw);
+  const b=createCombatant({hpMax:raw-2});
+  assert.equal(hit(a,b,0).damage,raw-2);assert.equal(b.hp,0);assert.equal(beginPunch(b,0,0),false);
   const c=createCombatant({staCap:1});setGuard(b,true,0);b.hp=1;b.sta=1;hit(c,b,.1);assert.equal(c.sta,0);
 });
 
@@ -113,9 +120,9 @@ test('pause is deterministic: no calls or zero elapsed time change the state',()
 
 
 test('counter latches at launch, survives expiry in flight and is spent on a missed punch',()=>{
-  const a=createCombatant(),b=createCombatant();beginSlip(b,0);hit(a,b,.1);
-  beginPunch(b,0,1);assert.equal(b.counterUntil,-Infinity);
-  assert.equal(hit(b,a,1.2).damage,9);assert.equal(b.punchCounter,false);
+  const a=createCombatant(),b=createCombatant(),late=.1+TUNING.counterDuration-.01;beginSlip(b,0);hit(a,b,.1);
+  beginPunch(b,0,late);assert.equal(b.counterUntil,-Infinity);
+  near(hit(b,a,late+.2).damage,PUNCH_DAMAGE[0]*TUNING.counterPower);assert.equal(b.punchCounter,false);
   beginSlip(b,2);hit(a,b,2.1);beginPunch(b,0,2.2);
   beginPunch(b,0,2.3);assert.equal(hit(b,a,2.4).counter,false);
 });
@@ -124,7 +131,7 @@ test('an unaffordable punch preserves the waiting counter and any launched punch
   const a=createCombatant(),b=createCombatant();beginSlip(b,0);hit(a,b,.1);
   b.sta=0;const until=b.counterUntil;assert.equal(beginPunch(b,0,.2),false);
   assert.equal(b.counterUntil,until);assert.equal(b.punchCounter,false);
-  b.sta=5;assert.equal(beginPunch(b,0,.3),true);
+  b.sta=5;b.sta=punchCost(b,0,.3);assert.equal(beginPunch(b,0,.3),true);
   assert.equal(beginPunch(b,0,.4),false);assert.equal(b.punchCounter,true);
   assert.equal(hit(b,a,.5).counter,true);
 });

@@ -44,6 +44,31 @@ function pageHelpers() {
       const b = W.__boxer; b.newGame('prison'); b.pause();
       const X = await import('/src/prison.js'); for (let k = 0; k < 6 && X.cardOpen(); k++) /** @type {HTMLElement|null} */ (document.querySelector('#storyChoices button'))?.click();
     },
+    /** A fresh prison game switched to a scene, paused and stepped `warm` ticks (the options of scripts/shot.mjs).
+     * @param {{scene:string, venue?:string, opp?:number, at?:string, time?:string, warm?:number}} o */
+    async scene(o) {
+      const b = W.__boxer; await W.__shot.prison();
+      if (o.time) { b.simSet({ min: Number(o.time) }); (await import('/src/gym.js')).hubRebake(); }
+      if (o.scene === 'fight') { const v = o.venue || 'cell'; b.goRoom(['yard', 'laznia'].includes(v) ? v : 'cell'); b.step(1); b.startSpar(o.opp || 0, v); }
+      else (await import('/src/devtools.js')).devSwitchScene(o.scene);
+      b.pause();
+      if (o.at) { const [i, j] = o.at.split(':').map(Number); if (!(await import('/src/thames-port.js')).debugPortView(i, j)) throw new Error(`no port view at ${o.at}`); }
+      b.step(o.warm ?? 60);
+    },
+    /** Compare a canvas with an earlier PNG (data: URL): changed pixel count and a before | after | changes-in-red picture.
+     * @param {string} src @param {HTMLCanvasElement} sheet */
+    async diff(src, sheet) {
+      const ref = new Image(); ref.src = src; await ref.decode();
+      if (ref.width !== sheet.width || ref.height !== sheet.height) return { err: `size ${ref.width}×${ref.height} vs ${sheet.width}×${sheet.height}` };
+      const W = sheet.width, H = sheet.height, rc = document.createElement('canvas'); rc.width = W; rc.height = H; rc.getContext('2d').drawImage(ref, 0, 0);
+      const A = rc.getContext('2d').getImageData(0, 0, W, H).data, B = sheet.getContext('2d').getImageData(0, 0, W, H).data;
+      const d = document.createElement('canvas'); d.width = W * 3; d.height = H; const g = d.getContext('2d');
+      g.drawImage(rc, 0, 0); g.drawImage(sheet, W, 0); const m = g.createImageData(W, H); let changed = 0;
+      for (let p = 0; p < A.length; p += 4) { const hit = A[p] !== B[p] || A[p + 1] !== B[p + 1] || A[p + 2] !== B[p + 2], v = (B[p] + B[p + 1] + B[p + 2]) / 12;
+        if (hit) changed++; m.data[p] = hit ? 255 : v; m.data[p + 1] = hit ? 40 : v; m.data[p + 2] = hit ? 40 : v; m.data[p + 3] = 255; }
+      g.putImageData(m, W * 2, 0);
+      return { changed, total: W * H, png: d.toDataURL('image/png') };
+    },
   };
 }
 

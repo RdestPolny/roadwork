@@ -29,7 +29,8 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 - Nowe helpery opisuj JSDoc. Rozszerzaj `checkJs` moduł po module przy pracy nad nimi; nie deklaruj całego `src/` jako sprawdzonego bez naprawy błędów.
 - Raportuj wykonane sprawdzenia i rzeczywiste ograniczenia. Nie przypisuj wyników testom, których nie uruchomiono.
 
-- Znana baza: 15 testów walki z `tests/*.test.js` (pozy ciosów, garda, stamina) jest czerwonych niezależnie od zmian w porcie; nie ustalaj od nowa, czy to twoja wina, tylko porównaj liczbę niepowodzeń przed i po zmianie.
+- `npm test` jest w całości zielony; czerwony test to sygnał regresji, nie stan bazowy. Testy reguł walki odwołują się do `TUNING`/`PUNCH_COST`/`PUNCH_DAMAGE`, więc strojenie liczb ich nie psuje; zmiana zasady (nie liczby) wymaga poprawy testu w tym samym commicie.
+- Zmiany renderera, wspólnych helperów rysujących i scen sprawdzaj `npm run test:visual` (klatki referencyjne kluczowych scen w `tests/visual/`, porównanie piksel w piksel). Różnicę obejrzyj w `artifacts/tmp/visual/<scena>-diff.png`; wzorce odświeżaj `npm run test:visual -- --update` tylko po zamierzonej zmianie wyglądu i commituj je razem z nią.
 
 ## Subagents
 
