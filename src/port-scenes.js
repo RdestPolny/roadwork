@@ -2,7 +2,23 @@
 import { rgb, state as appearanceState } from './appearance.js';
 import { mix } from './cast.js';
 import { isoBox, quad, shadeC, isoX, isoY } from './gym.js';
-import { C, barrel, crate, cyl, roundLit, thin, stroke, rope, docker, contact, smoke, toWorld } from './thames-port.js';
+import { C, barrel, crate, cyl, roundLit, thin, stroke, rope, docker, contact, smoke, toWorld, CLOTH, KERCHIEF } from './thames-port.js';
+
+/** What the quay's background people wear (see docker in thames-port): hats, trousers, boots, hair and whiskers of 1868.
+ * Built on first use: thames-port, which owns CLOTH, is still loading when this module is evaluated. */
+let lookTable=null;
+const looks=()=>lookTable??=({
+  fisher:{style:'knit',cap:CLOTH.tweed,pants:CLOTH.fustian,boots:CLOTH.blackBoot,hair:CLOTH.grey,beard:true,stubble:false},
+  drinkerA:{style:'bowler',cap:CLOTH.felt,pants:CLOTH.cord,boots:CLOTH.brownBoot,hair:CLOTH.darkBrown,chops:true},
+  drinkerB:{style:'flatcap',cap:CLOTH.blackCap,pants:CLOTH.moleskin,boots:CLOTH.blackBoot,hair:CLOTH.black,beard:true,stubble:false},
+  lounger:{style:'workcap',cap:CLOTH.brownCap,pants:CLOTH.cord,boots:CLOTH.brownBoot,hair:CLOTH.fair,scarf:KERCHIEF.red,yorks:KERCHIEF.hemp},
+  musician:{style:'bowler',cap:CLOTH.brownCap,pants:CLOTH.fustian,boots:CLOTH.blackBoot,hair:CLOTH.ginger,chops:true,scarf:KERCHIEF.mustard},
+  drunk:{style:'short',pants:CLOTH.moleskin,boots:CLOTH.brownBoot,hair:CLOTH.ginger},
+  woodworker:{style:'workcap',cap:CLOTH.tweed,pants:CLOTH.moleskin,boots:CLOTH.brownBoot,hair:CLOTH.darkBrown,mustache:true,yorks:KERCHIEF.hemp},
+  handler:{style:'knit',cap:CLOTH.navyKnit,pants:CLOTH.serge,boots:CLOTH.blackBoot,hair:CLOTH.black,scarf:KERCHIEF.blue},
+  foreman:{style:'bowler',cap:CLOTH.felt,pants:CLOTH.serge,boots:CLOTH.blackBoot,hair:CLOTH.grey,mustache:true,chops:true,stubble:false},
+  worker:{style:'flatcap',cap:CLOTH.tweed,pants:CLOTH.cord,boots:CLOTH.brownBoot,hair:CLOTH.darkBrown,yorks:KERCHIEF.hemp},
+});
 import { ANCHORS, DECK_Z } from './port-district.js';
 import { portLife, lifeTime, TABLE, BUCKET, TACKLE, CAT_CRATE, BENCH, BIN, RAW_STACK, CUT_STACK, PLANK, STACK_BASE, slotOf, SAW_REST, JUG_SPOT, BOTTLE_SPOT } from './port-life.js';
 
@@ -528,7 +544,7 @@ export function portLifeProps(t,walkers=[]){
     });
   }
   add(f.P.i,f.P.j,()=>{
-    person(f,['#34302a','#544a3b','#766853']);
+    person(f,['#34302a','#544a3b','#766853'],looks().fisher);
     if(!f.rod.propped){
       stroke(...f.rod.butt,...f.rod.mid,C.woodDark);
       thin(...f.rod.mid,...f.rod.tip,C.woodLight);
@@ -548,15 +564,15 @@ export function portLifeProps(t,walkers=[]){
       }
     }
   });
-  const pub=L.pub; add(pub.a.P.i,pub.a.P.j,()=>person(pub.a,['#34302a','#544a3b','#766853'])); add(pub.b.P.i,pub.b.P.j,()=>person(pub.b,['#292e2d','#45504a','#687264']));
+  const pub=L.pub; add(pub.a.P.i,pub.a.P.j,()=>person(pub.a,['#34302a','#544a3b','#766853'],looks().drinkerA)); add(pub.b.P.i,pub.b.P.j,()=>person(pub.b,['#292e2d','#45504a','#687264'],looks().drinkerB));
   add(pub.mug.bottom[0],pub.mug.bottom[1],()=>vessel(pub.mug,'mug')); add(pub.bottle.bottom[0],pub.bottle.bottom[1],()=>vessel(pub.bottle,'mug'));
   add(JUG_SPOT[0],JUG_SPOT[1],()=>vessel({bottom:JUG_SPOT,up:[0,0,1]},'mug'));
   add(L.loner.P.i,L.loner.P.j,()=>{ const ln=L.loner, c=ln.cig, tip=[c.bottom[0]+c.up[0]*1.4/7.5,c.bottom[1]+c.up[1]*1.4/7.5,c.bottom[2]+c.up[2]*1.4];
-    person(ln,['#262929','#41413a','#625d4c']); cigarette(c,ln.drag);
+    person(ln,['#262929','#41413a','#625d4c'],looks().lounger); cigarette(c,ln.drag);
     smoke(tip[0],tip[1],tip[2],t,5,6,380,SMOKE_PALE,.55+.3*ln.drag);
     if(ln.exhale){ const m=ln.mouth; smoke(m[0],m[1],m[2],t,9,10,230,SMOKE_PALE,.9); } });
-  const mu=L.musician; add(mu.P.i,mu.P.j,()=>{ person(mu,['#2a272b','#4b3f46','#6f6168']); concertina(mu); if(mu.play>.05) musicNotes(mu,lifeTime(t)); });
-  add(L.drunk.at[0],L.drunk.at[1],()=>person(L.drunk,['#322c23','#564637','#75634d'],{style:'short'}));
+  const mu=L.musician; add(mu.P.i,mu.P.j,()=>{ person(mu,['#2a272b','#4b3f46','#6f6168'],looks().musician); concertina(mu); if(mu.play>.05) musicNotes(mu,lifeTime(t)); });
+  add(L.drunk.at[0],L.drunk.at[1],()=>person(L.drunk,['#322c23','#564637','#75634d'],looks().drunk));
 
   // Falling offcut severed from the timber deal on the 12th stroke
   const woodOff=L.yard.wood.offcut;
@@ -578,7 +594,7 @@ export function portLifeProps(t,walkers=[]){
       if(a.id==='woodworker') outfit=['#4a4539','#7d7463','#aba08c']; // light linen shirt / apron
       else if(a.id==='handler') outfit=['#1e2329','#2f3740','#4a5460']; // heavy docker navy/grey
       else if(a.id==='foreman') outfit=['#2e1f18','#52372a','#785340']; // tallyman waistcoat / vest
-      person(a,outfit);
+      person(a,outfit,looks()[a.id]||looks().worker);
 
       // Carried or bench board
       board(a.board);

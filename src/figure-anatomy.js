@@ -24,7 +24,8 @@ export function figureProportions(look = {}) {
   for (const key of Object.keys(base)) b[key] = bounded(b[key], base[key]);
   return {
     heavy,
-    headScale: HEAD_SCALE,
+    /* the head's whole frame: skull, face, hair and headgear grow together, so a larger skull never swallows its cap */
+    headScale: HEAD_SCALE * b.head,
     headRadius: 1.75 * HEAD_SCALE * b.head,
     neckLower: .82 * b.neck,
     neckUpper: .69 * b.neck,

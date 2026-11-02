@@ -4,7 +4,7 @@ import { buildBath, drawBathItem, bathTick, bathOptions, bathFX, BATH_W, BATH_H,
 import { gateOptions, listTag, prisonFightStart, prisonFightExtras } from './prison.js';
 import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, roomFrame, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
 import { drawHDCharacterDetails } from './hd-fight-scene.js';
-import {HEAD_SCALE, FIGURE_PART_CAPACITY, figureProportions} from './figure-anatomy.js';
+import {FIGURE_PART_CAPACITY, figureProportions} from './figure-anatomy.js';
 import {RIG} from './fighter-rig.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
@@ -279,8 +279,9 @@ function litEnd(lit,st,cx,cy){
  * @param {any} C @param {any} J
  * In the bath L.bare strips the drelich (top and trousers take the skin), L.waist wraps a towel round the hips
  * and L.censor puts a pixel mosaic over the groin.
- * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,beard?:boolean,stubble?:boolean,mustache?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
+ * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,yorks?:number,beard?:boolean,stubble?:boolean,mustache?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
  * Newgate: style 'flatcap' (L.cap ramp), L.chops mutton-chop whiskers, L.scarf a neckerchief colour, L.irons leg irons.
+ * The docks: style 'bowler' (billycock) or 'knit' (a seaman's watch cap), both in the L.cap ramp; L.yorks ties each trouser leg below the knee with string of that colour.
  * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,look?:number[],only?:string,side?:number}} [o]   look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
 export function figureHD(C,J,L,o={}){
@@ -290,16 +291,22 @@ export function figureHD(C,J,L,o={}){
   const inhale=heavy?Math.sin((C.bullClock??(C.t||0)/60)*7)*((C.bull?.mode==='EXHAUSTED')?0.32:0.12):0;
   const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
   // Facial fixtures and hair volume shrink together; reducing only the skull would leave detached details.
-  const headAdd=(f0,s0,z0,r0,f1,s1,z1,r1,rp,rp2,zz1,zz2,rp3)=>ipAdd(f0,s0,z0,r0*HEAD_SCALE,f1,s1,z1,r1*HEAD_SCALE,rp,rp2,zz1,zz2,rp3);
+  const HK=shape.headScale, headAdd=(f0,s0,z0,r0,f1,s1,z1,r1,rp,rp2,zz1,zz2,rp3)=>ipAdd(f0,s0,z0,r0*HK,f1,s1,z1,r1*HK,rp,rp2,zz1,zz2,rp3);
+  /* Upright, the trousers' tops sit under the coat: thighs and seat may not sort in front of the waist, and a thigh sorts mostly by its
+   * hip, so at the crotch the near leg covers the far one even while the far knee swings towards the camera. */
+  const upright=!state.ipPose&&!o.tilt, legTops=[];
   for(let s=-1;s<=1;s+=2){
     const k=s===nearS?0:1, A=J(s), SK=L.sk[k], PT=L.pt[k], TP=L.top[k], wr=mix(A.el,A.hd,0.8), toe=[A.foot[0]+0.85,A.foot[1],A.foot[2]-0.25];
     const heelLift=Math.max(0,Math.min(0.34,A.heelLift||0)); // heel pivots up while the planted toe and ankle stay grounded
     if(o.only==='hands'){ if(!o.side||o.side===s){ ipAdd(...A.el,shape.forearm, ...wr,shape.wrist, L.rolledSleeves?SK:TP); ipAdd(...wr,shape.wrist*0.92, ...A.hd,shape.fist, SK); } continue; }   // forearm and hand only (of one side), over a prop
+    const thighK=state.ipN;
     if(L.waist) ipAdd(...A.hip,shape.thigh, ...A.knee,shape.knee, PT,L.waist,0.5,0.5,L.waist); else ipAdd(...A.hip,shape.thigh, ...A.knee,shape.knee, PT);   /* thigh (the towel over its top half) */
+    if(upright&&A.hip[2]-A.knee[2]>0.7*Math.hypot(A.hip[0]-A.knee[0],A.hip[1]-A.knee[1],A.hip[2]-A.knee[2])){ bodyPt(...A.hip); const dh=state.bpD; bodyPt(...A.knee); state.ipD[thighK]=dh*0.65+state.bpD*0.35; legTops.push(thighK); }
     ipAdd(...A.knee,shape.calf, ...A.foot,shape.ankle, PT);                                                                   // shin
     ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15+heelLift,shape.heel, ...toe,shape.toe, L.shoe);                                   // prison shoe
     ipAdd(...A.sh,shape.upperArm, ...A.el,shape.elbow, TP); ipAdd(...A.el,shape.forearm, ...wr,shape.wrist, L.rolledSleeves?SK:TP);
     ipAdd(...wr,shape.wrist*0.92, ...A.hd,shape.fist, SK);                                                                          // hand
+    if(upright) legTops.push(state.ipN);
     ipAdd(A.hip[0],A.hip[1],A.hip[2]+0.3,shape.pelvis*0.72, A.hip[0],A.hip[1]*0.4,A.hip[2]+0.4,shape.pelvis*0.75, L.waist||PT);            // seat of the trousers
   }
   if(o.only==='hands'){ for(let k=0;k<state.ipN;k++) state.ipOrd[k]=k;
@@ -316,11 +323,11 @@ export function figureHD(C,J,L,o={}){
   // look: the head turned (yaw) and bowed (pitch) on the neck while the body keeps its facing, as a frame [forward, side, up].
   const look=o.look?(()=>{ const [y,p]=o.look, cy=Math.cos(y), sy=Math.sin(y), cp=Math.cos(p), sp=Math.sin(p); return [cy*cp,sy*cp,-sp,-sy,cy,0,cy*sp,sy*sp,cp]; })():null;
   const rawHp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],look||(o.tilt?frame(Q,J.head):null));
-  const hp=(x,y,z)=>rawHp(x*HEAD_SCALE,y*HEAD_SCALE,z*HEAD_SCALE);
+  const hp=(x,y,z)=>rawHp(x*HK,y*HK,z*HK);
   const tp=at(Q,o.tilt?frame(J.abd||P,Q):null), pp=at(P,o.tilt?frame(P,J.abd||Q):null), H=hp(0,0,0);
   // Split waist, lower ribs and chest even for idle NPCs. When J.abd is present,
   // the same surfaces follow the actual folding joint instead of a rigid tube.
-  const B=J.abd||J.belly||mix(P,Q,0.46);
+  const B=J.abd||J.belly||mix(P,Q,0.46), waistK=state.ipN;
   if(L.waist){
     ipAdd(P[0],P[1],P[2]+0.5,shape.pelvis, ...B,shape.waist, T0,L.waist,0.24,0.24,L.waist);
     ipAdd(...B,shape.waist, Q[0],Q[1],Q[2]-0.3,shape.chest, T0,L.waist,0.24,0.24,L.waist);
@@ -328,6 +335,7 @@ export function figureHD(C,J,L,o={}){
     ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),L.tuckedShirt?shape.waist:shape.pelvis, ...B,shape.waist, T0);
     ipAdd(...B,shape.ribs, Q[0],Q[1],Q[2]-0.3,shape.chest, T0);
   }
+  if(legTops.length){ let top=-Infinity; for(const k of legTops) top=Math.max(top,state.ipD[k]); const shift=Math.max(0,top-(state.ipD[waistK]-0.005)); for(const k of legTops) state.ipD[k]-=shift; }   /* one shift keeps near over far */
   if(heavy){
     // A real forward-projecting belly, attached to the spine. Soft delay is visual only: IK bone lengths remain unchanged.
     const lag=Math.max(-0.28,Math.min(0.28,(C.lagF||0)*0.19)), r=shape.belly;
@@ -355,6 +363,13 @@ export function figureHD(C,J,L,o={}){
   else if(st==='workcap'){ const cr=L.cap??L.pt[0];   /* a cloth cap sat high on the crown with its own cloth: hair shows at nape and temples, the brow and eyes stay clear of it */
     headAdd(...hp(-0.75,0,-0.05),1.45, ...hp(-0.95,0,-0.55),1.3, L.hair);
     headAdd(...hp(-0.3,0,1.15),1.85, ...hp(0.2,0,1.3),1.8, cr); headAdd(...hp(1.55,-0.8,0.72),0.36, ...hp(1.75,0.8,0.72),0.36, cr); }
+  else if(st==='bowler'){ const cr=L.cap??L.hair;   /* a billycock: a hard round crown on a narrow brim, the foreman's and the clerk's hat */
+    headAdd(...hp(-0.75,0,-0.05),1.4, ...hp(-0.95,0,-0.5),1.25, L.hair);
+    for(let a=0;a<6;a++){ const c=Math.cos(a*Math.PI/6)*2.05, s=Math.sin(a*Math.PI/6)*2.05; headAdd(...hp(-0.2-c,-s,0.72),0.36, ...hp(-0.2+c,s,0.72),0.36, cr); }
+    headAdd(...hp(-0.2,0,1.05),1.66, ...hp(-0.2,0,1.75),1.5, cr); }
+  else if(st==='knit'){ const cr=L.cap??L.hair;   /* a seaman's knitted watch cap, pulled down to the ears, its rim rolled up */
+    for(let a=0;a<4;a++){ const c=Math.cos(a*Math.PI/4)*1.6, s=Math.sin(a*Math.PI/4)*1.6; headAdd(...hp(-0.3-c,-s,0.45),0.5, ...hp(-0.3+c,s,0.45),0.5, cr); }
+    headAdd(...hp(-0.3,0,0.75),1.86, ...hp(-0.45,0,1.25),1.7, cr); }
   else if(st==='toque') headAdd(...hp(-0.25,0,0.9),1.55, ...hp(-0.4,0,2.5),1.7, L.hair);                              /* cook's tall white cap */
   else if(st==='bun'){ headAdd(...hp(0.15,0,0.75),2.12, ...hp(-0.5,0,1.15),2.05, L.hair);   /* full hair parted in the middle, */
     for(let s=-1;s<=1;s+=2) headAdd(...hp(-0.25,s*1.5,0.35),0.9, ...hp(-0.75,s*1.5,-0.45),0.85, L.hair);   /* swept back over the ears */
@@ -398,7 +413,7 @@ export function figureHD(C,J,L,o={}){
   bodyPt(...Q); const cd0=state.bpD, TD=sh(T0,0), TL=sh(T0,2);
   if(L.censor){ bodyPt(...pp(1.0,0,-0.5)); censor(Math.round(state.bpX),Math.round(state.bpY)); }
   if(heavy&&C.bull?.mode==='EXHAUSTED') dot(...tp(2.25,0,-1.2),rgb('#796b65'),cd0);
-  if(L.bare){ litFinish(); if(state.ISO_K===3&&state.ipPose===0&&!o.tilt) drawHDCharacterDetails(C,J,L); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
+  if(L.bare){ litFinish(); if(state.ISO_K===3&&state.ipPose===0&&!o.tilt) drawHDCharacterDetails(C,J,L,hp,hd0); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
   dot(...tp(1.7,-0.55,0.15),TL,cd0); dot(...tp(1.7,0.55,0.15),TL,cd0);                     // collar points
   if(L.scarf!==undefined){ dot(...tp(1.75,0,0.25),L.scarf,cd0); dot(...tp(1.85,0.25,-0.3),L.scarf,cd0); dot(...tp(1.85,-0.2,-0.55),L.scarf,cd0); }   /* a knotted neckerchief */
   bodyPt(...tp(2.0,0,-0.9)); const ax=Math.round(state.bpX), ay=Math.round(state.bpY), ad=state.bpD;
@@ -410,7 +425,7 @@ export function figureHD(C,J,L,o={}){
     const IR=rgb('#3a3632'), IH=rgb('#7a7068'); for(let k=0;k<=12;k++){ const u=k/12, x=x0+(x1-x0)*u, y=y0+(y1-y0)*u+Math.sin(Math.PI*u)*3*state.ISO_K; pset(Math.round(x),Math.round(y),k&1?IH:IR); }
     for(const [x,y] of [[x0,y0],[x1,y1]]) for(let d=-1;d<=1;d++){ pset(Math.round(x)+d,Math.round(y)-1,IR); pset(Math.round(x)+d,Math.round(y),IH); } }
   if(L.baton){ bodyPt(...pp(0.3,nearS*2.05,1.0)); const x0=Math.round(state.bpX), y0=Math.round(state.bpY); bodyPt(...pp(0.7,nearS*2.2,-3.0)); line(x0,y0,Math.round(state.bpX),Math.round(state.bpY),sh(L.shoe,0),sh(L.shoe,0)); }   /* rubber baton on the hip */
-  litFinish(); if(state.ISO_K===3&&state.ipPose===0&&!o.tilt) drawHDCharacterDetails(C,J,L); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
+  litFinish(); if(state.ISO_K===3&&state.ipPose===0&&!o.tilt) drawHDCharacterDetails(C,J,L,hp,hd0); state.ipPose=0; state.ipBase=0; state.ipC=state.hubP;
 }
 
 /** A pixel mosaic over the groin: 4×3 blocks of 2×2 picture pixels, each the average of what is under it, lighter or darker by turns. @param {number} cx @param {number} cy */

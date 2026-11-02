@@ -6,7 +6,7 @@ import { state as appearanceState, rgb } from './appearance.js';
 import { state as rendererState, line, pset } from './renderer.js';
 import { state as gymState, bodyPt, isoX, isoY } from './gym.js';
 import { state as boxingState } from './boxing.js';
-import {headDetailPoint} from './figure-anatomy.js';
+import {headDetailPoint, figureProportions} from './figure-anatomy.js';
 
 const sand=[rgb('#a78a5e'),rgb('#b59a6c'),rgb('#c2a777'),rgb('#ccb484'),rgb('#d6be8d')];
 const dark=rgb('#826c50'), rim=rgb('#927852'), sky=rgb('#5b5850'), skyLight=rgb('#817765');
@@ -43,8 +43,11 @@ export function renderSandyArena(){
   rendererState.fb.set(plate);
 }
 
-/** Outfit-aware 3× accents anchored to the existing moving skeleton. */
-export function drawHDCharacterDetails(F,J,L){
+/** Outfit-aware 3× accents anchored to the existing moving skeleton. hp maps head offsets into figureHD's head frame (turned with
+ * the look, sized with the skull) from its origin 0.1 forward and 0.6 below J.head; hd0 is the depth of the head's centre, and a face
+ * detail only shows while it lies in front of it, so a head turned away keeps its hair clean.
+ * @param {any} F @param {any} J @param {any} L @param {(x:number,y:number,z:number)=>number[]} [hp] @param {number} [hd0] */
+export function drawHDCharacterDetails(F,J,L,hp,hd0){
   if(gymState.ISO_K!==3) return;
   const A=appearanceState, oldC=gymState.ipC, oldPose=gymState.ipPose, oldBase=gymState.ipBase;
   gymState.ipC=F; gymState.ipPose=0; gymState.ipBase=0;
@@ -58,7 +61,10 @@ export function drawHDCharacterDetails(F,J,L){
   const depth=(p)=>{ bodyPt(p[0],p[1],p[2]); return gymState.bpD; };
   const front=(p,fwd)=>depth([p[0]+fwd,p[1],p[2]])>depth(p)+0.02;
   try{
-    const chest=J.chest, pel=J.pel, head=J.head;
+    const chest=J.chest, pel=J.pel, head=J.head, h0=hp?.(0,0,0), h1=hp?.(1,0,0), hs=h0&&h1?Math.hypot(h1[0]-h0[0],h1[1]-h0[1],h1[2]-h0[2]):1;
+    const hpt=(x,y,z)=>hp?hp(x-0.1/hs,y,z+0.6/hs):headDetailPoint(head,x,y,z);
+    const faces=(...pts)=>hd0===undefined||pts.every(p=>depth(p)>hd0+0.02);
+    const fdot=(p,c)=>{ if(faces(p)) dot(p,c); }, fseam=(p,q,c)=>{ if(faces(p,q)) seam(p,q,c); };
     if(!L.bare){ // Bathers have no jacket, trousers or shirt seams.
     // Separate collar, crumpled lapels and the moving button placket.
     if(front(chest,2)){
@@ -68,13 +74,19 @@ export function drawHDCharacterDetails(F,J,L){
     for(let dz=-2;dz<2;dz+=1.3) dot([chest[0]+2.1,chest[1]+0.12,chest[2]+dz],clothH);
     }
     // Wrinkles track the skeleton rather than sliding on the framebuffer.
+    /* A leg shows its own marks only while no other leg covers it: it is the nearer shin, or the shins are apart on the screen. */
+    const legR=figureProportions(L).calf*(gymState.propCamera?.figureScale??gymState.ISO_K), shinAt=(s)=>{ const a=point(J(s).knee), b=point(J(s).foot); return [(a[0]+b[0])/2,(a[1]+b[1])/2,(depth(J(s).knee)+depth(J(s).foot))/2]; };
+    const clear=(s)=>{ const m=shinAt(s), o=shinAt(-s); return m[2]>=o[2]-0.02||Math.hypot(m[0]-o[0],m[1]-o[1])>legR*2.4; };
     for(const s of [-1,1]){
       const arm=J(s), knee=arm.knee;
       /* an arm or leg behind the body, or with its front turned from the camera, shows no seam through the body */
       if(front(arm.sh,0.55)&&(depth(arm.sh)+depth(arm.el))/2>depth(chest)-0.03){
         seam([arm.sh[0]+0.25,arm.sh[1],arm.sh[2]-0.8],[arm.el[0]+0.55,arm.el[1],arm.el[2]+0.7],clothD);
         seam([arm.el[0]+0.5,arm.el[1],arm.el[2]+0.35],[arm.el[0]+0.7,arm.el[1],arm.el[2]-0.35],clothH); }
-      if(front(knee,0.9)&&depth(arm.hip)>depth(pel)-0.03){
+      if(L.yorks!==undefined&&clear(s)){   /* yorks: string tied round the trouser leg under the knee, across the shin on the screen */
+        const a=point(knee), b=point(arm.foot), l=Math.hypot(b[0]-a[0],b[1]-a[1])||1, ux=(b[0]-a[0])/l, uy=(b[1]-a[1])/l, cx=a[0]+ux*l*0.24, cy=a[1]+uy*l*0.24, r=legR*0.85;
+        line(Math.round(cx-uy*r),Math.round(cy+ux*r),Math.round(cx+uy*r),Math.round(cy-ux*r),L.yorks,L.yorks); }
+      if(front(knee,0.9)&&depth(arm.hip)>depth(pel)-0.03&&clear(s)){
         seam([arm.hip[0]+0.7,arm.hip[1],arm.hip[2]-0.75],[knee[0]+0.65,knee[1],knee[2]+0.45],pantD);
         seam([knee[0]+0.4,knee[1]-0.45,knee[2]+0.2],[knee[0]+0.9,knee[1]+0.35,knee[2]-0.3],pantH); }
       dot([arm.foot[0]+0.8,arm.foot[1],arm.foot[2]+0.12],shade(L.shoe,2));
@@ -82,18 +94,18 @@ export function drawHDCharacterDetails(F,J,L){
     }
     // Readable nose ridge, cheekbone, eyebrow, temple and jaw from the same head joint.
     if(L.style!=='hood'){
-    dot(headDetailPoint(head,+1.95,-0.25,-0.8),skinH);
-    dot(headDetailPoint(head,+1.75,+0.65,-0.95),skinH);
-    seam(headDetailPoint(head,+1.55,+0.28,-1.6),headDetailPoint(head,+1.25,+0.6,-2.1),skinD);
-    seam(headDetailPoint(head,+1.45,+0.35,-0.1),headDetailPoint(head,+1.65,+0.95,-0.05),hairD);
+    fdot(hpt(+1.95,-0.25,-0.8),skinH);
+    fdot(hpt(+1.75,+0.65,-0.95),skinH);
+    fseam(hpt(+1.55,+0.28,-1.6),hpt(+1.25,+0.6,-2.1),skinD);
+    fseam(hpt(+1.45,+0.35,-0.1),hpt(+1.65,+0.95,-0.05),hairD);
     if(L.style==='fringe'){
-      for(let s=-1;s<=1;s++) seam(headDetailPoint(head,+0.25,+s*0.65,+1.1),headDetailPoint(head,+1.35,+s*0.75,+0.55),s===0?hairD:hairH);
+      for(let s=-1;s<=1;s++) fseam(hpt(+0.25,+s*0.65,+1.1),hpt(+1.35,+s*0.75,+0.55),s===0?hairD:hairH);
     } else if(L.style==='bald'){
-      dot(headDetailPoint(head,-1.05,+0.65,+0.7),hairH);
-      dot(headDetailPoint(head,+0.7,+1.35,-0.45),skinD);
-      if(L.chops) seam(headDetailPoint(head,+0.85,+1.36,-0.5),headDetailPoint(head,+0.95,+1.21,-1.65),hairD);
+      fdot(hpt(-1.05,+0.65,+0.7),hairH);
+      fdot(hpt(+0.7,+1.35,-0.45),skinD);
+      if(L.chops) fseam(hpt(+0.85,+1.36,-0.5),hpt(+0.95,+1.21,-1.65),hairD);
     }
-    if(L.stubble) for(let i=0;i<3;i++) dot(headDetailPoint(head,+1.25-i*0.17,+0.72,-1.38-i*0.22),hairD);
+    if(L.stubble) for(let i=0;i<3;i++) fdot(hpt(+1.25-i*0.17,+0.72,-1.38-i*0.22),hairD);
     }
     if(!L.bare&&L.scarf!==undefined){
       seam([chest[0]+1.85,chest[1]-0.45,chest[2]+0.35],[chest[0]+2.1,chest[1]+0.4,chest[2]+0.2],L.scarf);

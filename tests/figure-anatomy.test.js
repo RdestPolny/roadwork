@@ -47,3 +47,10 @@ test('head detail offsets contract with the skull in all directions, preserving 
   for(let i=0;i<3;i++)assert.ok(Math.abs((out[i]-center[i])-point[i]*HEAD_SCALE)<1e-9);
   assert.deepEqual(headDetailPoint(center,0,0,0),center);
 });
+
+test('hair and headgear are sized with the skull, so a large head never swallows its cap',()=>{
+  for(const look of [{style:'crop'},{bodyType:'heavy'},{bodyType:'heavy',bulk:{head:1.4}}]){
+    const p=figureProportions(look);
+    assert.ok(Math.abs(p.headScale*1.75-p.headRadius)<1e-9);
+  }
+});

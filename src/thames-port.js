@@ -783,7 +783,7 @@ function bargeman(t,S,o){
     J.pel=[.3,0,6.4]; J.chest=[lean,0,11.2]; J.head=[lean+1.4,tx*.12,14.2]; broom={head:H,top:at(-.1),sweep:true,sw}; }
   else { const path=part==='out'?pOut:pBack, L=part==='out'?lOut:lBack, d=v*L; [i,j,a]=along(path,d); J=walkJoints(d/TRIP.cycle,false,1); broom='held'; }
   const P={i,j,fi:Math.cos(a),fj:Math.sin(a),z0:S.deck(i)};
-  docker(P,J,['#1f2524','#333d3c','#4f5b5a']);
+  docker(P,J,['#1f2524','#333d3c','#4f5b5a'],{},DOCK_LOOKS.bargeman);
   /* the broom: in the sweep it is the pair of hands' handle with a straw head on the planks; otherwise it hangs from the near hand */
   let top,bot;
   if(broom==='held'){ const h=J(1).hd; top=toWorld(P,h[0]-.5,h[1]-.2,h[2]+6.5); bot=toWorld(P,h[0]+.9,h[1]+.3,.8); }
@@ -920,7 +920,7 @@ function heaver(t,heapR){
     else if(S.part==='carry') { held=shoulder; dir=[P.fi,P.fj]; }
     else if(S.part==='lay'&&v<.5){ const u=ease(v/.5), dest=[slot[0],slot[1],slot[2]+1.5]; held=lerp3(shoulder,dest,u); dir=[lerp(P.fi,Math.cos(slot[3]),u),lerp(P.fj,Math.sin(slot[3]),u)]; }
   }
-  docker(P,J,['#2a2724','#45403a','#655d53']);
+  docker(P,J,['#2a2724','#45403a','#655d53'],{},DOCK_LOOKS.heaver);
   if(held) sackAt(held,dir[0],dir[1],tilt,COALSACK);
   if(S.stow) return;
   thin(...W0,...W1,C.woodLight);
@@ -984,11 +984,33 @@ function craneLoad(t,K){
 }
 /** A point given in a figure's own frame (forward, side, up, in height units) placed in the world. */
 const toWorld=(P,f,s,z)=>[P.i+(f*P.fi-s*P.fj)/7.5,P.j+(f*P.fj+s*P.fi)/7.5,z+(P.z0||0)];
-/** Draw a docker in his work clothes with the joint function J; o passes figureHD options (head look, hands-only redraw). */
+/** Cloth, leather and hair of 1868 Wapping as ramps (dark, mid, light), for the dock people's outfits. */
+export const CLOTH={cord:['#3a2f22','#5a4834','#7a6448'], moleskin:['#433d31','#635b4a','#857b65'], serge:['#1c2128','#2c333d','#454e5a'], fustian:['#2e2a24','#47413a','#635b50'],
+  blackBoot:['#141312','#24211e','#3a3430'], brownBoot:['#22170f','#3b2818','#5a3e26'],
+  blackCap:['#1a1a1a','#2c2b29','#44423e'], tweed:['#38372f','#545149','#747066'], brownCap:['#2f261c','#4a3c2c','#68563f'], navyKnit:['#1a2030','#2a3348','#3f4a63'], felt:['#16130f','#28221c','#433930'],
+  black:['#110f0d','#211c18','#3a302a'], darkBrown:['#1e140d','#3a2818','#5a3f26'], ginger:['#3e1e10','#6e381c','#9a582c'], grey:['#45433e','#6f6c64','#9a968c'], fair:['#4a3c22','#78633a','#a48a56']};
+/** Neckerchiefs and the string of yorks. */
+export const KERCHIEF={red:rgb('#7a2a22'), blue:rgb('#2c3e66'), mustard:rgb('#7c6228'), hemp:rgb('#57492f')};
+/** Who wears what on the quay: trousers, boots, cap and hair ramps from CLOTH next to figureHD's look keys. */
+const DOCK_LOOKS={
+  bargeman:{style:'knit',cap:CLOTH.navyKnit,pants:CLOTH.serge,boots:CLOTH.blackBoot,hair:CLOTH.black,beard:true,stubble:false},
+  heaver:{style:'workcap',cap:CLOTH.blackCap,pants:CLOTH.moleskin,boots:CLOTH.brownBoot,hair:CLOTH.darkBrown,chops:true,yorks:KERCHIEF.hemp,scarf:KERCHIEF.red},
+  carrier:{style:'flatcap',cap:CLOTH.tweed,pants:CLOTH.cord,boots:CLOTH.brownBoot,hair:CLOTH.ginger,mustache:true,yorks:KERCHIEF.hemp,scarf:KERCHIEF.blue},
+  hoist:{style:'flatcap',cap:CLOTH.brownCap,pants:CLOTH.fustian,boots:CLOTH.blackBoot,hair:CLOTH.grey,chops:true},
+  door:{style:'bowler',cap:CLOTH.felt,pants:CLOTH.serge,boots:CLOTH.blackBoot,hair:CLOTH.black,mustache:true,stubble:false},
+  crane:{style:'knit',cap:CLOTH.blackCap,pants:CLOTH.moleskin,boots:CLOTH.blackBoot,hair:CLOTH.fair,scarf:KERCHIEF.mustard},
+};
+/** Draw a docker in his work clothes with the joint function J; o passes figureHD options (head look, hands-only redraw). look takes figureHD's
+ * keys and, as hex ramps, pants, boots, cap and hair; without them he keeps the drab drelich of before. */
 function docker(P,J,top=['#2b2620','#4a3f31','#6a5a44'],o={},look={}){
-  const A=appearanceState;
+  const A=appearanceState, {pants,boots,cap,hair,...rest}=look;
   withCellOutfit(()=>{ setRamp(A.R_HSH,top,false); setRamp(A.R_HSHF,top,true);
-    figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'flatcap',stubble:true,...look},{noShadow:true,...o}); });
+    if(pants){ setRamp(A.R_HPT,pants,false); setRamp(A.R_HPTF,pants,true); }
+    if(boots) setRamp(A.R_HSLIP,boots,false);
+    if(cap) setRamp(A.R_HBELT,cap,false);
+    const keep=hair?A.PAL.slice(A.R_HAIR*3,A.R_HAIR*3+3):null; if(hair) setRamp(A.R_HAIR,hair,false);
+    try{ figureHD(P,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'flatcap',stubble:true,...(cap?{cap:A.R_HBELT}:{}),...rest},{noShadow:true,...o}); }
+    finally{ if(keep) A.PAL.set(keep,A.R_HAIR*3); } });
 }
 const ease=u=>{ u=Math.max(0,Math.min(1,u)); return u*u*(3-2*u); };
 const lerp=(a,b,u)=>a+(b-a)*u, lerp3=(a,b,u)=>[lerp(a[0],b[0],u),lerp(a[1],b[1],u),lerp(a[2],b[2],u)];
@@ -1076,7 +1098,7 @@ function sackCarrier(t){
   }
   const draw=()=>{
     contact(D.i-.35,D.j-.25,D.i+.35,D.j+.25,0,.7);
-    docker(P,J); if(held) sackAt(held,dir[0]||P.fi,dir[1]||P.fj,tilt);
+    docker(P,J,undefined,{},DOCK_LOOKS.carrier); if(held) sackAt(held,dir[0]||P.fi,dir[1]||P.fj,tilt);
   };
   if(D.j<.35) behindFront(draw,archHole,Math.max(0,Math.min(1,(.3-D.j)/1.6))); else draw();
 }
@@ -1111,7 +1133,7 @@ function hoistMan(t,H){
   for(let n=0;n<3;n++){ const r=.32-n*.07; let a=[3.2+r,2.85,.05]; for(let q=1;q<=10;q++){ const b=[3.2+Math.cos(q*.63)*r,2.85+Math.sin(q*.63)*r,.05]; thin(...a,...b,C.rope); a=b; } }
   const hands=[toWorld(P,J(1).hd[0],J(1).hd[1],J(1).hd[2]),toWorld(P,J(-1).hd[0],J(-1).hd[1],J(-1).hd[2])].sort((a,b)=>b[2]-a[2]);
   rope(hands[1],[3.2,2.85,.1],1.2,C.rope);
-  docker(P,J,['#22292a','#3a4546','#5a6766']);
+  docker(P,J,['#22292a','#3a4546','#5a6766'],{},DOCK_LOOKS.hoist);
   thin(HOIST.i-.12,HOIST.j,HOIST.pulley,...hands[0],C.rope); thin(...hands[0],...hands[1],C.rope);
 }
 /** The hook, its rope and the crate on it; the warehouseman in the loading door takes the crate in. */
@@ -1128,7 +1150,7 @@ function hoistLoad(t,H){
   if(show>0){ const reach=H.k==='take'?1-H.v:H.k==='hold'?ease(H.v):0, P={i:5.3,j:-.45,fi:0,fj:1,z0:50.2};
     const J=s=>({hip:[-.4*reach,s*1.2,7.2],knee:[.6,s*1.3,3.8],foot:[0,s*1.4,.9],sh:[.4+reach,s*2.6,12.2-reach],el:[1.4+reach,s*3,10.6-reach],hd:[2.2+reach*1.6,s*1.6,10.4-reach*.6]});
     J.pel=[-.2*reach,0,6.6];J.chest=[.5+reach,0,12-reach*.6];J.head=[.5+reach*1.2,0,15.3-reach*.8];
-    behindFront(()=>docker(P,J,['#3b3127','#5a4a38','#7b6650']),bayHole,1-.6*show); }
+    behindFront(()=>docker(P,J,['#3b3127','#5a4a38','#7b6650'],{},DOCK_LOOKS.door),bayHole,1-.6*show); }
 }
 /** The crane hand turning the winch. */
 function craneHand(t,K){
@@ -1138,7 +1160,7 @@ function craneHand(t,K){
   J.pel=[-.1,0,6.6];J.chest=[.6+rock*.3,0,12-rock*.15];J.head=[.7+rock*.3,0,15.3-rock*.15];
   contact(P.i-.35,P.j-.3,P.i+.35,P.j+.3,0,.7);
   thin(CRANE.i+.68,hj,hz,CRANE.i+.92,hj,hz,C.edge);
-  docker(P,J,['#22292a','#3a4546','#5a6766']);
+  docker(P,J,['#22292a','#3a4546','#5a6766'],{},DOCK_LOOKS.crane);
 }
 /** Gulls: one circling over the river, two resting on posts, now and then turning their heads. */
 function gulls(t){
