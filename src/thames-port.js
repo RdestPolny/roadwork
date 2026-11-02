@@ -9,7 +9,8 @@ import { startIsoFight } from './iso-fight.js';
 import { horse, coachWheel } from './carriage.js';
 import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTick, storyShot, storyLine, storyCaption, storyFade, storyBars, storyVanDoor, storyCast, state as storyState } from './port-story.js';
 import { DISTRICT, portSurface, districtBlocked, propBlocked, propDraws, PORT_PROPS, propKey } from './port-district.js';
-import { walkJoints } from './port-life.js';
+import { walkJoints, UNIT } from './port-life.js';
+import { mocapWalk, WALK_STRIDE } from './mocap-walk.js';
 import { DEBUG } from './config.js';
 import { pubInside, enterPub, leavePub, pubTick, renderPub, pubRivalNear } from './pub.js';
 import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX, PUB_LIT, PUB_DOOR } from './port-extension.js';
@@ -124,6 +125,7 @@ export function tickThamesPort(){
     portJob.entry={tick:0,i:player.i,j:player.j}; clearThamesInput();
   }
   player.fi=di; player.fj=dj; player.ph+=player.carrying?speed/TRIP.cycle:.045;
+  if(!player.carrying) player.wg=(player.wg||0)+Math.hypot(player.i-oi,player.j-oj)*UNIT/WALK_STRIDE;   // mocap walk phase by distance
   if(!player.carrying&&dj<-.3&&Math.abs(player.i-PUB_ENTRY.i)<.55&&player.j<PUB_ENTRY.j){ enterPub(); player.moving=false; setInfo(); return; }
   followPortCamera();
 }
@@ -1439,7 +1441,7 @@ function renderPortFrame(fighters){
       ...(!fighters?[[player.i+player.j,()=>{ if(portJob.entry&&portJob.entry.tick>55&&portJob.entry.tick<=105) return;
         const A=appearanceState, side=player.fi-player.fj>=0?1:-1, g=player.moving?player.ph%1:.25;
         const lifting=player.lift>=0?liftSack(player,[playerSack.i,playerSack.j,0,0],player.lift/120,side):null;
-        const J=lifting?lifting.J:player.pose||walkJoints(g,player.carrying,side);
+        const J=lifting?lifting.J:player.pose||(player.moving&&!player.carrying?mocapWalk(player.wg||0):walkJoints(g,player.carrying,side));
         const draw=()=>{
         contact(player.i-.22,player.j-.22,player.i+.22,player.j+.22,0,.4);
         withCellOutfit(()=>figureHD(player,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true},{noShadow:true}));

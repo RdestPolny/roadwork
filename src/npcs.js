@@ -2,6 +2,7 @@ import { wardBed, wardBlanket, wardFlies, WARD_SEATS, WARD_EX, WARD_WASH } from 
 import { exerciseLayout, buildExerciseYard, ringPos, RING_C, WALK_R, WALK_SP } from './exercise-yard.js';
 import { figureHD, state as gymState, itemW, itemH, isoLine, isoX, isoY, quad, ipAdd, bodyPt, itemRect } from './gym.js';
 import {RIG} from './fighter-rig.js';
+import { mocapWalk, WALK_STRIDE } from './mocap-walk.js';
 import { rgb, state as appearanceState, setRamp } from './appearance.js';
 import { state as roomsState, floorAt, drawCellItem } from './rooms.js';
 import { pset, taper, shadowEll, state as rendererState } from './renderer.js';
@@ -69,6 +70,7 @@ export function drawIsoNPC(C){
     if(HD){ Object.assign(jt[s],{sh,el,hd}); continue; }
     crewArm(C,s,near,sh,el,hd,C.gloves);
   }
+  if(HD&&mv&&act==='walk'&&!dr){ figureHD(C,mocapWalk(C.wg||0),cnLookHD(C)); return; }   // walking about the cell: the mocap walk
   if(HD){ const J=(/** @type {number} */ s)=>jt[s]; J.pel=[0,sl,6.6+bob+jump]; J.chest=[0.4+lean,sl,12.2+bob+jump]; J.head=[0.35+lean*1.2+(dr?0.5:0),sl*1.25,15.6+bob+jump-(dr?1.1:0)];   /* stooped: the head hangs forward */
     figureHD(C,J,cnLookHD(C)); return; }
   ipAdd(0,0,6.6+bob+jump,2.1, 0.4+lean,sl,12.2+bob+jump,2.8, rb+6,rb+2,0.34,0.44,rb+4);
@@ -151,7 +153,7 @@ export function cnNight(){ const h=progressionState.save.sim.min/60; return h<6|
   const ni=C.i+di*sp, nj=C.j+dj*sp, pd=Math.hypot(ni-gymState.hubP.i,nj-gymState.hubP.j);
   if(C.pass>0) C.pass--;
   else if(pd<0.5&&pd<Math.hypot(C.i-gymState.hubP.i,C.j-gymState.hubP.j)){ if(++C.wait<100){ npcFace(C,di,dj,0.2); return false; } C.pass=80; }
-  C.wait=0; C.i=ni; C.j=nj; npcFace(C,di,dj,0.22); C.moving=true; C.ph+=0.2;
+  C.wait=0; C.i=ni; C.j=nj; npcFace(C,di,dj,0.22); C.moving=true; C.ph+=0.2; C.wg=(C.wg||0)+sp*7.5/WALK_STRIDE;   // mocap walk phase by distance
   return false;
 } // ---- routine ----
 function cnFree(C,key){ return !state.CN.some(o=>o!==C&&o.res===key); } function cnPlan(C){

@@ -6,6 +6,7 @@ import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, r
 import { drawHDCharacterDetails } from './hd-fight-scene.js';
 import {FIGURE_PART_CAPACITY, figureProportions} from './figure-anatomy.js';
 import {RIG, refitFigure} from './fighter-rig.js';
+import { mocapWalk, WALK_STRIDE } from './mocap-walk.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
 import { lightCell, drawCellLights, cellLights } from './cell-light.js';
@@ -190,11 +191,13 @@ export function hubTick(){
   if(dx||dy){
     let di=dx+dy, dj=dy-dx; const l=Math.hypot(di,dj); di/=l; dj/=l;
     const sp=0.052*(0.9+0.1*boxingState.STATS.speed);
-    const ni=state.hubP.i+di*sp, nj=state.hubP.j+dj*sp;
+    const ni=state.hubP.i+di*sp, nj=state.hubP.j+dj*sp, i0=state.hubP.i, j0=state.hubP.j;
     const trB=(a,b)=>(state.hubRoom==='cell'&&cnBlocks(a,b))||(state.hubRoom==='yard'&&ynBlocks(a,b));   // the inmates are solid
     if(!hubBlocked(ni,state.hubP.j)&&!trB(ni,state.hubP.j)) state.hubP.i=ni; if(!hubBlocked(state.hubP.i,nj)&&!trB(state.hubP.i,nj)) state.hubP.j=nj;
     state.hubP.fi=di; state.hubP.fj=dj; state.hubP.moving=true; state.hubP.ph+=0.28;
-    if(((state.hubP.ph/Math.PI)|0)!==(((state.hubP.ph-0.28)/Math.PI)|0)) tone('sine',90,70,0.03,0.05);
+    // The mocap walk's phase follows the distance actually covered, so the planted foot stays put; a footstep each half cycle.
+    const wg0=state.hubP.wg||0; state.hubP.wg=wg0+Math.hypot(state.hubP.i-i0,state.hubP.j-j0)*7.5/WALK_STRIDE;
+    if(Math.floor(state.hubP.wg*2)!==Math.floor(wg0*2)) tone('sine',90,70,0.03,0.05);
   }
   // nearest item in reach -> station
   let best=null, bd=0.95;
@@ -474,7 +477,21 @@ export function heroFigureLook(){
   if(state.hubRoom==='yard'){ Object.assign(look,{style:'hood',stubble:false});
     return {look,wrap:fn=>{ const k=A.PAL.slice(A.R_HAIR*3,A.R_HAIR*3+3); setRamp(A.R_HAIR,npcsState.HOOD,false); try{ withCellOutfit(fn); } finally { A.PAL.set(k,A.R_HAIR*3); } }}; }
   return {look,wrap:withCellOutfit};
-} function drawIsoBoxer0(){
+}
+/**
+ * The hero walking in a room: the mocap walk (src/mocap-walk.js) at his distance-driven phase. With a tray both hands keep the
+ * hand-made tray pose, hung from the walk's shoulders.
+ * @param {any} jt the hand-made per-side joints of this frame
+ */
+function heroWalk(jt){
+  const W=mocapWalk(state.hubP.wg||0);
+  if(!carryingTray()) return W;
+  const off=(/** @type {number[]} */ a,/** @type {number[]} */ b,/** @type {number[]} */ o)=>[o[0]+a[0]-b[0],o[1]+a[1]-b[1],o[2]+a[2]-b[2]];
+  const arms={};
+  for(const s of [-1,1]){ const w=W(s), h=jt[s], el=off(h.el,h.sh,w.sh); arms[s]={...w,el,hd:off(h.hd,h.el,el)}; }
+  return Object.assign((/** @type {number} */ s)=>arms[s],{pel:W.pel,abd:W.abd,chest:W.chest,head:W.head});
+}
+function drawIsoBoxer0(){
   state.ipC=state.hubP; state.ipN=0; state.ipPose=state.hubP.pose|0; state.ipBase=state.hubP.poseZ||0;
   const HD=state.ISO_K>1&&(PRISON_LOOK.includes(state.hubRoom)||state.hubRoom==='laznia'), jt={};   // the 2× cell: the modelled figure
   const still=state.ipPose===1||state.ipPose===2, mv=state.hubP.moving&&!state.ipPose, ph=state.hubP.ph, swayI=mv?0.35*Math.cos(ph):0, swayJ=mv?0.45*Math.sin(ph):0, bob=still?0:(mv?Math.abs(Math.sin(ph))*0.7:0.35*Math.sin(boxingState.tick*0.09));
@@ -509,7 +526,7 @@ export function heroFigureLook(){
     ipAdd(ex,s*es,ez,1.0, hx,s*hs,hz,0.9, longS?SH:SK);
     ipAdd(hx,s*hs,hz-0.2,1.0, hx+0.1,s*hs,hz-0.2,1.0, SK);                            // bare fists
   }
-  if(HD){ const A=appearanceState, J=(/** @type {number} */ s)=>jt[s]; J.pel=[0,0,6.6+bob]; J.chest=[0.4+swayI,swayJ,12.2+bob]; J.head=[0.35,0,15.6+bob];
+  if(HD){ const A=appearanceState, J=mv?heroWalk(jt):(/** @type {number} */ s)=>jt[s]; if(!mv){ J.pel=[0,0,6.6+bob]; J.chest=[0.4+swayI,swayJ,12.2+bob]; J.head=[0.35,0,15.6+bob]; }
     const look={sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true};
     if(state.heroHood) Object.assign(look,{style:'hood',stubble:false});
     if(state.isoTowel){ const wet=!!(roomsState.hubAct&&roomsState.hubAct.kind==='shower'&&roomsState.hubAct.t>roomsState.ACT_FADE);   /* the bath: a towel and slippers, under the shower naked */
