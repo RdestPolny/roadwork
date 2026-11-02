@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {RIG,hipSocket,shoulderSocket,buildSpine,headSocket,supportPelvis,legAnchors,kneePole,fitPlantedFoot,fixBoneLength} from '../src/fighter-rig.js';
+import {RIG,hipSocket,shoulderSocket,buildSpine,headSocket,supportPelvis,legAnchors,kneePole,fitPlantedFoot,fixBoneLength,refitFigure} from '../src/fighter-rig.js';
 import {solveLimb,ARM_UPPER,ARM_FORE,strikeArmTargets,elbowAngle} from '../src/combat-anatomy.js';
 
 const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
@@ -136,4 +136,20 @@ test('left- and right-side body blows bend the same spine without asymmetric dri
   near(left.chest[1],-right.chest[1]);
   near(dist(pel,left.abdomen),RIG.lowerSpine);
   near(dist(pel,right.abdomen),RIG.lowerSpine);
+});
+
+test('a hand-written pose takes the rig lengths, keeps its feet on the floor and refits to itself',()=>{
+  const side=s=>({hip:[0,s*1.38,7.2],knee:[0.7,s*1.3,3.8],foot:[0,s*1.4,0.9],sh:[0.1,s*2.4,12.4],el:[-0.2,s*3.5,9.9],hd:[0.6,s*3.7,8.0]});
+  const J=s=>side(s); J.pel=[0,0,6.6]; J.chest=[0.4,0,12.2]; J.head=[0.35,0,15.6];
+  const R=refitFigure(J), again=refitFigure(R);
+  near(dist(R.pel,R.chest),RIG.lowerSpine+RIG.upperSpine);
+  near(dist(R.chest,R.head),RIG.neckToHead);
+  for(const s of [-1,1]){
+    const L=R(s);
+    near(dist(L.hip,L.knee),RIG.legUpper,1e-4); near(dist(L.knee,L.foot),RIG.legLower,1e-4);
+    near(dist(L.sh,L.el),ARM_UPPER); near(dist(L.el,L.hd),ARM_FORE);
+    near(L.foot[2],0.9); near(Math.abs(L.hip[1]),RIG.hipHalf); near(Math.abs(L.sh[1]),RIG.shoulderHalf);
+    for(const k of ['hip','knee','foot','sh','el','hd']) near(dist(L[k],again(s)[k]),0,1e-4);
+  }
+  assert.ok(R.pel[2]>J.pel[2]+1,'longer legs lift the standing body');
 });

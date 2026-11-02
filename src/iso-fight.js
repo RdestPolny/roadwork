@@ -47,6 +47,11 @@ const punchT=(F,pid)=>bullTiming(PT[pid],!!F.bull);
 /** Farthest hip-to-hip distance (room units) at which each punch lands: the old side-on ranges 33/31/27/26 px scaled to the rooms. */
 const RANGE=[1.45,1.40,1.20,1.10];
 const LUNGE=[1.2,1.6,1.8,1.4];
+/** The rear straight's body sequence, from CMU mocap 13_18 (scripts/bvh-to-keys.mjs) mixed halfway with the original
+ *  in-sync motion: exponents on the punch progress for [striking, recovery]. Contact (progress 1) keeps the hand-tuned pose.
+ *  Striking: weight and hips lead, the shoulders follow, the fist keeps its snap. Recovery: the hips unwind first, the fist
+ *  comes back a little later than before. */
+const CROSS_PHASE=[{weight:0.6,hip:0.6,shoulder:0.75,arm:1},{weight:1,hip:1.5,shoulder:1,arm:1.5}];
 /** Seconds the rival shows each punch (jab, cross, hook, uppercut) before he throws it: a power punch can be read and answered.
  *  TELL_CHAIN: a later punch of his combination or his counter after an evade is shown only briefly. */
 const TELL=[.13,.23,.33,.33], TELL_CHAIN=.08;
@@ -1041,7 +1046,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     +(F.dash?F.dash.fwd*1.05*dash.push:0);
   let lateral=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35
     +(F.dash?F.dash.side*0.75*dash.push:0);
-  let lung=0, e=0, arm=0, follow=0, wind=0;
+  let lung=0, e=0, arm=0, follow=0, wind=0, eW=0, eH=0, eS=0;
   const pk=F.pk, D=pk?DRIVE[pk.pid]:null, hook=pk?.pid===2, upper=pk?.pid===3;
   if(pk){
     const T=punchT(F,pk.pid), striking=pk.t<T.hit;
@@ -1050,11 +1055,13 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     arm=striking?e:e*e; // fist retracts slightly ahead of the torso
     if(!striking&&k>0.6)follow=Math.sin(Math.PI*(1-k)/0.4);
     if((hook||upper)&&striking)wind=Math.sin(Math.PI*k);
-    lean+=D.lean*e;
-    bob-=D.drop*e+(upper?0.9:hook?0.2:0)*wind;
-    lung=LUNGE[pk.pid]*e;
+    eW=eH=eS=e;
+    if(pk.pid===1){ const C=CROSS_PHASE[striking?0:1]; eW=e**C.weight; eH=e**C.hip; eS=e**C.shoulder; arm=e**C.arm; }
+    lean+=D.lean*eW;
+    bob-=D.drop*eW+(upper?0.9:hook?0.2:0)*wind;
+    lung=LUNGE[pk.pid]*eW;
     if(pk.whiff&&!striking){ const o=Math.sin(Math.PI*Math.min(1,(pk.t-T.hit)/(T.end-T.hit))); lean+=0.9*o; lung+=0.6*LUNGE[pk.pid]*o; bob-=0.35*o; }
-    if(pk.low)bob-=0.80*e; // crouch in the knees, not a collapsed spine
+    if(pk.low)bob-=0.80*eW; // crouch in the knees, not a collapsed spine
   }
   const ps=pk?strikeSide(F,pk):0;
   const su=(t-F.slipSince)/TUNING.slipActive;
@@ -1096,10 +1103,10 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const walkRot=-stride*0.58-F.lagS*0.25, hipRot=stride*0.42;
   const asin=(v)=>Math.asin(Math.max(-1,Math.min(1,v)));
   const shoulderYaw=-asin(walkRot/2.7)
-    -(D?ps*(D.yaw*e*(1+0.18*follow)-(hook?0.4:upper?0.3:0)*wind):0)+(TP?ts*TP.yaw*tw:0);
+    -(D?ps*(D.yaw*eS*(1+0.18*follow)-(hook?0.4:upper?0.3:0)*wind):0)+(TP?ts*TP.yaw*tw:0);
   const hipYaw=-asin(hipRot*0.45/1.25)
-    -(D?ps*(D.hip*e-(hook||upper?0.15:0)*wind):0)+(TP?ts*TP.hip*tw:0);
-  const tilt=D?D.tilt*e+(upper?-0.6*wind:0):0;
+    -(D?ps*(D.hip*eH-(hook||upper?0.15:0)*wind):0)+(TP?ts*TP.hip*tw:0);
+  const tilt=D?D.tilt*eS+(upper?-0.6*wind:0):0;
   const feet={};
   for(const side of [-1,1]){
     const f=footJoint(F,side);
@@ -1117,7 +1124,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   for(const side of [-1,1]){
     const s=side, punching=!!D&&s===ps, leg=legs[s];
     const [knee,ankle]=solveLimb(leg.hip,leg.foot,LEG_U,LEG_L,leg.pole);
-    const shrug=D?(punching?D.rise:-0.2*D.rise)*e+s*ps*tilt*0.38:0;
+    const shrug=D?(punching?D.rise:-0.2*D.rise)*eS+s*ps*tilt*0.38:0;
     const sh=shoulderSocket(chest,s,shoulderYaw,shrug);
 
     // Shoulder-relative guard. Upper arms, forearms, hands and elbows follow
@@ -1156,7 +1163,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     }
     const [elbow,fist]=solveLimb(sh,hand,ARM_U,ARM_L,pole);
     J[s]={hip:leg.hip,knee,foot:ankle,sh,el:elbow,hd:fist,
-      heelLift:punching?Math.min(0.34,D.heel*e*0.45):0};
+      heelLift:punching?Math.min(0.34,D.heel*eH*0.45):0};
   }
   const jf=(s)=>J[s];
   jf.pel=pelvis;
@@ -1166,9 +1173,9 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   // The head reacts with a short neck rather than teleporting independently.
   // This also preserves the slip and the lead-shoulder chin-cover silhouette.
   const headHint=[
-    chest[0]+0.1+F.hLagF*0.48+(D?D.head[0]*e:0)+0.58*fold,
+    chest[0]+0.1+F.hLagF*0.48+(D?D.head[0]*eS:0)+0.58*fold,
     chest[1]+F.hLagS*0.40+bodySide*0.45
-      +(D?ps*(D.head[1]*e+(upper?0.6:0)*wind):0)+hitSide*fold*0.32,
+      +(D?ps*(D.head[1]*eS+(upper?0.6:0)*wind):0)+hitSide*fold*0.32,
     chest[2]+RIG.neckToHead-0.68*fold-0.48*F.gUp
       -(F.stagger>0?0.52:0)-(breathing?0.42:0)-0.4*tire
       -Math.abs(F.hLagF)*0.12

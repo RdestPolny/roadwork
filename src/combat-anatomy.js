@@ -3,8 +3,8 @@
  * Coordinates are fighter-local: +x forward, +/-y to each hand, +z up.
  * Presentation only; hit ranges, damage and clocks stay in the combat rules.
  */
-export const ARM_UPPER=3.0;
-export const ARM_FORE=3.75; // includes the wrist-to-knuckle section
+export const ARM_UPPER=3.2;
+export const ARM_FORE=3.45; // includes the wrist-to-knuckle section; with the upper arm, a mocap human's reach
 
 const mix3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
 const clamp01=v=>Math.max(0,Math.min(1,v));

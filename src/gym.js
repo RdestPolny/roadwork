@@ -5,7 +5,7 @@ import { gateOptions, listTag, prisonFightStart, prisonFightExtras } from './pri
 import { state as rendererState, line, taper, pset, shadowEll, withHD, hdRoom, roomFrame, zoomBlit, setLightVec, setFramebuffer } from './renderer.js';
 import { drawHDCharacterDetails } from './hd-fight-scene.js';
 import {FIGURE_PART_CAPACITY, figureProportions} from './figure-anatomy.js';
-import {RIG} from './fighter-rig.js';
+import {RIG, refitFigure} from './fighter-rig.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
 import { lightCell, drawCellLights, cellLights } from './cell-light.js';
@@ -285,6 +285,7 @@ function litEnd(lit,st,cx,cy){
  * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,look?:number[],only?:string,side?:number,fist?:{side:number,grow:number,rp:number}}} [o]   fist: one hand drawn larger (grow: share of its size) in ramp rp, the rival's cue before a punch; look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
 export function figureHD(C,J,L,o={}){
+  J=refitFigure(J);   // every pose on the rig's mocap proportions
   state.ipC=C; state.ipN=0; state.ipPose=o.pose||0; state.ipBase=o.base||0;
   const shape=figureProportions(L), heavy=shape.heavy;
   // All figures share the same anatomical cross-sections; bodyType/bulk only changes muscle and fat volumes.
