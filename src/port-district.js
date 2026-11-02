@@ -60,7 +60,6 @@ export const ANCHORS={
 /** Ground footprints of the new furniture: barrel tables, the fisherman's bucket and box, bench, bin, timber stacks and cat crate. */
 const LIFE_BLOCKS=[
   [32.2,8.3,33.1,9.2],[37.5,7.35,38.4,8.25],
-  [40.85,7.75,41.75,8.65],
   [48.78,23.91,49.54,24.69],[49.87,23.55,50.43,23.91],
   [ANCHORS.cat_crate.i-ANCHORS.cat_crate.w/2,ANCHORS.cat_crate.j-ANCHORS.cat_crate.d/2,ANCHORS.cat_crate.i+ANCHORS.cat_crate.w/2,ANCHORS.cat_crate.j+ANCHORS.cat_crate.d/2],
   [47.2,7.6,49.8,8.2],[50.5,4.9,51.25,7.5],[49.65,9.5,51.9,10.25],
