@@ -17,7 +17,8 @@ import { mix } from './cast.js';
 import {BODY_HIT_SECONDS, bodyHitMotion} from './body-reaction.js';
 import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets, elbowAngle} from './combat-anatomy.js';
 import {ragdollLengths, stepRagdoll, ragdollJointsIn} from './ragdoll.js';
-import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors, fixBoneLength} from './fighter-rig.js';
+import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors, fixBoneLength, refitFigure} from './fighter-rig.js';
+import { mocapCross } from './mocap-cross.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -1046,7 +1047,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     +(F.dash?F.dash.fwd*1.05*dash.push:0);
   let lateral=F.lagS*0.65+(mv?F.ms*0.25:0)+stride*0.35
     +(F.dash?F.dash.side*0.75*dash.push:0);
-  let lung=0, e=0, arm=0, follow=0, wind=0, eW=0, eH=0, eS=0;
+  let lung=0, e=0, arm=0, follow=0, wind=0, eW=0, eH=0, eS=0, prog=-1;
   const pk=F.pk, D=pk?DRIVE[pk.pid]:null, hook=pk?.pid===2, upper=pk?.pid===3;
   if(pk){
     const T=punchT(F,pk.pid), striking=pk.t<T.hit;
@@ -1055,7 +1056,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     arm=striking?e:e*e; // fist retracts slightly ahead of the torso
     if(!striking&&k>0.6)follow=Math.sin(Math.PI*(1-k)/0.4);
     if((hook||upper)&&striking)wind=Math.sin(Math.PI*k);
-    eW=eH=eS=e;
+    eW=eH=eS=e; prog=striking?k:2-k;
     if(pk.pid===1){ const C=CROSS_PHASE[striking?0:1]; eW=e**C.weight; eH=e**C.hip; eS=e**C.shoulder; arm=e**C.arm; }
     lean+=D.lean*eW;
     bob-=D.drop*eW+(upper?0.9:hook?0.2:0)*wind;
@@ -1187,8 +1188,48 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     headHint[2]+=(F.hurtDir===3?0.6:0)*hs;
   }
   jf.head=headSocket(chest,headHint);
-  return jf;
+  return pk?.pid===1&&prog>=0?withMocapCross(F,jf,ps,prog):jf;
 }
+
+/** How much of the mocap cross is used: the trunk and head at most TRUNK, the punching arm fully only around contact
+ *  (progress 0..1 strike, 1..2 recovery), so the punch starts from and returns to the game's high Victorian guard. */
+const MOCAP_CROSS_MIX={trunk:0.6,armIn:[0.45,0.85],armOut:[1.25,1.7]};
+
+/**
+ * The rear straight's upper body from mocap (src/mocap-cross.js), retargeted onto this rig: the trunk, the head and the
+ * punching arm take the mocap's bone directions on the rig's lengths. The legs (the game's footwork) and the guard arm stay
+ * procedural; MOCAP_CROSS_MIX says how much of each part is mocap at each moment.
+ * @param {any} F fighter @param {any} jf procedural joints @param {number} ps punching side @param {number} prog 0..1 strike, 1..2 recovery
+ */
+function withMocapCross(F,jf,ps,prog){
+  const X=MOCAP_CROSS_MIX, ramp=(/** @type {number} */ v,/** @type {number} */ a,/** @type {number} */ b)=>smooth(Math.max(0,Math.min(1,(v-a)/(b-a))));
+  const wt=X.trunk*(prog<=1?ramp(prog,0,0.5):1-ramp(prog,1.2,2));
+  const wa=prog<=1?ramp(prog,X.armIn[0],X.armIn[1]):1-ramp(prog,X.armOut[0],X.armOut[1]);
+  if(wt<=0&&wa<=0)return jf;
+  const M=mocapCross(prog), y=F.leadSide===-1?-1:1, P=jf.pel;
+  const put=(/** @type {number[]} */ v)=>[P[0]+v[0],P[1]+y*v[1],P[2]+v[2]];
+  // The shoulder line keeps the mocap's turn and tilt but sits where the rig attaches it to the chest.
+  const chest=put(M.chest), mc=put([0,1,2].map(c=>(M.lead.sh[c]+M.rear.sh[c])/2));
+  const gc=[0,1,2].map(c=>(jf(-1).sh[c]+jf(1).sh[c])/2-jf.chest[c]), shift=[0,1,2].map(c=>chest[c]+gc[c]-mc[c]);
+  const at=(/** @type {number[]} */ v)=>put(v).map((q,c)=>q+shift[c]);
+  const J={};
+  for(const s of [-1,1]){
+    const g=jf(s), m=s*y>0?M.lead:M.rear, sh=at(m.sh);
+    const el=s===ps?at(m.el):[sh[0]+g.el[0]-g.sh[0],sh[1]+g.el[1]-g.sh[1],sh[2]+g.el[2]-g.sh[2]];
+    const hd=s===ps?at(m.hd):[el[0]+g.hd[0]-g.el[0],el[1]+g.hd[1]-g.el[1],el[2]+g.hd[2]-g.el[2]];
+    J[s]={...g,sh,el,hd};
+  }
+  const R=refitFigure(Object.assign((/** @type {number} */ s)=>J[s],{pel:P,abd:put(M.abd),chest,head:put(M.head)}));
+  const out=blendJoints(jf,R,wt);
+  // The punching arm: the blended arm's bones turned towards the mocap's by wa, hung from the blended shoulder.
+  const o=out(ps), r=R(ps), dir=(/** @type {number[]} */ a,/** @type {number[]} */ b,/** @type {number[]} */ c,/** @type {number[]} */ d)=>lerp3(norm3(sub3(b,a)),norm3(sub3(d,c)),wa);
+  o.el=move3(o.sh,dir(o.sh,o.el,r.sh,r.el),ARM_U);
+  o.hd=move3(o.el,dir(o.el,o.hd,r.el,r.hd),ARM_L);
+  return out;
+}
+const sub3=(/** @type {number[]} */ a,/** @type {number[]} */ b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const norm3=(/** @type {number[]} */ v)=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];};
+const move3=(/** @type {number[]} */ a,/** @type {number[]} */ v,/** @type {number} */ d)=>{const n=norm3(v);return [a[0]+n[0]*d,a[1]+n[1]*d,a[2]+n[2]*d];};
 
 /** The punch F is showing before he throws it: the rival's tell, or the heavy rival's windup. @param {any} F */
 function tellOf(F){
