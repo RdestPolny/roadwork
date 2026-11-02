@@ -130,10 +130,11 @@ export function tickThamesPort(){
 /** In front of the pub's street door: walking into it from here steps inside. */
 const PUB_ENTRY={i:35.8,j:6.2};
 /** Position-preserving camera follow; only new terrain relaxes the old bounds. */
-function followPortCamera(){
-  const ext=Math.max(0,Math.min(1,(player.i-29.5)/13));
-  camera.x=Math.max(-40-400*ext,Math.min(330,162-(player.i-player.j)*12));
-  camera.y=Math.max(-180-290*ext,Math.min(170,84-(player.i+player.j)*6));
+function followPortCamera(){ const c=cameraFor(player.i,player.j); camera.x=c.x; camera.y=c.y; }
+/** Where the camera stands (2× units) while following a player at i,j. @param {number} i @param {number} j */
+function cameraFor(i,j){
+  const ext=Math.max(0,Math.min(1,(i-29.5)/13));
+  return {x:Math.max(-40-400*ext,Math.min(330,162-(i-j)*12)),y:Math.max(-180-290*ext,Math.min(170,84-(i+j)*6))};
 }
 /** Debug-only viewpoint for deterministic 432×288 environment captures.
  * Normal gameplay and story beats never call this function. */
@@ -335,10 +336,12 @@ function sackProfile(s,open){
  * depth pixels of darker underside give a lying sack its thickness; an open sack shows its mouth, coal inside if fill > 0. */
 function sackShape(bx,by,ux,uy,L,w,col,depth=0,open=false,fill=0){
   const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, nx=-uy, ny=ux, R=Math.ceil(L+w)+2, seed=19;
-  const at=(px,py)=>{ const s=(px*ux+py*uy)/L; if(s<0||s>1) return null; const t=(px*nx+py*ny)/(w*sackProfile(s,open)); return Math.abs(t)<=1?[s,t]:null; };
   for(let y=Math.max(0,Math.floor(by-R));y<=Math.min(H-1,Math.ceil(by+R+depth));y++) for(let x=Math.max(0,Math.floor(bx-R));x<=Math.min(W-1,Math.ceil(bx+R));x++){
-    let hit=null, d=0; for(;d<=depth;d++){ hit=at(x+.5-bx,y+.5-by-d); if(hit) break; } if(!hit) continue;
-    const [sx,tx]=hit, lx=x-bx, ly=y-by, weave=.07*vn(lx*.8+seed,ly*.8)+.04*((Math.floor(lx)+Math.floor(ly)*2)%3===0?1:0);
+    // the point of the sack under this pixel, d pixels up for the underside: s along the axis, t across (no array per test)
+    let sx=0, tx=0, d=0, hit=false;
+    for(;d<=depth;d++){ const px=x+.5-bx, py=y+.5-by-d, s=(px*ux+py*uy)/L; if(s<0||s>1) continue; const t=(px*nx+py*ny)/(w*sackProfile(s,open)); if(Math.abs(t)<=1){ sx=s; tx=t; hit=true; break; } }
+    if(!hit) continue;
+    const lx=x-bx, ly=y-by, weave=.07*vn(lx*.8+seed,ly*.8)+.04*((Math.floor(lx)+Math.floor(ly)*2)%3===0?1:0);
     const grime=vn(lx*.22+seed*.1,ly*.25), stain=Math.max(0,vn(lx*.12+seed,ly*.14)-.6)*1.6;
     let k=(d>0?.55+weave:.82+.26*(1-tx*tx)-.16*tx+weave)*(.84+.22*grime)*(1-stain*.35);
     if(!open&&sx>.68&&sx<.84) k*=.82+.18*Math.abs(Math.sin(tx*4+sx*20));
@@ -547,7 +550,7 @@ function hull(o,b,t,deck,after){
     quad(a,S.jf(a),S.deck(a),c,S.jf(c),S.deck(c),c,S.jf(c),S.top(c),a,S.jf(a),S.top(a),(x,y)=>shadeC(C.bulwark,.85+vn((x-camera.x)*.2,(y-camera.y)*.6)*.25)); }
   quad(o.s0,S.jf(o.s0),S.deck(o.s0),o.s0,S.jn(o.s0),S.deck(o.s0),o.s0,S.jn(o.s0),S.top(o.s0),o.s0,S.jf(o.s0),S.top(o.s0),()=>shadeC(C.bulwark,1.15));
   for(let k=0;k<n;k++){ const a=I(k),c=I(k+1), dz=(S.deck(a)+S.deck(c))/2;
-    quad(a,S.jf(a),dz,c,S.jf(c),dz,c,S.jn(c),dz,a,S.jn(a),dz,(x,y)=>{ const [gi,gj]=ground(x,y,dz), p=(gj-o.jc)*2.6+10, pl=Math.floor(p), f=frac(p);
+    quad(a,S.jf(a),dz,c,S.jf(c),dz,c,S.jn(c),dz,a,S.jn(a),dz,(x,y)=>{ const ga=(x-camera.x)/camera.ix, gb=(y-camera.y+dz*camera.z)/camera.iy, gi=(ga+gb)/2, gj=(gb-ga)/2, p=(gj-o.jc)*2.6+10, pl=Math.floor(p), f=frac(p);
       return shadeC(C.deck,(f<.16?.7:f>.8?1.08:1)*(.82+(h2(pl,Math.floor(gi/4.3+pl*.37))-128)/1000+vn(gi*.35,gj*1.2)*.2)*o.light); }); }
   deck(S);
   /* round the bluff bow the far gunwale stands up beyond the deck edge: its tarred face, a wale and the rail */
@@ -853,9 +856,15 @@ function coalMound(cones,z0,seed){
     const cx0=Math.round(camera.x), cy0=Math.round(camera.y), top=Math.max(...cones.map(c=>c.h)), step=.45;
     let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
     for(const c of cones) for(const [a,b] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ const x=isoX(c.i+a*c.ri*1.2,c.j+b*c.rj*1.2), y=isoY(c.i+a*c.ri*1.2,c.j+b*c.rj*1.2,z0); x0=Math.min(x0,x); x1=Math.max(x1,x); y0=Math.min(y0,y-c.h*camera.z); y1=Math.max(y1,y); }
+    // The height steps and each cone's radius limit per step are the same for every pixel: computed once (same values as inline).
+    const zs=[]; for(let z=top;z>=0;z-=step) zs.push(z);
+    const lims=cones.map(c=>zs.map(z=>z>c.h?-1:Math.pow(1-z/c.h,1.25)));
     for(let y=Math.floor(y0);y<=Math.ceil(y1);y++) for(let x=Math.floor(x0);x<=Math.ceil(x1);x++){
-      for(let z=top;z>=0;z-=step){ const [gi,gj]=ground(x+.5,y+.5,z0+z); let best=-1;
-        for(const c of cones){ if(z>c.h) continue; const u=(gi-c.i)/c.ri, v=(gj-c.j)/c.rj, ang=Math.atan2(v,u), rag=1+.42*(vn(ang*1.9+seed+c.i,z*.45+c.j)-.5), q=(u*u+v*v)/(rag*rag), lim=Math.pow(1-z/c.h,1.25);
+      const ga=(x+.5-camera.x)/camera.ix;   // ground(x+.5,y+.5,z0+z) inlined: only its b term changes with z
+      for(let zi=0;zi<zs.length;zi++){ const z=zs[zi], gb=(y+.5-camera.y+(z0+z)*camera.z)/camera.iy, gi=(ga+gb)/2, gj=(gb-ga)/2; let best=-1;
+        for(let ci=0;ci<cones.length;ci++){ const c=cones[ci], lim=lims[ci][zi]; if(lim<0) continue; const u=(gi-c.i)/c.ri, v=(gj-c.j)/c.rj;
+          if(u*u+v*v>lim*1.4642) continue;   // the ragged rim reaches at most 1.21 × the radius: certainly outside this cone
+          const ang=Math.atan2(v,u), rag=1+.42*(vn(ang*1.9+seed+c.i,z*.45+c.j)-.5), q=(u*u+v*v)/(rag*rag);
           if(q<=lim) best=Math.max(best,q/lim); }
         if(best>=0){ const k=(.5+.6*z/top)*(best>.7?.82:1)*(1.06-.12*Math.sign(gj-cones[0].j)); px.push(x-cx0,y-cy0,coalAt(x,y,k)); break; } } }
     mounds.set(key,px); }
@@ -1174,6 +1183,8 @@ const pierPiles=[DISTRICT.pier].flatMap(([i0,j0,i1,j1])=>{
   for(let i=i0+.35;i<i1;i+=2.3) for(const j of [j0+.7,j1-.5]) piles.push([i+.275,j+.3]);
   return piles;
 });
+/** Where any pile ripple can reach: no pixel outside it is within 1.2 of a pile. */
+const pileBox=[Math.min(...pierPiles.map(p=>p[0]))-1.3,Math.min(...pierPiles.map(p=>p[1]))-1.3,Math.max(...pierPiles.map(p=>p[0]))+1.3,Math.max(...pierPiles.map(p=>p[1]))+1.3];
 /** River surface: wind-streaked ripples, shadow under the quay and the shimmering columns of the lamps' reflections. */
 function water(t){
   const refl=LAMPS.filter(l=>!l.wall).map(l=>({x:isoX(l.i,l.j),y:isoY(l.i,l.j,2*WL-l.z),top:isoY(l.i,13,WL),k:glow[LAMPS.indexOf(l)]}));
@@ -1182,13 +1193,15 @@ function water(t){
     if(under(x,y)!==RIVER) return 0;
     if(y===py&&x===px+1&&(x&1)) return pc;
     px=x; py=y;
-    const [i,j]=ground(x,y,WL), r=fbm((i-j)*.45+t*.0025,(i+j)*2.6-t*.009), hi=Math.max(0,Math.min(1,(r-.6)*9))*(.5+vn((i-j)*.2,(i+j)*.3));
+    // ground(x,y,WL) inlined (no array per pixel); the highlight noise and the pile ripples are skipped where their weight is 0, which mix() would return unchanged
+    const ga=(x-camera.x)/camera.ix, gb=(y-camera.y+WL*camera.z)/camera.iy, i=(ga+gb)/2, j=(gb-ga)/2;
+    const r=fbm((i-j)*.45+t*.0025,(i+j)*2.6-t*.009), crest=Math.max(0,Math.min(1,(r-.6)*9)), hi=crest>0?crest*(.5+vn((i-j)*.2,(i+j)*.3)):0;
     let c=hi>0?mix(C.water,C.waterHi,hi*.75):C.water; c=shadeC(c,(j<15&&i<52.5?.62+.38*Math.max(0,j-13)/2:1)*(.85+(r-.5)*.3));
-    for(const [pi,pj] of pierPiles){
+    if(i>=pileBox[0]&&i<=pileBox[2]&&j>=pileBox[1]&&j<=pileBox[3]) for(const [pi,pj] of pierPiles){
       const di=i-pi, dj=j-pj;
       if(Math.abs(di)>1.2||Math.abs(dj)>1.2) continue;
       const d=Math.hypot(di,dj), ripple=Math.max(0,1-Math.abs(d-(.65+.08*Math.sin(t*.04+pi)))/.17);
-      c=mix(c,C.waterHi,ripple*(.28+.12*vn(i*4+t*.02,j*4)));
+      if(ripple>0) c=mix(c,C.waterHi,ripple*(.28+.12*vn(i*4+t*.02,j*4)));
     }
     for(const l of refl){ if(y<l.top||Math.abs(x-l.x)>12) continue; const dx=x-l.x+(vn(y*.35,t*.03+l.x)-.5)*7, w=Math.exp(-dx*dx/14)*Math.max(0,1-Math.abs(y-l.y)/46)*l.k;
       if(w>.02) c=mix(c,C.lamp,Math.min(.85,w*(.25+.9*hi+.3*Math.max(0,Math.sin(y*1.3+t*.07+x*.2))))); }
@@ -1227,7 +1240,7 @@ function background(t){
 /** Static scenery is cached as square chunks of the world's pixel grid (a pixel is world-fixed: screen − camera), so the cost of a
  * frame is the visible chunks' blit, never the size of the world. Chunks are drawn on demand, the ring around the view one per frame
  * ahead of the walk, and the least recently used fall out of the cache. Moving the camera therefore never redraws the scenery. */
-const CHUNK=144, CHUNK_LIMIT=48;
+const CHUNK=144, CHUNK_LIMIT=96;   // the walkable port needs 63 chunks at the 432×288 frame: all of them stay
 const bake={chunks:new Map(),ix:0,jx:0,iy:0,jy:0,z:0};
 /** Forget every chunk: call when anything the scenery shows has changed. */
 function invalidateBackground(){ bake.chunks.clear(); }
@@ -1244,10 +1257,20 @@ function chunkAt(cx,cy,t){
   if(buf) chunks.delete(key); else { buf=buildChunk(cx,cy,t); if(chunks.size>=CHUNK_LIMIT) chunks.delete(chunks.keys().next().value); }
   chunks.set(key,buf); return buf;
 }
+/** On a fresh cache draw every chunk a following camera can show anywhere on the walkable port (the current view first, as
+ * before), so walking never waits for scenery: one longer frame on entering the port instead of a hitch at each new corner.
+ * Story shots that leave those views still fill in through the ring. @param {number} t @param {number} x0 @param {number} y0 @param {number} W @param {number} H */
+function bakeReachable(t,x0,y0,W,H){
+  const r=camera.ix/12, keys=new Set(), add=(x,y)=>{ for(let cy=Math.floor(-y/CHUNK);cy<=Math.floor((H-1-y)/CHUNK);cy++) for(let cx=Math.floor(-x/CHUNK);cx<=Math.floor((W-1-x)/CHUNK);cx++) keys.add(cx+','+cy); };
+  add(x0,y0);
+  for(let i=.5;i<=52;i+=.5) for(let j=.5;j<=25;j+=.5) if(portSurface(i,j)){ const c=cameraFor(i,j); add(Math.round(c.x*r),Math.round(c.y*r)); }
+  for(const k of keys){ const [cx,cy]=k.split(',').map(Number); chunkAt(cx,cy,t); }
+}
 /** Copy the camera window from the visible chunks, then warm one chunk of the ring around it. */
 function cachedBackground(t,fb){
   const A=appearanceState, W=A.W, H=A.H, x=Math.round(camera.x), y=Math.round(camera.y);
   if(bake.ix!==camera.ix||bake.jx!==camera.jx||bake.iy!==camera.iy||bake.jy!==camera.jy||bake.z!==camera.z){ invalidateBackground(); Object.assign(bake,{ix:camera.ix,jx:camera.jx,iy:camera.iy,jy:camera.jy,z:camera.z}); }
+  if(!bake.chunks.size) bakeReachable(t,x,y,W,H);
   const c0=Math.floor(-x/CHUNK), c1=Math.floor((W-1-x)/CHUNK), r0=Math.floor(-y/CHUNK), r1=Math.floor((H-1-y)/CHUNK);
   for(let cy=r0;cy<=r1;cy++) for(let cx=c0;cx<=c1;cx++){
     const buf=chunkAt(cx,cy,t), ox=cx*CHUNK+x, oy=cy*CHUNK+y, x0=Math.max(0,ox), x1=Math.min(W,ox+CHUNK), y0=Math.max(0,oy), y1=Math.min(H,oy+CHUNK);
@@ -1361,16 +1384,26 @@ function drawPropMap(){
     drawText(p.id.toUpperCase().replace(/_/g,'-'),x,y-8,c,sc); drawText(String(Math.round(propKey(p)*100)/100).replace('.',','),x,y-1,c,sc);
   }
 }
+/** The fog pass's vignette factor per pixel of a W×H picture, computed once per size. */
+let vignetteTable=new Float64Array(0), vignetteW=0;
+/** @param {number} W @param {number} H */
+function vignette(W,H){
+  if(vignetteW!==W||vignetteTable.length!==W*H){ vignetteW=W; vignetteTable=new Float64Array(W*H);
+    for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const dx=x/W-.5, dy=y/H-.5; vignetteTable[y*W+x]=1-.88*(dx*dx+dy*dy); } }
+  return vignetteTable;
+}
 /** Two layers of drifting river fog, thicker over the water, then halos round the lamps and a vignette. */
 function atmosphere(t){
   const fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H, fr=C.fog&255, fg=(C.fog>>8)&255, fbb=(C.fog>>16)&255;
+  // Per-frame terms hoisted and the river noise skipped on dry ground (river 0 adds exactly 0): the same arithmetic, fewer calls.
+  const sway=Math.sin(t*.0009)*.4, t1=t*.0011, t2=t*.0024, t3=t*.0004, V=vignette(W,H);
   for(let y=0;y<H;y+=2){ const wy=y-camera.y; for(let x=0;x<W;x+=2){
-    const wx=x-camera.x, n1=fbm(wx*.016-t*.0011,wy*.034+Math.sin(t*.0009)*.4), n2=fbm(wx*.035+t*.0024+9,wy*.07-t*.0004);
-    const [, j]=ground(x,y,WL), river=Math.max(0,Math.min(1,(j-12.5)/4));
-    const a=Math.min(.62,.06+.3*n1*n1+river*(.08+.4*Math.max(0,n2-.38)));
+    const wx=x-camera.x, n1=fbm(wx*.016-t1,wy*.034+sway);
+    const ga=(x-camera.x)/camera.ix, gb=(y-camera.y+WL*camera.z)/camera.iy, j=(gb-ga)/2, river=Math.max(0,Math.min(1,(j-12.5)/4));
+    const a=Math.min(.62,.06+.3*n1*n1+(river>0?river*(.08+.4*Math.max(0,fbm(wx*.035+t2+9,wy*.07-t3)-.38)):0)), ia=1-a, ra=fr*a, ga2=fg*a, ba=fbb*a;
     for(let yy=y;yy<y+2&&yy<H;yy++) for(let xx=x;xx<x+2;xx++){
-      const dx=xx/W-.5, dy=yy/H-.5, v=1-.88*(dx*dx+dy*dy), k=yy*W+xx, c=fb[k];
-      const r=((c&255)*(1-a)+fr*a)*v, g=(((c>>8)&255)*(1-a)+fg*a)*v, b=(((c>>16)&255)*(1-a)+fbb*a)*v;
+      const k=yy*W+xx, v=V[k], c=fb[k];
+      const r=((c&255)*ia+ra)*v, g=(((c>>8)&255)*ia+ga2)*v, b=(((c>>16)&255)*ia+ba)*v;
       fb[k]=(0xff000000|(b<<16)|(g<<8)|r)>>>0;
     }
   } }
@@ -1385,4 +1418,4 @@ function atmosphere(t){
   });
 }
 /* drawing helpers shared with the vehicles (carriage.js) and the story's cast (port-story.js) */
-export { C, contact, toWorld, spot, thin, stroke, floor, rod, rope, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, withRamps, barrel, crate, chimney, onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, docker, dockPerson, hull, gasLamp, bollard };
+export { C, camera, contact, toWorld, spot, thin, stroke, floor, rod, rope, smoke, cyl, roundLit, behindFront, vn, ease, lerp, lerp3, frac, walkJoints, turnTo, along, pathLen, withRamps, barrel, crate, chimney, onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, docker, dockPerson, hull, gasLamp, bollard };

@@ -12,7 +12,7 @@ import { pubCraftDetails, tradeCraftDetails, pierCraftDetails, yardCraftProps } 
 import { portLifeProps } from './port-scenes.js';
 import { C, floor, stroke, thin, rope, vn, frac, barrel, crate, chimney,
   onI, onJ, ground, brickAt, windowAt, lettering, fq, fl, contact, cyl, roundLit,
-  smoke, spot, hull, RIVER } from './thames-port.js';
+  smoke, spot, hull, RIVER, camera } from './thames-port.js';
 
 const WOOD=rgb('#4b3527'), WOOD_HI=rgb('#75604a'), WOOD_DARK=rgb('#211b17');
 const BRICK_PUB=[rgb('#493126'),rgb('#53382c'),rgb('#392b27'),rgb('#604135')];
@@ -77,12 +77,12 @@ export function portDecks(){
     const [i,j]=ground(x,y,.04), boundary=11.85+.35*vn(i*1.8,3.7)+.12*vn(i*6,1.2);
     const edge=Math.min(1,Math.max(0,(j-boundary)*5));
     const fade=edge*Math.min(1,(i-31.5)*3,(39.3-i)*2);
-    const sand=shadeC(rgb('#817253'),.72+.24*vn(x*.13,y*.14)+(h2(x|0,y|0)-128)/850);
+    const sand=shadeC(rgb('#817253'),.72+.24*vn((x-camera.x)*.13,(y-camera.y)*.14)+(h2((x-camera.x)|0,(y-camera.y)|0)-128)/850);
     return mix(under(x,y),sand,fade);
   });
   for(let k=0;k<shore.length-1;k++){
     const [a,ja,za]=shore[k], [b,jb,zb]=shore[k+1];
-    quad(a,13,0,b,13,0,b,jb,zb,a,ja,za,(x,y)=>shadeC(rgb('#817253'),.72+.24*vn(x*.13,y*.14)+(h2(x|0,y|0)-128)/850));
+    quad(a,13,0,b,13,0,b,jb,zb,a,ja,za,(x,y)=>shadeC(rgb('#817253'),.72+.24*vn((x-camera.x)*.13,(y-camera.y)*.14)+(h2((x-camera.x)|0,(y-camera.y)|0)-128)/850));
     if(za<-6&&zb<-6) thin(a,ja,za+.05,b,jb,zb+.05,shadeC(C.waterHi,.8));
   }
   for(const [i,j,z] of [[34.3,13.8,-1.6],[35.2,14.3,-2],[36.4,14.6,-2.3],[37.8,14.2,-2],[38.5,13.7,-1.6]]){
@@ -108,7 +108,7 @@ export function portDecks(){
   // A small headless fish, with flesh exposed at the torn end.
   const fishI=33.35, fishJ=15.82, fishZ=netZ(fishJ)+.24;
   quad(fishI-.3,fishJ,fishZ,fishI-.15,fishJ-.12,fishZ+.17,
-    fishI+.17,fishJ-.1,fishZ+.14,fishI+.2,fishJ+.1,fishZ-.14,(x,y)=>shadeC(rgb('#4a5d52'),h2(x|0,y|0)%4===0?1.3:1));
+    fishI+.17,fishJ-.1,fishZ+.14,fishI+.2,fishJ+.1,fishZ-.14,(x,y)=>shadeC(rgb('#4a5d52'),h2((x-camera.x)|0,(y-camera.y)|0)%4===0?1.3:1));
   quad(fishI-.3,fishJ,fishZ,fishI+.2,fishJ+.1,fishZ-.14,
     fishI+.08,fishJ+.13,fishZ-.19,fishI-.16,fishJ+.1,fishZ-.14,()=>rgb('#36473f'));
   thin(fishI-.3,fishJ,fishZ,fishI-.45,fishJ-.12,fishZ+.17,rgb('#46594d'));
@@ -160,7 +160,7 @@ export function portRiverDistance(t){
 }
 function roofPlane(i0,i1,j0,j1,z0,ridge,seed){
   quad(i0,j1,z0,i1,j1,z0,i1,j0,ridge,i0,j0,ridge,(x,y)=>{
-    const v=vn(x*.11+seed,y*.15),grain=h2(Math.floor(x*1.2),Math.floor(y*.8));
+    const v=vn((x-camera.x)*.11+seed,(y-camera.y)*.15),grain=h2(Math.floor((x-camera.x)*1.2),Math.floor((y-camera.y)*.8));
     return shadeC(C.slate,.65+v*.35+(grain-128)/1200);
   });
   for(let i=i0+.5;i<i1;i+=.8) thin(i,j1,z0,i,j0,ridge,shadeC(C.slate,.63));
@@ -195,7 +195,7 @@ function paintText(f,a,z,text,{col,cell=2,adv=4*cell,seed=0,mid=false,shadow=rgb
   };
   fq(f,a-ci*2,z-(H+2)*cz,a+(W+2)*ci,z+2*cz,(x,y)=>{
     const k=hit(x,y);
-    if(k){ const n=h2(x*7+seed,y*3), age=.84+.2*vn(x*.31+seed,y*.43); return n<12?mix(under(x,y),col,.55):shadeC(col,age*(k>1?1.1:1)); }
+    if(k){ const n=h2((x-camera.x)*7+seed,(y-camera.y)*3), age=.84+.2*vn((x-camera.x)*.31+seed,(y-camera.y)*.43); return n<12?mix(under(x,y),col,.55):shadeC(col,age*(k>1?1.1:1)); }
     return hit(x-1,y-1)?mix(under(x,y),shadow,.75):0;
   });
 }
@@ -230,10 +230,10 @@ function signAt(u,v,w,h,x,y){
   if(d<2) return shadeC(C.wale,.95-.35*(v/h)+(u<w/2&&v<h/2?.15:0));
   if(d<3) return shadeC(C.woodDark,.6);
   const ax=u-Math.floor((w-11)/2), ay=v-Math.floor((h-14)/2), aa=ay>=0&&ay<14&&ax>=0&&ax<11?ANCHOR[ay][ax]:'.', sh=ay>=1&&ay<15&&ax>=1&&ax<12?ANCHOR[ay-1][ax-1]!=='.':false;
-  const chip=h2(x*5,y*3)<22;
-  if(aa==='x'&&!chip) return shadeC(rgb('#dec78d'),.8+.3*vn(x*.4,y*.5)-.12*(ay>8?1:0));
+  const chip=h2((x-camera.x)*5,(y-camera.y)*3)<22;
+  if(aa==='x'&&!chip) return shadeC(rgb('#dec78d'),.8+.3*vn((x-camera.x)*.4,(y-camera.y)*.5)-.12*(ay>8?1:0));
   if(aa==='r'&&!chip) return shadeC(rgb('#b49a62'),.9);
-  const streak=vn(x*.5,y*.07), base=mix(rgb('#122325'),rgb('#2a4440'),.4*vn(x*.2+3,y*.25)+.35*streak*(1-v/h));
+  const streak=vn((x-camera.x)*.5,(y-camera.y)*.07), base=mix(rgb('#122325'),rgb('#2a4440'),.4*vn((x-camera.x)*.2+3,(y-camera.y)*.25)+.35*streak*(1-v/h));
   return sh?shadeC(rgb('#0a1010'),1):base;
 }
 /** Where each lit pub window sits: [a, z, w, h] on the front wall (j=5.9), as given to windowAt. */
@@ -291,7 +291,7 @@ function pub(t){
     return mix(under(x,y),C.lamp,k);
   });
   contact(34.86,6,36.74,6.9,0,.64);
-  fq(F,34.95,0,36.65,18.2,(x,y)=>shadeC(C.woodDark,.5+.2*vn(x*.2,y*.3)));
+  fq(F,34.95,0,36.65,18.2,(x,y)=>shadeC(C.woodDark,.5+.2*vn((x-camera.x)*.2,(y-camera.y)*.3)));
   fq(F,D.a,D.z0,D.b,D.z1,(x,y)=>{
     const [a,z]=onJ(j+.03,x,y), p=(a-(D.a+D.wt))/(D.b-D.a-D.wt), q=(z-D.z0)/(D.z1-D.z0);
     if(p<0) return shadeC(mix(C.woodDark,C.litD,.4*(1-q)),.55+.25*(1-q));
@@ -304,7 +304,7 @@ function pub(t){
     return [u,(y0-y)/(y0-isoY(pi,pj,zb+1))/(zt-zb)];
   };
   quad(H[0],H[1],zb,E[0],E[1],zb,E[0],E[1],zt,H[0],H[1],zt,(x,y)=>{
-    const [u,v]=leaf(x,y), g=.7+.25*vn(x*.3,y*.12);
+    const [u,v]=leaf(x,y), g=.7+.25*vn((x-camera.x)*.3,(y-camera.y)*.12);
     if(u>.93) return shadeC(C.woodLight,.8);
     if((u<.3&&(Math.abs(v-.12)<.03||Math.abs(v-.86)<.03))) return shadeC(C.iron,1.2);
     if(Math.abs(u-.78)<.035&&Math.abs(v-.5)<.05) return shadeC(C.wale,1.1);
@@ -322,7 +322,7 @@ function pub(t){
   stoneStep(34.86,5.94,36.74,6.42,0,2.3,3,35.9,true);
   stoneStep(34.8,6.42,36.78,6.78,0,1.35,11,36.2,false);
   stoneStep(34.9,6.78,36.66,7.02,-.08,.5,23,35.4,false);
-  floor(34.6,7.0,36.9,7.35,0,(x,y)=>{ const [,jj]=ground(x,y,0), k=Math.max(0,1-(jj-7)/.35); return k>0&&h2(x*3,y*5)<190*k?shadeC(under(x,y),.72):0; });
+  floor(34.6,7.0,36.9,7.35,0,(x,y)=>{ const [,jj]=ground(x,y,0), k=Math.max(0,1-(jj-7)/.35); return k>0&&h2((x-camera.x)*3,(y-camera.y)*5)<190*k?shadeC(under(x,y),.72):0; });
   // Wrought-iron hanging sign: scrolled bracket on the wall, cross-bar, two chains and a framed board.
   const SJ=7.52, arm=(s,z)=>[38.55+.95*s,5.98+1.57*s,z];
   for(const dz of [0,.34]) stroke(...arm(0,27.2+dz),...arm(1,27.2+dz),dz?IRON_L:C.iron);
@@ -370,7 +370,7 @@ export function pubWindowsFX(t){
 function tradeBuildings(t){
   const F1={j:3.9},F2={j:4.5};
   // The lane recedes behind the accessible quay; no transition to a new map.
-  floor(39.55,-6.2,42.4,0,0,(x,y)=>shadeC(C.stone[h2(x|0,y|0)&3],.43+.13*vn(x*.3,y*.3)));
+  floor(39.55,-6.2,42.4,0,0,(x,y)=>shadeC(C.stone[h2((x-camera.x)|0,(y-camera.y)|0)&3],.43+.13*vn((x-camera.x)*.3,(y-camera.y)*.3)));
   wallI(39.55,-6.3,0,50,BRICK_PUB,99);
   wallI(42.4,-6.3,0,58,BRICK_YARD,125);
   wallJ(39.55,42.4,-6.3,45,BRICK_YARD,62);
@@ -379,7 +379,7 @@ function tradeBuildings(t){
   wallI(46.2,-1.2,3.9,51,BRICK_YARD,147);
   roofPlane(42.25,46.4,-1.3,4,51,59,15);
   windowAt(F1,43.2,27,1.5,14,'shut',t);
-  fq(F1,43.2,0,45.25,20,(x,y)=>shadeC(C.wood,.65+vn(x*.25,y*.3)*.18));
+  fq(F1,43.2,0,45.25,20,(x,y)=>shadeC(C.wood,.65+vn((x-camera.x)*.25,(y-camera.y)*.3)*.18));
   fl(F1,44.2,0,44.2,20,C.iron);
   lettering(F1,42.8,49,'RIGGING',rgb('#aaa38e'),.3);
   wallJ(46.65,52,4.5,57,BRICK_PUB,166);

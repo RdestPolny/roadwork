@@ -50,6 +50,7 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 - Izometria: jednostka `z` to ok. 1 px, ekranowa pozioma to `(di, −dj)`. Kształt z jednej linii `thin()` wygląda na „otwarty”; pełny kształt składaj z kilku gęstych rządków. Bardzo ciemne kolory giną na ceglanej ścianie.
 - `horse()` w `src/carriage.js` rysuje konie i w porcie, i przy dorożce; zmiana proporcji dotyczy obu scen.
 - Renderer nie ma alfy: zanikanie rób mieszaniem koloru z tłem (`mix`).
+- Tło portu (`background()` w `thames-port.js` i to, co woła) jest wypiekane w kafle 144 px, przy wejściu do portu od razu dla całego obszaru dostępnego kamerze. Teksturę w tle licz ze współrzędnych świata (`x-camera.x`, `y-camera.y`), nie ekranu, bo inaczej wzór zaczyna się od nowa w każdym kaflu (szwy). Czas klatki mierz `node scripts/profile-port.mjs` (budżet 16,7 ms; w listopadzie 2026 ok. 8–9 ms).
 
 ## Git
 

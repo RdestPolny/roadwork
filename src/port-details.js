@@ -6,13 +6,13 @@ import { rgb } from './appearance.js';
 import { quad, isoBox, isoX, isoY, shadeC } from './gym.js';
 import { h2 } from './boxing.js';
 import { C, contact, floor, thin, stroke, rope, cyl, roundLit,
-  fq, fl, onJ, onI, vn, frac, ground } from './thames-port.js';
+  fq, fl, onJ, onI, vn, frac, ground, camera } from './thames-port.js';
 
 const IRON=rgb('#1c1e1b'), RUST=rgb('#664936');
 const HONEY=rgb('#ab804e'), LIGHT=rgb('#dcaa65');
 const OAK=rgb('#574331'), CUT=rgb('#816347'), END=rgb('#30261f');
 const PITCH=rgb('#1a1c1d');
-const soft=(x,y)=>.72+vn(x*.09,y*.13)*.25;
+const soft=(x,y)=>.72+vn((x-camera.x)*.09,(y-camera.y)*.13)*.25;
 /** Cast-iron bracket, riveted joinery and a readable lantern at pub entry. */
 export function pubCraftDetails(){
   const F={j:5.94};
@@ -41,7 +41,7 @@ export function pubCraftDetails(){
   isoBox(a-.15,5.85,b+.2,front+.19,42.2,43.8,C.woodLight,OAK,END);
   // Glass face (warm late-evening silhouettes behind sash).
   quad(a+.12,front+.02,31.2,b-.12,front+.02,31.2,b-.12,front+.02,41.3,a+.12,front+.02,41.3,
-    (x,y)=>shadeC(C.lit,soft(x,y)*(.7+.15*vn(x*.32,y*.14))));
+    (x,y)=>shadeC(C.lit,soft(x,y)*(.7+.15*vn((x-camera.x)*.32,(y-camera.y)*.14))));
   for(const i of [a+.06,(a+b)/2,b-.06])
     stroke(i,front+.06,31.2,i,front+.06,41.6,END);
   for(const z of [31.1,36.4,41.6])
@@ -57,7 +57,7 @@ export function pubCraftDetails(){
   // Rusting iron sign screws (the window lettering lives in port-extension).
   for(const z of [18,21]) thin(38.7,6, z,38.9,6,z,RUST);
   // Small coal-dark stone pads under external beer barrels.
-  floor(31.05,6.2,32.7,7.25,.025,(x,y)=>shadeC(C.stone[h2(x|0,y|0)&3],.57+vn(x*.31,y*.29)*.17));
+  floor(31.05,6.2,32.7,7.25,.025,(x,y)=>shadeC(C.stone[h2((x-camera.x)|0,(y-camera.y)|0)&3],.57+vn((x-camera.x)*.31,(y-camera.y)*.29)*.17));
 }
 /** Warehouse joinery, hand gear and signs: clearly a working dock, not a row of generic houses. */
 export function tradeCraftDetails(){
