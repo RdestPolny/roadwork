@@ -536,6 +536,15 @@ function hull(o,b,t,deck,after){
   const S=hullShape(o,b), n=Math.ceil((o.s1-o.s0)/.25), I=k=>o.s0+(o.s1-o.s0)*k/n, wl=WL+b;
   for(let k=0;k<n;k++){ const a=I(k),c=I(k+1);
     quad(a,S.jn(a),wl,c,S.jn(c),wl,c,S.jn(c),wl-(S.top(c)-wl)*.8,a,S.jn(a),wl-(S.top(a)-wl)*.8,(x,y)=>shadeC(under(x,y),.5+.32*vn((x-camera.x)*.15,(y-camera.y)*.9+t*.03))); }
+  /* the hull's outer planking: the near side the whole length, the far side only round the bluff bow; the far side is drawn first, under the deck, so only what shows beyond the rim remains */
+  const plank=(J,from)=>{ for(let k=0;k<n;k++){ const a=I(k),c=I(k+1); if(c<=from) continue; const ja=J(a), jc=J(c), ta=S.top(a), tc=S.top(c), lit=(J===S.jn?1:.85)+.3*Math.max(-.6,Math.min(1,(J===S.jn?ja-jc:jc-ja)/(c-a)));
+    quad(a,ja,wl-.3,c,jc,wl-.3,c,jc,tc,a,ja,ta,(x,y)=>shadeC(C.tar,lit*(.78+.5*vn((x-camera.x)*.07+o.s0,(y-camera.y)*.8))));
+    quad(a,ja,wl-.3,c,jc,wl-.3,c,jc,wl+.6,a,ja,wl+.6,(x,y)=>shadeC(C.slime,lit*(.75+.4*vn((x-camera.x)*.3,(y-camera.y)*1.3))));
+    for(const f of [.3,.5,.68]) thin(a,ja,wl+(ta-wl)*f,c,jc,wl+(tc-wl)*f,shadeC(C.tar,lit*.55));
+    quad(a,ja,ta-1.75,c,jc,tc-1.75,c,jc,tc-1.25,a,ja,ta-1.25,()=>shadeC(C.wale,lit*.9));
+    quad(a,ja,ta-.3,c,jc,tc-.3,c,jc,tc+.05,a,ja,ta+.05,()=>shadeC(C.rail,lit));
+  } };
+  plank(S.jf,o.s1-o.bow-.3);
   for(let k=0;k<n;k++){ const a=I(k),c=I(k+1);
     quad(a,S.jf(a),S.deck(a),c,S.jf(c),S.deck(c),c,S.jf(c),S.top(c),a,S.jf(a),S.top(a),(x,y)=>shadeC(C.bulwark,.85+vn((x-camera.x)*.2,(y-camera.y)*.6)*.25)); }
   quad(o.s0,S.jf(o.s0),S.deck(o.s0),o.s0,S.jn(o.s0),S.deck(o.s0),o.s0,S.jn(o.s0),S.top(o.s0),o.s0,S.jf(o.s0),S.top(o.s0),()=>shadeC(C.bulwark,1.15));
@@ -543,13 +552,12 @@ function hull(o,b,t,deck,after){
     quad(a,S.jf(a),dz,c,S.jf(c),dz,c,S.jn(c),dz,a,S.jn(a),dz,(x,y)=>{ const [gi,gj]=ground(x,y,dz), p=(gj-o.jc)*2.6+10, pl=Math.floor(p), f=frac(p);
       return shadeC(C.deck,(f<.16?.7:f>.8?1.08:1)*(.82+(h2(pl,Math.floor(gi/4.3+pl*.37))-128)/1000+vn(gi*.35,gj*1.2)*.2)*o.light); }); }
   deck(S);
-  for(let k=0;k<n;k++){ const a=I(k),c=I(k+1), ja=S.jn(a), jc=S.jn(c), ta=S.top(a), tc=S.top(c), lit=1+.3*Math.max(-.6,Math.min(1,(ja-jc)/(c-a)));
-    quad(a,ja,wl-.3,c,jc,wl-.3,c,jc,tc,a,ja,ta,(x,y)=>shadeC(C.tar,lit*(.78+.5*vn((x-camera.x)*.07+o.s0,(y-camera.y)*.8))));
-    quad(a,ja,wl-.3,c,jc,wl-.3,c,jc,wl+.6,a,ja,wl+.6,(x,y)=>shadeC(C.slime,lit*(.75+.4*vn((x-camera.x)*.3,(y-camera.y)*1.3))));
-    for(const f of [.3,.5,.68]) thin(a,ja,wl+(ta-wl)*f,c,jc,wl+(tc-wl)*f,shadeC(C.tar,lit*.55));
-    quad(a,ja,ta-1.75,c,jc,tc-1.75,c,jc,tc-1.25,a,ja,ta-1.25,()=>shadeC(C.wale,lit*.9));
-    quad(a,ja,ta-.3,c,jc,tc-.3,c,jc,tc+.05,a,ja,ta+.05,()=>shadeC(C.rail,lit));
-  }
+  /* round the bluff bow the far gunwale stands up beyond the deck edge: its tarred face, a wale and the rail */
+  for(let k=0;k<n;k++){ const a=I(k),c=I(k+1); if(c<=o.s1-o.bow-.3) continue; const ja=S.jf(a), jc=S.jf(c), da=S.deck(a)-.1, dc=S.deck(c)-.1, ta=S.top(a), tc=S.top(c), lit=.85+.3*Math.max(-.6,Math.min(1,(jc-ja)/(c-a)));
+    quad(a,ja,da,c,jc,dc,c,jc,tc,a,ja,ta,(x,y)=>shadeC(C.tar,lit*(.8+.5*vn((x-camera.x)*.07+o.s0,(y-camera.y)*.8))));
+    quad(a,ja,ta-.7,c,jc,tc-.7,c,jc,tc-.35,a,ja,ta-.35,()=>shadeC(C.wale,lit*.9));
+    quad(a,ja,ta-.3,c,jc,tc-.3,c,jc,tc+.05,a,ja,ta+.05,()=>shadeC(C.rail,lit)); }
+  plank(S.jn,-1e9);
   for(let k=0;k<4;k++){ const u=frac(t*.0016+k*.27), a=o.s0+.5+u*(o.s1-o.s0-2.5); thin(a,S.jn(a)+.2,wl,a+.7,S.jn(a+.7)+.2,wl,mix(C.water,C.waterHi,Math.sin(u*Math.PI))); }
   if(after) after(S);
   return S;
@@ -561,18 +569,28 @@ function barge(t){
   rudder();
   hull(o,b,t,S=>{
     const dk=S.deck(10), mast=[15.2,jc];
-    /* deckhouse at the stern, tall enough to stoop through its door */
-    const c0=o.s0+.55, c1=o.s0+2.45, cw=1.35, cz=S.deck(5), ch=11, roof=cz+ch, paint=rgb('#3a3b2c'), trim=rgb('#8a7d5c');
-    const panel=(a,z,a0,a1)=>{ const u=(a-a0)/(a1-a0), v=(z-cz)/ch; return shadeC(paint,(v<.12||v>.9||frac(u*3)<.05?1.25:1)*(.85+vn(a*3,z*.3)*.25)); };
+    /* deckhouse at the stern, big enough to walk into: a man stoops only slightly through its door */
+    const c0=o.s0+.45, c1=o.s0+4.4, cw=1.6, cz=S.deck(5), ch=20, roof=cz+ch, paint=rgb('#6a4a30'), trim=rgb('#a2845a');
+    /* tongue-and-groove boards laid along the house: a dark seam between boards, a few butt joints, grain and weathering */
+    const panel=(a,z,a0,a1)=>{ const b=(z-cz)/1.7, row=Math.floor(b), f=frac(b), joint=frac((a-a0)*.42+h2(row,3)/255)<.02;
+      return shadeC(paint,(f<.1||joint?.55:f>.86?1.12:1)*(.8+(h2(row,7)-128)/700+vn(a*2.2+row*3,z*.12)*.3));  };
     isoBox(c0,jc-cw,c1,jc+cw,cz,roof,paint,paint,paint,(x,y)=>{ const [a,z]=onJ(jc+cw,x,y); return panel(a,z,c0,c1); },(x,y)=>{ const [a,z]=onI(c1,x,y); return shadeC(panel(a,z,jc-cw,jc+cw),.78); });
-    for(const a of [c0+.35,c0+1.3]){ quad(a,jc+cw+.01,cz+5,a+.55,jc+cw+.01,cz+5,a+.55,jc+cw+.01,cz+8.2,a,jc+cw+.01,cz+8.2,()=>trim);
-      quad(a+.08,jc+cw+.02,cz+5.3,a+.47,jc+cw+.02,cz+5.3,a+.47,jc+cw+.02,cz+7.9,a+.08,jc+cw+.02,cz+7.9,(x,y)=>mix(C.litD,C.lit,.35+.5*vn((x-camera.x)*.4+t*.006,(y-camera.y)*.3))); }
-    quad(c1+.01,jc-.55,cz+.1,c1+.01,jc+.55,cz+.1,c1+.01,jc+.55,cz+10.4,c1+.01,jc-.55,cz+10.4,()=>shadeC(trim,.75));
-    for(const b of [jc-.5,jc+.04]) quad(c1+.02,b,cz+.3,c1+.02,b+.46,cz+.3,c1+.02,b+.46,cz+10.2,c1+.02,b,cz+10.2,(x,y)=>{ const [, z]=onI(c1,x,y); return shadeC(paint,(Math.abs(z-cz-5)<.25||Math.abs(z-cz-9.4)<.2?.6:.9)+vn((x-camera.x)*.3,(y-camera.y)*.3)*.2); });
-    thin(c1+.03,jc,cz+.3,c1+.03,jc,cz+10.2,C.black); thin(c1+.03,jc-.3,cz+5,c1+.03,jc-.2,cz+5,rgb('#c9a03a'));
+    for(const a of [c0+.45,c0+1.5,c0+2.55]){ quad(a,jc+cw+.01,cz+9.5,a+.7,jc+cw+.01,cz+9.5,a+.7,jc+cw+.01,cz+14.2,a,jc+cw+.01,cz+14.2,()=>trim);
+      quad(a+.09,jc+cw+.02,cz+9.9,a+.61,jc+cw+.02,cz+9.9,a+.61,jc+cw+.02,cz+13.8,a+.09,jc+cw+.02,cz+13.8,(x,y)=>mix(C.litD,C.lit,.35+.5*vn((x-camera.x)*.4+t*.006,(y-camera.y)*.3)));
+      thin(a+.35,jc+cw+.03,cz+9.9,a+.35,jc+cw+.03,cz+13.8,trim); thin(a+.09,jc+cw+.03,cz+11.85,a+.61,jc+cw+.03,cz+11.85,trim); }
+    /* the doorway stands open on a lit cabin: frame, a warm glow on the far bulkhead, a lamp, and the left leaf swung out */
+    const dw=.62, dh=15.8;
+    quad(c1+.01,jc-dw-.1,cz,c1+.01,jc+dw+.1,cz,c1+.01,jc+dw+.1,cz+dh+.5,c1+.01,jc-dw-.1,cz+dh+.5,()=>shadeC(trim,.75));
+    quad(c1+.02,jc-dw,cz+.1,c1+.02,jc+dw,cz+.1,c1+.02,jc+dw,cz+dh,c1+.02,jc-dw,cz+dh,(x,y)=>{ const [, z]=onI(c1,x,y), g=Math.max(0,1-(z-cz)/dh); return mix(INSIDE,C.lit,.1+.5*g*g+.08*vn((x-camera.x)*.3+t*.004,(y-camera.y)*.4)); });
+    thin(c1+.03,jc+.15,cz+dh-1.2,c1+.03,jc+.15,cz+dh-3.2,C.iron); isoBox(c1+.03,jc+.05,c1+.18,jc+.25,cz+dh-4,cz+dh-3.2,C.litD,C.lit,C.lit);
+    thin(c1+.03,jc-dw,cz+.1,c1+.03,jc+dw,cz+.1,C.black);
+    quad(c1+.02,jc-dw,cz+.2,c1+.62,jc-dw-.34,cz+.2,c1+.62,jc-dw-.34,cz+dh-.2,c1+.02,jc-dw,cz+dh-.2,(x,y)=>shadeC(paint,.8+.3*vn((x-camera.x)*.3,(y-camera.y)*.3)));
+    quad(c1+.1,jc-dw-.04,cz+1.2,c1+.54,jc-dw-.3,cz+1.2,c1+.54,jc-dw-.3,cz+dh*.45,c1+.1,jc-dw-.04,cz+dh*.45,()=>shadeC(paint,1.25));
+    thin(c1+.62,jc-dw-.34,cz+7,c1+.6,jc-dw-.3,cz+7.6,rgb('#c9a03a'));
+    isoBox(c1,jc-dw,c1+.45,jc+dw,cz-.3,cz+.35,shadeC(trim,.9),shadeC(trim,.75),shadeC(trim,.6));
     const ridge=roof+1.2, eave=cw+.2;
-    quad(c0-.15,jc-eave,roof,c1+.15,jc-eave,roof,c1+.15,jc,ridge,c0-.15,jc,ridge,(x,y)=>shadeC(rgb('#4a4636'),1.15+vn((x-camera.x)*.2,(y-camera.y)*.4)*.2));
-    quad(c0-.15,jc,ridge,c1+.15,jc,ridge,c1+.15,jc+eave,roof,c0-.15,jc+eave,roof,(x,y)=>shadeC(rgb('#4a4636'),.95+vn((x-camera.x)*.2,(y-camera.y)*.4)*.2));
+    quad(c0-.15,jc-eave,roof,c1+.15,jc-eave,roof,c1+.15,jc,ridge,c0-.15,jc,ridge,(x,y)=>shadeC(rgb('#3a332b'),1.15+vn((x-camera.x)*.2,(y-camera.y)*.4)*.2));
+    quad(c0-.15,jc,ridge,c1+.15,jc,ridge,c1+.15,jc+eave,roof,c0-.15,jc+eave,roof,(x,y)=>shadeC(rgb('#3a332b'),.95+vn((x-camera.x)*.2,(y-camera.y)*.4)*.2));
     quad(c1+.15,jc-eave,roof,c1+.15,jc,ridge,c1+.15,jc+eave,roof,c1+.15,jc+eave,roof-.35,()=>shadeC(trim,.8));
     thin(c0-.15,jc+eave,roof,c1+.15,jc+eave,roof,trim); thin(c1+.15,jc-eave,roof,c1+.15,jc,ridge,trim); thin(c1+.15,jc,ridge,c1+.15,jc+eave,roof,trim);
     /* skylight with lit, barred glass, the sliding companion hatch and the stove's chimney */
@@ -587,13 +605,24 @@ function barge(t){
     cyl(ci,cj,.12,roof,roof+6.2,(z,s)=>shadeC(C.iron,roundLit(s)*1.5));
     isoBox(ci-.2,cj-.2,ci+.2,cj+.2,roof+6.2,roof+6.8,C.ironHi,C.iron,C.iron);
     /* main hatch under a lashed tarpaulin, then the fore hatch */
-    for(const [h0,h1,hw] of [[6.4,14,1.7],[16.4,18.6,1.2]]){
+    for(const [h0,h1,hw] of [[7.4,14,1.7],[16.4,18.6,1.2]]){
       const z0=S.deck(h0), z1=z0+1.3, z2=z0+2.2, tarp=(x,y,k)=>shadeC(C.canvas,k*(.8+.4*vn((x-camera.x)*.15,(y-camera.y)*.6)));
       isoBox(h0,jc-hw,h1,jc+hw,z0,z1,C.woodDark,C.tar,C.tar);
+      if(h0>16){
+        /* the fore hatch stands open on the dark forepeak; a ladder goes down through it and its cover is propped on the coaming */
+        quad(h0+.12,jc-hw+.12,z1+.02,h1-.12,jc-hw+.12,z1+.02,h1-.12,jc+hw-.12,z1+.02,h0+.12,jc+hw-.12,z1+.02,(x,y)=>mix(INSIDE,C.lit,.12*vn((x-camera.x)*.3+t*.004,(y-camera.y)*.5)));
+        /* a short flight of oak steps leads down into the dark, each tread deeper and dimmer */
+        const run=(h1-h0-.5)/5, hj=.5;
+        for(let n=0;n<5;n++){ const i0=h0+.25+n*run, i1=i0+run, zt=z1-.1-n*.55, k=1.15-n*.15;
+          quad(i0,jc-hj,zt,i1,jc-hj,zt,i1,jc+hj,zt,i0,jc+hj,zt,(x,y)=>shadeC(C.wood,k*(.75+.4*vn((x-camera.x)*.4,(y-camera.y)*.6))));
+          quad(i1,jc-hj,zt,i1,jc+hj,zt,i1,jc+hj,zt-.55,i1,jc-hj,zt-.55,()=>shadeC(C.woodDark,k*.45));
+          thin(i0,jc+hj,zt,i1,jc+hj,zt,C.woodLight); }
+      } else {
       quad(h0,jc-hw,z1,h1,jc-hw,z1,h1,jc,z2,h0,jc,z2,(x,y)=>tarp(x,y,1.12));
       quad(h0,jc,z2,h1,jc,z2,h1,jc+hw,z1,h0,jc+hw,z1,(x,y)=>tarp(x,y,.92));
       quad(h1,jc-hw,z1,h1,jc,z2,h1,jc+hw,z1,h1,jc+hw,z1,(x,y)=>tarp(x,y,.75));
       for(let a=h0+.5;a<h1;a+=1.15){ thin(a,jc-hw,z1,a,jc,z2+.05,C.rope); thin(a,jc,z2+.05,a,jc+hw,z1,C.rope); }
+      }
       thin(h0,jc+hw+.01,z1-.4,h1,jc+hw+.01,z1-.4,C.woodLight);
     }
     /* windlass: two oak bitts, the barrel with the anchor chain round it, and the pawl post between */
@@ -637,29 +666,45 @@ function barge(t){
     const ai=19.7, aj=S.jn(ai)+.1, az=S.top(ai)-.8;
     stroke(ai,aj,az,ai-.15,aj,az-4,C.iron); thin(ai-.5,aj,az-3.2,ai-.15,aj,az-4.2,C.iron); thin(ai+.25,aj,az-3,ai-.15,aj,az-4.2,C.iron);
   });
-  const S=hullShape(o,b); return {...S,o,chimney:[o.s0+1.75,o.jc-.85,S.deck(5)+11+1.2+7]};
+  const S=hullShape(o,b); return {...S,o,chimney:[o.s0+1.75,o.jc-.85,S.deck(5)+20+1.2+7]};
 }
 /** A point and heading at distance d along a polyline of [i,j] points. */
 function along(path,d){
   for(let k=0;k<path.length-1;k++){ const a=path[k], b=path[k+1], L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(d<=L||k===path.length-2){ const u=Math.min(1,d/L); return [lerp(a[0],b[0],u),lerp(a[1],b[1],u),Math.atan2(b[1]-a[1],b[0]-a[0])]; } d-=L; }
 }
 const pathLen=path=>path.slice(1).reduce((s,p,k)=>s+Math.hypot(p[0]-path[k][0],p[1]-path[k][1]),0);
-/** The bargeman's round on deck: he stands by the deckhouse door, walks forward along the side deck to the shrouds,
- * tests them with a hand, and walks back. Durations in ticks; he walks .012 tiles a tick. */
+/** The bargeman's round on deck: he steps out of the deckhouse door with a broom, goes round to the near side deck and sweeps it
+ * slowly forward in short arcs towards the shrouds, then walks back to the door and stands a while. Durations in ticks. */
 function bargeman(t,S,o){
-  const jc=o.jc, side=jc+2.05, path=[[o.s0+3,jc+.3],[o.s0+3.5,side],[14.4,side]], L=pathLen(path), walk=L/.012;
-  const run=[['door',260],['out',walk],['shroud',200],['back',walk]], total=run.reduce((a,p)=>a+p[1],0);
+  const jc=o.jc, side=jc+2.05, c1=o.s0+4.4, SPEED=.0042, END=13, door=[c1+.75,jc], start=[c1+.95,side];
+  const pOut=[door,start], pBack=[[END,side],start,door], lOut=pathLen(pOut), lBack=pathLen(pBack);
+  const run=[['door',300],['out',lOut/.012],['sweep',(END-start[0])/SPEED],['back',lBack/.012]], total=run.reduce((a,p)=>a+p[1],0);
   let u=frac(t/total)*total, k=0; while(u>=run[k][1]){ u-=run[k][1]; k++; } const part=run[k][0], v=u/run[k][1];
-  let i,j,a,J;
-  const stand=(look,reach)=>{ const br=Math.sin(t*.045)*.08, J=s=>({hip:[0,s*1.2,7.2],knee:[.6,s*1.3,3.8],foot:[s>0?.3:-.2,s*1.45,.9],sh:[.2,s*2.6,12.3+br],
-      el:reach&&s>0?[1.2,s*3.2,13.6]:[0,s*3.4,9.9+br],hd:reach&&s>0?[1.8,s*2.6,16.4]:[.3,s*3.6,7.9+br]}); J.pel=[0,0,6.6];J.chest=[.3,0,12.2+br];J.head=[.4+look*.3,look*.5,15.6+br]; return J; };
-  if(part==='door'){ [i,j]=path[0]; const arrive=Math.atan2(path[0][1]-path[1][1],path[0][0]-path[1][0]), leave=arrive+Math.PI;
-    a=v<.12?turnTo(arrive,Math.PI,v/.12):v<.85?Math.PI:turnTo(Math.PI,leave,(v-.85)/.15); J=stand(Math.sin(t*.01),false); }
-  else if(part==='shroud'){ [i,j]=path[2]; a=turnTo(0,Math.PI/2,ease(v*5)); if(v>.8) a=turnTo(Math.PI/2,Math.PI,ease((v-.8)*5)); J=stand(0,v>.2&&v<.75); }
-  else { const d=part==='out'?v*L:L-v*L; [i,j,a]=along(path,d); if(part==='back') a+=Math.PI; J=walkJoints(d/TRIP.cycle,false,1); }
+  let i,j,a,J,broom;
+  /** @param {number} look */
+  const stand=look=>{ const br=Math.sin(t*.045)*.08, J=s=>({hip:[0,s*1.2,7.2],knee:[.6,s*1.3,3.8],foot:[s>0?.3:-.2,s*1.45,.9],sh:[.2,s*2.6,12.3+br],
+      el:[0,s*3.4,9.9+br],hd:s>0?[1,s*3.3,8.4+br]:[0,s*3.4,7.9+br]}); J.pel=[0,0,6.6];J.chest=[.3,0,12.2+br];J.head=[.4+look*.3,look*.5,15.6+br]; return J; };
+  if(part==='door'){ [i,j]=door; const to=Math.atan2(start[1]-door[1],start[0]-door[0]);
+    a=v<.1?turnTo(to+Math.PI,Math.PI/2*.6,v/.1):v<.8?Math.PI/2*.6+.3*Math.sin(t*.004):turnTo(Math.PI/2*.6,to,(v-.8)/.2); J=stand(Math.sin(t*.01)); broom='held'; }
+  else if(part==='sweep'){ const d=v*(END-start[0]); i=start[0]+d; j=side; a=0;
+    const W=walkJoints(d/TRIP.cycle*1.3,false,1), sw=Math.sin(Math.PI*2*t/52), tx=-1.6+sw*1.5, H=[5.6,tx,.3], U=[2,tx*.3,12.4], at=f=>lerp3(U,H,f);
+    const hand={[1]:at(.3),[-1]:at(.55)}, lean=1.3+.35*Math.abs(sw);
+    J=s=>{ const w=W(s), sh=[lean*.9,s*2.5,11.3], hd=hand[s]; return {hip:w.hip,knee:w.knee,foot:w.foot,sh,el:[(sh[0]+hd[0])/2-.4,s*2.9+hd[1]*.4,(sh[2]+hd[2])/2-.4],hd}; };
+    J.pel=[.3,0,6.4]; J.chest=[lean,0,11.2]; J.head=[lean+1.4,tx*.12,14.2]; broom={head:H,top:at(-.1),sweep:true,sw}; }
+  else { const path=part==='out'?pOut:pBack, L=part==='out'?lOut:lBack, d=v*L; [i,j,a]=along(path,d); J=walkJoints(d/TRIP.cycle,false,1); broom='held'; }
   const P={i,j,fi:Math.cos(a),fj:Math.sin(a),z0:S.deck(i)};
   docker(P,J,['#1f2524','#333d3c','#4f5b5a']);
+  /* the broom: in the sweep it is the pair of hands' handle with a straw head on the planks; otherwise it hangs from the near hand */
+  let top,bot;
+  if(broom==='held'){ const h=J(1).hd; top=toWorld(P,h[0]-.5,h[1]-.2,h[2]+6.5); bot=toWorld(P,h[0]+.9,h[1]+.3,.8); }
+  else { top=toWorld(P,...broom.top); bot=toWorld(P,...broom.head); }
+  thin(...top,...bot,C.woodLight); thin(top[0]+.01,top[1],top[2],bot[0]+.01,bot[1],bot[2]+.3,C.wood);
+  const sz=broom==='held'?1:2.6;
+  for(let n=-3;n<=3;n++){ const f=toWorld(P,(broom==='held'?.9:5.6)+n*.35,(broom==='held'?h1(J):broom.head[1])+n*.6,.1);
+    thin(bot[0],bot[1],bot[2]+sz,f[0],f[1],f[2],mix(rgb('#8a6c36'),rgb('#c9ad66'),.5+.5*Math.sin(n*2))); }
+  thin(bot[0],bot[1],bot[2]+sz*.7,bot[0]+.01,bot[1]+.01,bot[2]+sz*.7,C.rope);
 }
+const h1=J=>J(1).hd[1]+.3;
 /** A dumb lighter loaded with coal, moored beyond the barge. */
 function lighter(t){
   const b=Math.sin(t*.017+1)*.2, o={s0:22.5,s1:31.4,jc:16.5,w:2.2,bow:1.6,fb:4.6,sheer:.5,light:.9}, jc=o.jc;
@@ -821,7 +866,6 @@ function coalMound(cones,z0,seed){
 }
 /** The heap on the setts where the crane tips its tubs: a main cone with a slumped shoulder beside it. */
 function coalHeap(i,j,R,Hh){
-  contact(i-R*1.2,j-R,i+R*1.2,j+R,0,.5);
   coalMound([{i,j,ri:R,rj:R*.9,h:Hh},{i:i+R*.55,j:j+R*.45,ri:R*.75,rj:R*.7,h:Hh*.55}],0,3);
 }
 /** The rope, tipping tub and coal falling from its rim onto the heap. */
@@ -1280,7 +1324,7 @@ function renderPortFrame(fighters){
       [36.3,()=>{ for(let k=0;k<3;k++){ const i=29+k*.1,j=11.6+k*.1; rope([i,j,.05],[i+.8-k*.2,j,.05],0,C.rope); rope([i+.8-k*.2,j,.05],[i+.8-k*.2,j+.5-k*.2,.05],0,C.rope); rope([i+.8-k*.2,j+.5-k*.2,.05],[i,j+.5-k*.2,.05],0,C.rope); } }],
       [CRANE.i+CRANE.j,()=>{ crane(t,K); craneHand(t,K); }],
       [D.i+D.j,()=>sackCarrier(t)],
-      ...portDistrictProps(t),
+      ...portDistrictProps(t,[[player.i,player.j]]),
     ];
     for(let k=0;k<LAMPS.length;k++){ const l=LAMPS[k]; if(!l.wall) props.push([l.i+l.j,()=>gasLamp(l.i,l.j,glow[k],t)]); }
     for(const i of [2.2,8.5,16.5,21.8,28.2]) props.push([i+12.6,()=>bollard(i,12.6)]);

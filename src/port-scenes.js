@@ -1,5 +1,5 @@
 /* Background vignettes use the port's projection and the shared figure renderer. */
-import { rgb } from './appearance.js';
+import { rgb, state as appearanceState } from './appearance.js';
 import { mix } from './cast.js';
 import { isoBox, quad, shadeC, isoX, isoY } from './gym.js';
 import { C, barrel, crate, cyl, roundLit, thin, stroke, rope, docker, contact, smoke, toWorld } from './thames-port.js';
@@ -355,32 +355,48 @@ function board(b){
   }
 
   // Generalized volumetric plank for carried / transitioning boards
-  const n=[-d[1],d[0]];
+  /* the board's width runs along the unit horizontal normal, so it keeps its width however steeply the board is tilted */
+  const hl=Math.hypot(d[0],d[1]), n=hl>1e-3?[-d[1]/hl,d[0]/hl]:[0,1];
   const c0=[i-d[0]*len-n[0]*w, j-d[1]*len-n[1]*w, z-dz];
   const c1=[i+d[0]*len-n[0]*w, j+d[1]*len-n[1]*w, z+dz];
   const c2=[i+d[0]*len+n[0]*w, j+d[1]*len+n[1]*w, z+dz];
-  const c3=[i-d[0]*len+n[0]*w, j-d[1]*len-n[1]*w, z-dz];
+  const c3=[i-d[0]*len+n[0]*w, j-d[1]*len+n[1]*w, z-dz];
   const t0=[c0[0],c0[1],c0[2]+th], t1=[c1[0],c1[1],c1[2]+th], t2=[c2[0],c2[1],c2[2]+th], t3=[c3[0],c3[1],c3[2]+th];
 
-  // Top lit face
+  // Only the faces turned to the camera, sides first and the top over them: a face turned away would be painted over the top and change the board's shape.
+  const sees=(nx,ny)=>nx+ny>0;
+  if(sees(n[0],n[1])) quad(c3[0],c3[1],c3[2], c2[0],c2[1],c2[2], t2[0],t2[1],t2[2], t3[0],t3[1],t3[2], ()=>C_FRONT);
+  if(sees(-n[0],-n[1])) quad(c0[0],c0[1],c0[2], c1[0],c1[1],c1[2], t1[0],t1[1],t1[2], t0[0],t0[1],t0[2], ()=>C_FRONT);
+  if(sees(d[0],d[1])) quad(c1[0],c1[1],c1[2], c2[0],c2[1],c2[2], t2[0],t2[1],t2[2], t1[0],t1[1],t1[2], ()=>C_SIDE);
+  if(sees(-d[0],-d[1])) quad(c0[0],c0[1],c0[2], c3[0],c3[1],c3[2], t3[0],t3[1],t3[2], t0[0],t0[1],t0[2], ()=>C_SIDE);
   quad(t0[0],t0[1],t0[2], t1[0],t1[1],t1[2], t2[0],t2[1],t2[2], t3[0],t3[1],t3[2], ()=>C_TOP);
-  // Side long face
-  quad(c3[0],c3[1],c3[2], c2[0],c2[1],c2[2], t2[0],t2[1],t2[2], t3[0],t3[1],t3[2], ()=>C_FRONT);
-  // Butt end face
-  quad(c2[0],c2[1],c2[2], c1[0],c1[1],c1[2], t1[0],t1[1],t1[2], t2[0],t2[1],t2[2], ()=>C_SIDE);
-  // Opposite long face
-  quad(c0[0],c0[1],c0[2], c1[0],c1[1],c1[2], t1[0],t1[1],t1[2], t0[0],t0[1],t0[2], ()=>C_FRONT);
-
-  // Edge definition lines
+  // The same dark outline an axis-aligned board has from isoBox: round the visible side faces and the top, so a lifted board keeps its look.
+  const OUT=appearanceState.C_OUT, ring=(p,q,r,u)=>{ thin(...p,...q,OUT); thin(...q,...r,OUT); thin(...r,...u,OUT); thin(...u,...p,OUT); };
+  if(sees(n[0],n[1])) ring(c3,c2,t2,t3);
+  if(sees(-n[0],-n[1])) ring(c0,c1,t1,t0);
+  if(sees(d[0],d[1])) ring(c1,c2,t2,t1);
+  if(sees(-d[0],-d[1])) ring(c0,c3,t3,t0);
+  ring(t0,t1,t2,t3);
   thin(t0[0],t0[1],t0[2], t1[0],t1[1],t1[2], C_LINE);
   thin(t3[0],t3[1],t3[2], t2[0],t2[1],t2[2], C_LINE);
-  thin(t0[0],t0[1],t0[2], t3[0],t3[1],t3[2], C_LINE);
-  thin(t1[0],t1[1],t1[2], t2[0],t2[1],t2[2], C_LINE);
 }
 
+/** Depth key of an upright box [i0,j0,i1,j1] in the i+j queue. A box has no single depth: a person off its near faces must be drawn over it and one off its far faces
+ * under it, so the key is its centre pushed just before or after the nearby people that decide it. @param {number[]} b @param {number[][]} pts */
+function boxKey(b,pts){
+  const [i0,j0,i1,j1]=b; let lo=-1e9, hi=1e9;
+  for(const [pi,pj] of pts){
+    if(Math.hypot(pi-(i0+i1)/2,pj-(j0+j1)/2)>Math.max(i1-i0,j1-j0)/2+2.5) continue;
+    const k=pi+pj, front=pi>=i1-.02||pj>=j1-.02, behind=pi<=i0+.02||pj<=j0+.02;
+    if(front&&!behind) hi=Math.min(hi,k-.01); else if(behind&&!front) lo=Math.max(lo,k+.01);
+  }
+  return Math.min(hi,Math.max(lo,(i0+i1+j0+j1)/2));
+}
 /** Put stationary props and animated figures into the port's existing depth queue. */
-export function portLifeProps(t){
+/** @param {number} t @param {number[][]} [walkers] ground points [i,j] of other people (the player) who may pass the offcut bin */
+export function portLifeProps(t,walkers=[]){
   const L=portLife(lifeTime(t)), out=[], add=(i,j,fn)=>out.push([i+j,fn]);
+  const people=[...walkers,...[L.yard.wood,L.yard.hand,L.yard.fore].filter(a=>!(a.id==='handler'&&(a.state==='INSIDE'||(a.dark||0)>.85))).map(a=>[a.P.i,a.P.j])];
   for(const [i,j] of [ANCHORS.pub_barrel_table_1,ANCHORS.pub_barrel_table_2]) add(i,j,()=>barrel(i,j,0));
   add(ANCHORS.pub_barrel_table_2[0]+.01,ANCHORS.pub_barrel_table_2[1]+.01,()=>crackedBarrel(...ANCHORS.pub_barrel_table_2));
   add(ANCHORS.pub_musician_hat[0],ANCHORS.pub_musician_hat[1],()=>buskerHat(...ANCHORS.pub_musician_hat));
@@ -456,25 +472,25 @@ export function portLifeProps(t){
   add(cat.P.i,cat.P.j,()=>drawCat(cat,t));
 
   // Raw timber stack with grounded dunnage bearers underneath
-  add(RAW_STACK.i0,RAW_STACK.j0,()=>{
+  out.push([boxKey([RAW_STACK.i0,RAW_STACK.j0,RAW_STACK.i1,RAW_STACK.j1],people),()=>{
     contact(RAW_STACK.i0-.15,RAW_STACK.j0-.1,RAW_STACK.i1+.15,RAW_STACK.j1+.1);
     for(const bj of [RAW_STACK.j0+.25,(RAW_STACK.j0+RAW_STACK.j1)/2,RAW_STACK.j1-.25]){
       isoBox(RAW_STACK.i0-.08,bj-.09,RAW_STACK.i1+.08,bj+.09,0,STACK_BASE,rgb('#85684d'),rgb('#57422f'),rgb('#3d2e20'));
     }
     for(let n=0;n<L.yard.raw;n++) board(slotOf(RAW_STACK,PLANK.raw,n));
-  });
+  }]);
 
   // Cut timber stack with grounded dunnage bearers underneath
-  add(CUT_STACK.i0,CUT_STACK.j0,()=>{
+  out.push([boxKey([CUT_STACK.i0,CUT_STACK.j0,CUT_STACK.i1,CUT_STACK.j1],people),()=>{
     contact(CUT_STACK.i0-.1,CUT_STACK.j0-.15,CUT_STACK.i1+.1,CUT_STACK.j1+.15);
     for(const bi of [CUT_STACK.i0+.25,(CUT_STACK.i0+CUT_STACK.i1)/2,CUT_STACK.i1-.25]){
       isoBox(bi-.09,CUT_STACK.j0-.08,bi+.09,CUT_STACK.j1+.08,0,STACK_BASE,rgb('#85684d'),rgb('#57422f'),rgb('#3d2e20'));
     }
     for(let n=0;n<L.yard.cut;n++) board(slotOf(CUT_STACK,PLANK.cut,n));
-  });
+  }]);
 
   // Carpenter's workbench with detailed trestles, cross-bracing and saw kerf
-  add(BENCH.i0,BENCH.j,()=>{
+  out.push([boxKey([BENCH.i0,BENCH.j-.35,BENCH.i0+2.1,BENCH.j+.35],people),()=>{
     const [t1,t2]=BENCH.trestles;
     contact(BENCH.i0+.1,BENCH.j-.35,BENCH.i0+2.1,BENCH.j+.35);
     for(const i of BENCH.trestles){
@@ -489,10 +505,10 @@ export function portLifeProps(t){
     thin(BENCH.i0+.25,BENCH.j+.15,BENCH.top,BENCH.i0+1.95,BENCH.j+.15,BENCH.top,rgb('#b38b5f'));
     stroke(BENCH.cut,BENCH.j-.33,BENCH.top,BENCH.cut,BENCH.j+.33,BENCH.top,rgb('#38281a'));
     thin(BENCH.cut-.25,BENCH.j-.18,BENCH.top,BENCH.cut+.1,BENCH.j+.12,BENCH.top,rgb('#e0be88'));
-  });
+  }]);
 
   // Offcut bin with accumulated cut wood blocks and deck sawdust
-  add(BIN.i,BIN.j,()=>{
+  out.push([boxKey([BIN.i,BIN.j,BIN.i+BIN.w,BIN.j+BIN.d],people),()=>{
     crate(BIN.i,BIN.j,BIN.w,BIN.d,BIN.h);
     isoBox(BIN.i+.06,BIN.j+.08,BIN.i+.38,BIN.j+.26,BIN.h,BIN.h+.45,rgb('#cba275'),rgb('#886444'),rgb('#5e432a'));
     isoBox(BIN.i+.16,BIN.j+.24,BIN.i+.44,BIN.j+.48,BIN.h,BIN.h+.55,rgb('#c29b6f'),rgb('#7f5f3e'),rgb('#523a23'));
@@ -500,7 +516,7 @@ export function portLifeProps(t){
     thin(BIN.i+.1,BIN.j+.14,BIN.h+.65,BIN.i+.38,BIN.j+.42,BIN.h+1.0,rgb('#dfb88c'));
     thin(BIN.i-.1,BIN.j+.1,0.05,BIN.i+.2,BIN.j+.65,0.05,rgb('#dfb76c'));
     thin(BIN.i,BIN.j-.12,0.05,BIN.i+.35,BIN.j+.35,0.05,rgb('#e8c68a'));
-  });
+  }]);
 
   const f=L.fisher;
   if(f.rod.propped){

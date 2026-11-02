@@ -399,7 +399,8 @@ function tradeBuildings(t){
 /** Static architecture is cached by the parent port background bake. */
 export function portDistrictStatic(t){ tradeBuildings(t);pub(t); }
 /** Stacks, ropes and people are sorted in the parent dock rendering queue. */
-export function portDistrictProps(t){
+/** @param {number} t @param {number[][]} [walkers] */
+export function portDistrictProps(t,walkers){
   const result=[
     [30.5,()=>pubWindowsFX(t)],
     [59,()=>yardCraftProps(t)],
@@ -418,7 +419,7 @@ export function portDistrictProps(t){
     }],
   ];
   // The people of the new quay and what they work with, sorted with the dock props.
-  result.push(...portLifeProps(t));
+  result.push(...portLifeProps(t,walkers));
   return result;
 }
 /** Flickering, localized atmospheric accents, added before final port fog. */

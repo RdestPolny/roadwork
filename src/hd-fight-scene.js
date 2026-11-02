@@ -54,21 +54,29 @@ export function drawHDCharacterDetails(F,J,L){
   const point=(p)=>{ bodyPt(p[0],p[1],p[2]); return [Math.round(gymState.bpX),Math.round(gymState.bpY)]; };
   const dot=(p,c)=>{ const a=point(p); pset(a[0],a[1],c); };
   const seam=(p,q,c)=>{ const a=point(p),b=point(q); line(a[0],a[1],b[0],b[1],c,c); };
+  /** Depth (i+j) of a body point; a seam or button on the front of a part belongs to it only while that front faces the camera. */
+  const depth=(p)=>{ bodyPt(p[0],p[1],p[2]); return gymState.bpD; };
+  const front=(p,fwd)=>depth([p[0]+fwd,p[1],p[2]])>depth(p)+0.02;
   try{
     const chest=J.chest, pel=J.pel, head=J.head;
     if(!L.bare){ // Bathers have no jacket, trousers or shirt seams.
     // Separate collar, crumpled lapels and the moving button placket.
+    if(front(chest,2)){
     seam([chest[0]+1.4,chest[1]-0.9,chest[2]+0.2],[chest[0]+2,chest[1]-0.3,chest[2]-1.5],clothH);
     seam([chest[0]+1.3,chest[1]+0.8,chest[2]+0.2],[chest[0]+2,chest[1]+0.2,chest[2]-1.5],clothD);
     seam([chest[0]+2,chest[1],chest[2]-1.5],[pel[0]+1.7,pel[1],pel[2]+0.8],clothD);
     for(let dz=-2;dz<2;dz+=1.3) dot([chest[0]+2.1,chest[1]+0.12,chest[2]+dz],clothH);
+    }
     // Wrinkles track the skeleton rather than sliding on the framebuffer.
     for(const s of [-1,1]){
       const arm=J(s), knee=arm.knee;
-      seam([arm.sh[0]+0.25,arm.sh[1],arm.sh[2]-0.8],[arm.el[0]+0.55,arm.el[1],arm.el[2]+0.7],clothD);
-      seam([arm.el[0]+0.5,arm.el[1],arm.el[2]+0.35],[arm.el[0]+0.7,arm.el[1],arm.el[2]-0.35],clothH);
-      seam([arm.hip[0]+0.7,arm.hip[1],arm.hip[2]-0.75],[knee[0]+0.65,knee[1],knee[2]+0.45],pantD);
-      seam([knee[0]+0.4,knee[1]-0.45,knee[2]+0.2],[knee[0]+0.9,knee[1]+0.35,knee[2]-0.3],pantH);
+      /* an arm or leg behind the body, or with its front turned from the camera, shows no seam through the body */
+      if(front(arm.sh,0.55)&&(depth(arm.sh)+depth(arm.el))/2>depth(chest)-0.03){
+        seam([arm.sh[0]+0.25,arm.sh[1],arm.sh[2]-0.8],[arm.el[0]+0.55,arm.el[1],arm.el[2]+0.7],clothD);
+        seam([arm.el[0]+0.5,arm.el[1],arm.el[2]+0.35],[arm.el[0]+0.7,arm.el[1],arm.el[2]-0.35],clothH); }
+      if(front(knee,0.9)&&depth(arm.hip)>depth(pel)-0.03){
+        seam([arm.hip[0]+0.7,arm.hip[1],arm.hip[2]-0.75],[knee[0]+0.65,knee[1],knee[2]+0.45],pantD);
+        seam([knee[0]+0.4,knee[1]-0.45,knee[2]+0.2],[knee[0]+0.9,knee[1]+0.35,knee[2]-0.3],pantH); }
       dot([arm.foot[0]+0.8,arm.foot[1],arm.foot[2]+0.12],shade(L.shoe,2));
     }
     }
