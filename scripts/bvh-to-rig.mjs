@@ -1,17 +1,20 @@
-// Mocap (.bvh, e.g. CMU or Mixamo via Blender) -> a baked punch for the isometric fight rig (src/fighter-rig.js).
-//   node scripts/bvh-to-rig.mjs <file.bvh> --list                     punches found (rear hand = cross, --punch=jab: lead hand)
-//   node scripts/bvh-to-rig.mjs <file.bvh> [--n=<index>] > src/mocap-cross.js
-// Takes the strongest punch (or --n), seen along the direction the fist travels, mirrored to an orthodox stance, and writes
-// the joints of the upper body (pelvis at the origin; +x forward, +y the lead side, +z up) at fixed steps of the punch's
-// progress: 0..1 from the start to contact, 1..2 from contact to the end of the recovery. The game puts the pose on the
-// rig's own bone lengths with refitFigure(), so only the directions of the bones matter.
+// Mocap (.bvh, e.g. CMU or Mixamo via Blender) -> baked punches for the isometric fight rig (src/fighter-rig.js).
+//   node scripts/bvh-to-rig.mjs --list <file.bvh>...        every punch found: kind, hand, frames and how it is held
+//   node scripts/bvh-to-rig.mjs --trace <file.bvh>              both fists every 3 frames (forward, up from the shoulder)
+//   node scripts/bvh-to-rig.mjs --take=jab:<file.bvh>:<contact frame> --take=cross:… … > src/mocap-punches.js
+//   --take=hook:<file.bvh>:<start>-<contact>-<end>:<lead|rear>    a window chosen by hand (from --trace) for named clips
+// A punch runs from the fist's last stop before its fastest stretch to contact (the fist furthest from the chest) and on
+// until the fist is back near where it started. It is seen along the line from the chest to the fist at contact (the target), mirrored to an orthodox stance,
+// and baked as the upper body's joints (pelvis at the origin; +x forward, +y the lead side, +z up) at fixed steps of the
+// punch's progress: 0..1 to contact, 1..2 back. The game puts the pose on the rig's own bones with refitFigure(), so only
+// the directions of the bones matter.
 import { readFile } from 'node:fs/promises';
 import { RIG, MOCAP_JOINTS as MJ } from '../src/fighter-rig.js';
 
-const args = process.argv.slice(2), file = args.find(a => !a.startsWith('--'));
-const arg = (k, d) => (args.find(a => a.startsWith(`--${k}=`)) || '').split('=')[1] ?? d;
-const flag = k => args.includes(`--${k}`);
-if (!file) { console.error('usage: node scripts/bvh-to-rig.mjs <file.bvh> [--punch=cross|jab] [--n=index] [--steps=8] [--list]'); process.exit(1); }
+const args = process.argv.slice(2), files = args.filter(a => !a.startsWith('--'));
+const takes = args.filter(a => a.startsWith('--take=')).map(a => a.slice(7).split(':'));
+const STEPS = 8, KINDS = ['jab', 'cross', 'hook', 'uppercut'];
+if (!files.length && !takes.length) { console.error('usage: node scripts/bvh-to-rig.mjs --list <file.bvh>… | --take=<kind>:<file.bvh>:<frame>…'); process.exit(1); }
 
 /**
  * Parses a BVH file into joints (parent, offset, channels) and frames of channel values.
@@ -68,83 +71,143 @@ function pose(joints, row) {
   return pos;
 }
 
-const { joints, data, dt } = parseBvh(await readFile(file, 'utf8'));
-const find = (...names) => {
-  const k = joints.findIndex(j => names.some(n => j.name.toLowerCase().replace(/^mixamorig:/, '') === n.toLowerCase()));
-  if (k < 0) throw new Error(`no joint ${names.join('/')} in ${file}`);
-  return k;
-};
-const J = {
-  hips: find(MJ.pel), abd: find(MJ.abd), chest: find(MJ.chest, 'Spine2'), head: find(MJ.head),
-  ls: find(`Left${MJ.sh}`), rs: find(`Right${MJ.sh}`), le: find(`Left${MJ.el}`), re: find(`Right${MJ.el}`), lh: find(`Left${MJ.hd}`), rh: find(`Right${MJ.hd}`),
-  lu: find(`Left${MJ.hip}`), ru: find(`Right${MJ.hip}`), lf: find(`Left${MJ.foot}`), rf: find(`Right${MJ.foot}`),
-};
-const MIRROR = { ...J, ls: J.rs, rs: J.ls, le: J.re, re: J.le, lh: J.rh, rh: J.lh, lu: J.ru, ru: J.lu, lf: J.rf, rf: J.lf };
-const P = data.map(row => pose(joints, row));
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], len = v => Math.hypot(...v), mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
-
-// BVH is Y-up. A frame's front is perpendicular to its hip line (a mocap boxer circles and switches stance);
-// southpaw frames are read with left and right swapped, so every punch comes out orthodox.
 const flat = v => { const n = Math.hypot(v[0], v[2]) || 1; return [v[0] / n, 0, v[2] / n]; };
-const front = p => { const l = sub(p[J.lu], p[J.ru]); return flat([-l[2], 0, l[0]]); };
-const fwd = (v, F) => v[0] * F[0] + v[2] * F[2];
-const southpaw = p => fwd(sub(p[J.rf], p[J.lf]), front(p)) > 0;
-const roles = p => (southpaw(p) ? MIRROR : J);
-
-// Punches: frames where the rear (cross) or lead (jab) fist is furthest in front of its shoulder, at least 0.4 s apart.
-const kind = arg('punch', 'cross');
-const reach = P.map(p => { const j = roles(p), F = front(p); return kind === 'jab' ? fwd(sub(p[j.lh], p[j.ls]), F) : fwd(sub(p[j.rh], p[j.rs]), F); });
-const arm = len(sub(P[0][J.le], P[0][J.ls])) + len(sub(P[0][J.lh], P[0][J.le]));
-const peaks = [];
-for (let f = 1; f < reach.length - 1; f++) {
-  if (reach[f] < reach[f - 1] || reach[f] < reach[f + 1]) continue;
-  if (reach[f] - Math.min(...reach.slice(Math.max(0, f - 60), f)) < arm * 0.25) continue;
-  const near = peaks.findIndex(k => Math.abs(k - f) < 0.4 / dt);
-  if (near < 0) peaks.push(f); else if (reach[f] > reach[peaks[near]]) peaks[near] = f;
-}
-if (!peaks.length) { console.error(`no ${kind} found`); process.exit(1); }
-if (flag('list')) {
-  peaks.forEach((f, n) => console.log(`${n}: frame ${f} (${(f * dt).toFixed(2)} s) reach ${(reach[f] / arm).toFixed(2)} of the arm${southpaw(P[f]) ? ' (southpaw, mirrored)' : ''}`));
-  process.exit(0);
-}
-const hit = arg('n', '') === '' ? peaks.reduce((a, b) => (reach[b] > reach[a] ? b : a)) : peaks[+arg('n')];
-
-// The punch runs from the last still moment before contact until the fist is back where it started.
-const still = f => Math.abs(reach[Math.min(f + 1, reach.length - 1)] - reach[f]) < arm * 0.002;
-let a = hit, b = hit;
-while (a > 0 && hit - a < 0.6 / dt && !(still(a) && reach[a] < reach[hit] - arm * 0.25)) a--;
-while (b < reach.length - 1 && b - hit < 0.8 / dt && reach[b] > reach[a] + arm * 0.05) b++;
-
-// One frame for the whole punch: forward is the way the fist travels to contact, so the turn of the body shows.
-const j = roles(P[a]), F = flat(sub(P[hit][kind === 'jab' ? j.lh : j.rh], P[a][kind === 'jab' ? j.lh : j.rh])), L = [F[2], 0, -F[0]];
-const scale = (RIG.lowerSpine + RIG.upperSpine) / (len(sub(P[a][j.abd], P[a][j.hips])) + len(sub(P[a][j.chest], P[a][j.abd])));
-/** A mocap point in the rig's frame, relative to the pelvis. @param {number[][]} p frame @param {number[]} q point */
-const at = (p, q) => { const v = sub(q, p[j.hips]); return [fwd(v, F), v[0] * L[0] + v[2] * L[2], v[1]].map(x => +(x * scale).toFixed(2)); };
-// Each rig joint reads its mocap bone (MOCAP_JOINTS in src/fighter-rig.js).
-const frame = p => [
-  p[j.abd], p[j.chest], p[j.head], p[j.ls], p[j.le], p[j.lh], p[j.rs], p[j.re], p[j.rh]].flatMap(q => at(p, q));
-const steps = +arg('steps', '8'), rows = [];
-for (let n = 0; n <= steps * 2; n++) {
-  const u = n / steps, f = u <= 1 ? a + (hit - a) * u : hit + (b - hit) * (u - 1);
-  const f0 = Math.floor(f), f1 = Math.min(b, f0 + 1), w = f - f0, A = frame(P[f0]), B = frame(P[f1]);
-  rows.push(A.map((v, i) => +(v + (B[i] - v) * w).toFixed(2)));
-}
-
-console.log(`// Generated by scripts/bvh-to-rig.mjs from ${file.split('/').pop()}, frames ${a}-${hit}-${b} (${(a * dt).toFixed(2)}-${(hit * dt).toFixed(2)}-${(b * dt).toFixed(2)} s).
-// CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), free to use. Do not edit by hand: regenerate.
-
-/** Joints per step: abdomen, chest, head, then [shoulder, elbow, fist] of the lead and the rear arm; pelvis at the origin. */
-const STEPS=${steps}, ROWS=[
-${rows.map(r => `  [${r.join(',')}]`).join(',\n')}];
+/** The lead side across F (Y-up: the left of a body facing F), flipped for a mirrored southpaw. @param {number[]} F @param {boolean} mirrored */
+const side = (F, mirrored) => (mirrored ? [-F[2], 0, F[0]] : [F[2], 0, -F[0]]);
+const angle = (a, b) => Math.acos(Math.max(-1, Math.min(1, (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / (len(a) * len(b) || 1)))) * 180 / Math.PI;
 
 /**
- * The baked ${kind} at progress u (0 = start, 1 = contact, 2 = end of the recovery), in the rig's frame relative to the pelvis:
- * +x forward, +y the lead side, +z up. Bones have the mocap's lengths; refitFigure() puts them on the rig's.
- * @param {number} u
- * @returns {{abd:number[],chest:number[],head:number[],lead:{sh:number[],el:number[],hd:number[]},rear:{sh:number[],el:number[],hd:number[]}}}
+ * One clip: its frames' joint positions, the joint roles (MOCAP_JOINTS) and every punch found in it.
+ * @param {string} file
  */
-export function mocap${kind[0].toUpperCase() + kind.slice(1)}(u){
-  const x=Math.max(0,Math.min(2,u))*STEPS, i=Math.min(ROWS.length-2,Math.floor(x)), w=x-i, A=ROWS[i], B=ROWS[i+1];
+async function clip(file) {
+  const { joints, data, dt } = parseBvh(await readFile(file, 'utf8'));
+  const find = (...names) => {
+    const k = joints.findIndex(j => names.some(n => j.name.toLowerCase().replace(/^mixamorig:/, '') === n.toLowerCase()));
+    if (k < 0) throw new Error(`no joint ${names.join('/')} in ${file}`);
+    return k;
+  };
+  // Mixamo splits the trunk in three (Spine, Spine1, Spine2): its ribcage is Spine2 and the abdomen Spine1.
+  const spine = () => (joints.some(j => /(^|:)Spine2$/.test(j.name)) ? { abd: find('Spine1'), chest: find('Spine2') } : { abd: find(MJ.abd), chest: find(MJ.chest) });
+  const J = {
+    hips: find(MJ.pel), ...spine(), head: find(MJ.head),
+    ls: find(`Left${MJ.sh}`), rs: find(`Right${MJ.sh}`), le: find(`Left${MJ.el}`), re: find(`Right${MJ.el}`), lh: find(`Left${MJ.hd}`), rh: find(`Right${MJ.hd}`),
+    lu: find(`Left${MJ.hip}`), ru: find(`Right${MJ.hip}`), lf: find(`Left${MJ.foot}`), rf: find(`Right${MJ.foot}`),
+  };
+  const MIRROR = { ...J, ls: J.rs, rs: J.ls, le: J.re, re: J.le, lh: J.rh, rh: J.lh, lu: J.ru, ru: J.lu, lf: J.rf, rf: J.lf };
+  const P = data.map(row => pose(joints, row));
+  // BVH is Y-up. A boxer circles and switches stance: a frame whose right foot leads is read with left and right swapped.
+  const front = p => { const l = sub(p[J.lu], p[J.ru]); return flat([-l[2], 0, l[0]]); };
+  const roles = p => { const F = front(p), d = sub(p[J.rf], p[J.lf]); return d[0] * F[0] + d[2] * F[2] > 0 ? MIRROR : J; };
+  const arm = len(sub(P[0][J.le], P[0][J.ls])) + len(sub(P[0][J.lh], P[0][J.le]));
+  const punches = [];
+  for (const left of [true, false]) {
+    // The fist's speed relative to the chest, lightly smoothed; a punch is a burst between two near-stops.
+    const rel = P.map(p => sub(p[left ? J.lh : J.rh], p[J.chest]));   // the anatomical hand; describe() decides lead or rear
+    const v = rel.map((r, f) => (f ? len(sub(r, rel[f - 1])) / dt : 0)), sp = v.map((_, f) => (v[Math.max(0, f - 1)] + v[f] + v[Math.min(v.length - 1, f + 1)]) / 3);
+    for (let f = 1; f < sp.length - 1; f++) {
+      if (sp[f] < sp[f - 1] || sp[f] < sp[f + 1] || sp[f] < arm * 4) continue;
+      let a = f, hit = f;
+      while (a > 0 && sp[a - 1] < sp[a]) a--;
+      while (hit < sp.length - 1 && sp[hit + 1] < sp[hit]) hit++;
+      // Contact: the fist furthest from the chest between the burst and a little after the fist slows down.
+      for (let g = f; g <= Math.min(sp.length - 1, hit + Math.round(0.1 / dt)); g++) if (len(rel[g]) > len(rel[hit])) hit = g;
+      if (punches.some(q => q.left === left && q.hit === hit)) continue;
+      const pk = describe(P, J, roles, left, a, hit, arm, dt);
+      if (pk) punches.push({ file, left, ...pk });
+    }
+  }
+  return { file, P, J, roles, arm, dt, punches: punches.sort((x, y) => x.hit - y.hit) };
+}
+
+/**
+ * The punch from frame a to contact at frame hit, classified by the fist's path in the punch's own frame: forward with
+ * a straight arm (jab with the lead hand, cross with the rear), across with the elbow up (hook), or up (uppercut).
+ * Motions that are none of them (guard shifts, feints, or a punch the rules misread) are 'other'.
+ */
+function describe(P, J, roles, left, a, hit, arm, dt) {
+  const j = roles(P[hit]), lead = j === J ? left : !left, hd = lead ? j.lh : j.rh, sh = lead ? j.ls : j.rs, el = lead ? j.le : j.re;   // stance at contact: the feet are set
+  const F = flat(sub(P[hit][hd], P[a][j.chest])), L = side(F, j !== J);
+  const loc = (p, q) => { const r = sub(q, p[j.chest]); return [r[0] * F[0] + r[2] * F[2], r[0] * L[0] + r[2] * L[2], r[1]]; };
+  const s0 = loc(P[a], P[a][hd]), s1 = loc(P[hit], P[hit][hd]), d = sub(s1, s0), n = len(d);
+  if (n < arm * 0.3) return null;
+  const bend = angle(sub(P[hit][el], P[hit][sh]), sub(P[hit][hd], P[hit][el]));
+  const elbowUp = (P[hit][el][1] - P[hit][sh][1]) / arm, shZ = loc(P[hit], P[hit][sh])[2];
+  const across = (lead ? -d[1] : d[1]) / n;
+  let kind = null;
+  if (d[0] / n > 0.6 && bend < 45) kind = lead ? 'jab' : 'cross';
+  else if (across > 0.45 && bend > 45 && bend < 130 && elbowUp > -0.2) kind = 'hook';
+  else if (d[2] / n > 0.5 && bend > 45) kind = 'uppercut';
+  // Back: the first frame after contact with the fist within a quarter of the punch's path of where it started.
+  let b = hit;
+  while (b < P.length - 1 && b - hit < 0.8 / dt && len(sub(loc(P[b], P[b][hd]), s0)) > n * 0.25) b++;
+  return { kind: kind ?? 'other', lead, a, hit, b, guard: (s0[2] - shZ) / arm, contact: (s1[2] - shZ) / arm, reach: s1[0] / arm, bend };
+}
+
+if (args.includes('--trace')) {
+  for (const file of files) {
+    const { P, J, roles, arm } = await clip(file);
+    P.forEach((p, f) => {
+      if (f % 3) return;
+      const j = roles(p), l = sub(p[J.lu], p[J.ru]), F = flat([-l[2], 0, l[0]]);
+      const fist = (h, s) => { const v = sub(p[h], p[s]); return `${((v[0] * F[0] + v[2] * F[2]) / arm).toFixed(2)},${(v[1] / arm).toFixed(2)}`; };
+      console.log(`${f}\tlead ${fist(j.lh, j.ls)}\trear ${fist(j.rh, j.rs)}${j === J ? '' : '\t(southpaw)'}`);
+    });
+  }
+  process.exit(0);
+}
+
+if (args.includes('--list')) {
+  for (const file of files) {
+    const c = await clip(file);
+    for (const p of c.punches) console.log(`${file.split('/').pop()}:${p.hit}\t${p.kind.padEnd(8)} ${p.lead ? 'lead' : 'rear'}  ${p.a}-${p.hit}-${p.b}  fist at start ${p.guard.toFixed(2)}, at contact ${p.contact.toFixed(2)} arms above the shoulder, reach ${p.reach.toFixed(2)}, elbow ${p.bend.toFixed(0)}°`);
+  }
+  process.exit(0);
+}
+
+const clips = {}, baked = {};
+for (const [kind, file, at, hand] of takes) {
+  if (!KINDS.includes(kind)) throw new Error(`unknown punch ${kind}`);
+  const c = clips[file] ??= await clip(file), p = at.includes('-')
+    ? (([a, hit, b]) => ({ a, hit, b, lead: hand === 'lead' }))(at.split('-').map(Number))
+    : c.punches.find(q => q.hit === +at);   // a named clip (Mixamo) may be 'other' by the rules: the take decides
+  if (!p) throw new Error(`no punch with contact at frame ${at} in ${file} (see --list)`);
+  const { P, roles } = c, j = roles(P[p.hit]), hd = p.lead ? j.lh : j.rh;
+  // One frame for the whole punch: forward is the line from the chest to the fist at contact, so the body's turn shows.
+  const F = flat(sub(P[p.hit][hd], P[p.a][j.chest])), L = side(F, j !== c.J);
+  const scale = (RIG.lowerSpine + RIG.upperSpine) / (len(sub(P[p.a][j.abd], P[p.a][j.hips])) + len(sub(P[p.a][j.chest], P[p.a][j.abd])));
+  const at3 = (q, o) => { const v = sub(q, o); return [v[0] * F[0] + v[2] * F[2], v[0] * L[0] + v[2] * L[2], v[1]].map(x => x * scale); };
+  // Each rig joint reads its mocap bone (MOCAP_JOINTS in src/fighter-rig.js).
+  const frame = q => [q[j.abd], q[j.chest], q[j.head], q[j.ls], q[j.le], q[j.lh], q[j.rs], q[j.re], q[j.rh]].flatMap(x => at3(x, q[j.hips]));
+  const rows = [];
+  for (let n = 0; n <= STEPS * 2; n++) {
+    const u = n / STEPS, f = u <= 1 ? p.a + (p.hit - p.a) * u : p.hit + (p.b - p.hit) * (u - 1);
+    const f0 = Math.floor(f), f1 = Math.min(p.b, f0 + 1), w = f - f0, A = frame(P[f0]), B = frame(P[f1]);
+    rows.push(A.map((x, i) => +(x + (B[i] - x) * w).toFixed(2)));
+  }
+  (baked[kind] ??= {})[p.lead ? 'lead' : 'rear'] = { rows, src: `${file.split('/').slice(-2).join('/')} frames ${p.a}-${p.hit}-${p.b} (${p.lead ? 'lead' : 'rear'} hand)` };
+}
+
+console.log(`// Generated by scripts/bvh-to-rig.mjs. Do not edit by hand: regenerate.
+// Clips: Adobe Mixamo (royalty-free in projects, exported as FBX and converted to BVH in Blender) or the CMU Graphics
+// Lab Motion Capture Database (mocap.cs.cmu.edu, free to use).
+${KINDS.flatMap(k => ['lead', 'rear'].filter(h => baked[k]?.[h]).map(h => `//   ${k}: ${baked[k][h].src}`)).join('\n')}
+
+/** Per punch (jab, cross, hook, uppercut) and punching hand [lead, rear] (null = none baked): ${STEPS * 2 + 1} steps of the
+ *  joints abdomen, chest, head, then [shoulder, elbow, fist] of the lead and the rear arm; pelvis at the origin. */
+const STEPS=${STEPS}, PUNCHES=[
+${KINDS.map(k => `  [ // ${k}\n${['lead', 'rear'].map(h => (baked[k]?.[h] ? `   [ // ${h}\n${baked[k][h].rows.map(r => `    [${r.join(',')}]`).join(',\n')}]` : `   null /* ${h} */`)).join(',\n')}]`).join(',\n')}];
+
+/**
+ * A baked punch at progress u (0 = start, 1 = contact, 2 = back), in the rig's frame relative to the pelvis: +x towards
+ * the target, +y the lead side, +z up. Bones have the mocap's lengths; refitFigure() puts them on the rig's.
+ * @param {number} pid 0 jab, 1 cross, 2 hook, 3 uppercut @param {boolean} lead thrown with the lead hand @param {number} u
+ * @returns {{abd:number[],chest:number[],head:number[],lead:{sh:number[],el:number[],hd:number[]},rear:{sh:number[],el:number[],hd:number[]}}|null}
+ */
+export function mocapPunch(pid,lead,u){
+  const R=PUNCHES[pid]?.[lead?0:1]; if(!R)return null;
+  const x=Math.max(0,Math.min(2,u))*STEPS, i=Math.min(R.length-2,Math.floor(x)), w=x-i, A=R[i], B=R[i+1];
   const p=(/** @type {number} */ k)=>[0,1,2].map(c=>A[k*3+c]+(B[k*3+c]-A[k*3+c])*w);
   return {abd:p(0),chest:p(1),head:p(2),lead:{sh:p(3),el:p(4),hd:p(5)},rear:{sh:p(6),el:p(7),hd:p(8)}};
 }`);
