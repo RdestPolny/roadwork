@@ -8,8 +8,8 @@ visual pattern, not as live code to polish.
 
 - Fighters stand on `appearanceState.FLOOR_Y` = 86, about 45 px tall (heads ≈ y 40), centred near x 72.
 - In-canvas HUD: names, HP and stamina bars and the clock fill y 0–18 across the width.
-- HTML card overlay (in the real game, not in render-room sheets): the opponent panel covers about x 25–119, y 16–22,
-  his three beat cards x 59–84, y 24–35; the player's bar starts at y ≈ 69 and his cards and hand cover y 80–96.
+- The card fight and its HTML card overlay are gone; check what the shadowboxing HUD covers on a real render
+  (`node scripts/shot.mjs --scene=shadow`), not from these numbers.
 - So detail that must be seen lives in **y 20–68**; the floor is mostly hidden; the top of the wall only peeks out.
 
 ## Draw order per frame (`renderSpar` in `src/sparring.js`)
@@ -23,19 +23,13 @@ visual pattern, not as live code to polish.
 Per-frame budget: the yard backdrop with fog over all 13 824 pixels, five walkers and breath costs about 1.3 ms per
 frame including the sim step (`scripts/perf.mjs`). A full-frame per-pixel pass with 4 noise samples is affordable.
 
-## Building blocks already in `src/newgate-fight.js` (reuse, don't rewrite)
+## Building blocks
 
-| Function | Use |
-| --- | --- |
-| `vnoise(u,v)`, `fbm(u,v)` | smooth value noise from the 32×32 grid `state.noise` (filled in `initialize`); 0..1 |
-| `shade(c,k)`, `mix(c,t,k)` | darken/lighten; blend towards a colour |
-| `softSpot(cx,cy,rx,ry,k,col?,soft?)` | soft contact shadow (no `col`), or a veil/puff of `col`; `soft=1` spreads further |
-| `blitLayer(L,x0,x1,y0,y1)` | copy a figure layer onto `FB_MAIN` in a box, clear it, turn the black outline into `C.figOut` |
-| `knee(hx,hy,ax,ay,thigh,shin)` | two-bone IK, knee bending forwards (to the left) |
-| `convictPose` / `drawConvict` | the trudging gait; pose shared by the drawing and by the breath (mouth position at any past tick) |
-| `breath(t,id,period,mouth)` | random, sparse breath: a few puffs per exhale, most turns skipped via `h2(id*7+3,slot)` |
-| `drawWarder` | standing figure with idle weight shift and breathing |
-| `yardFog` | two-layer drifting smog + vignette |
+The side-on fight scenes and their helpers lived in `src/newgate-fight.js`, removed in `992736a` (fights became
+isometric). Still in the tree: `vnoise(u,v)` and `fbm(u,v)` in `src/noise.js`, `mix(c,t,k)` in `src/cast.js`,
+`knee(…)` two-bone IK in `src/fighter-rig.js`, `yardFog` in `src/exercise-yard.js`. The removed ones (`softSpot`,
+`blitLayer`, `convictPose`/`drawConvict`, `breath`, `drawWarder`) are only in history:
+`git show 992736a^:src/newgate-fight.js`. The recipes below describe them as patterns, not live code.
 
 ## Recipes
 
@@ -68,5 +62,5 @@ rarely three at once.
 
 ## Render timing
 
-`render-room --fight=n:gap` / `shot.mjs` start the scene and step 60 ticks; the first frame is at `boxingState.tick` = 120, then
-`120 + k·gap`. Compute when a timed event happens from that, instead of rendering many sheets.
+`shot.mjs` starts the scene at tick 0 and steps `--warm` ticks (default 60): the first frame is at `boxingState.tick` = 60,
+then `60 + k·gap`. Compute when a timed event happens from that, instead of rendering many sheets.

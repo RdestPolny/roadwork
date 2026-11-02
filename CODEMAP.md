@@ -50,7 +50,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | Korba | `src/crank.js`, `src/crank-rules.js` | `src/crank-scene.js`, `src/prison.js`; `CRANK.md` |
 | Siłowanie, praca w rzeźni | `src/armwrestle.js` lub `src/work.js` | `src/prison.js`, `src/cast.js` |
 | Pub nad Tamizą — wnętrze (podtryb portu, drzwi frontowe) | `src/pub.js`, `src/pub-layout.js` | `src/pub-shell.js`, `src/pub-bar.js`, `src/pub-tables.js`, `tests/pub-browser.mjs`, `scripts/shot-scene.mjs` |
-| Port / prolog / dorożka | `src/thames-port.js`, `src/port-story.js` | `src/carriage.js`, `src/iso-fight.js` |
+| Port / prolog / dorożka, kamera i wypiekane tło portu | `src/thames-port.js`, `src/port-story.js` | `src/carriage.js`, `src/iso-fight.js`; `.claude/skills/roadwork-scene-art/references/port.md` |
 | Życie nabrzeża, rutyny postaci, rekwizyty portu | `src/port-life.js`, `src/port-scenes.js` | `src/port-district.js` (kotwice, pokład, `PORT_PROPS`: obrysy, kolizja i klucze głębi stałych rekwizytów; F8 = mapa obrysów), `src/port-extension.js`, `src/port-details.js`, `src/ragdoll.js` |
 | XP, statystyki, Profesor, drzewka, Cechy | `src/progression.js`, `src/stats.js`, `src/profesor.js` | `src/skill-tree.js`, `src/card-data.js`, `src/perk-rules.js`, `src/char-sheet.js`; `PROGRESSION.md`, `PERKI.md` |
 | Zapis, sloty, migracje, odporność na błędy | `src/save-store.js`, `src/progression.js` | `src/legacy-save-data.js`, `tests/save-store.test.js`; `ARCHITECTURE.md` § Zapis |
@@ -77,4 +77,5 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 - `README.md` — uruchomienie, zasady i sterowanie z perspektywy gracza.
 - `ARCHITECTURE.md` — właściciele stanu, przepływy, invariants zapisu/animacji.
 - `PRISON.md`, `NEWGATE.md`, `CIOSY.md`, `CRANK.md`, `KARALUCHY.md`, `TALIA.md`, `PERKI.md`, `PROGRESSION.md` — specyfikacje poszczególnych systemów. Nie czytaj wszystkich naraz.
-- `.claude/skills/painted-pixel-assets/` i `.claude/skills/roadwork-scene-art/` — procedury assetów/scen, wyłącznie dla odpowiednich zadań. Gdy instrukcja skilla i drzewo repo są sprzeczne, sprawdź **aktualny kod**.
+- `PROJECT.md` — historyczna specyfikacja jednej funkcji (rutyna rybaka, wiadro, kot w porcie), nie opis projektu.
+- `.claude/skills/painted-pixel-assets/` i `.claude/skills/roadwork-scene-art/` (port: `references/port.md`) — procedury assetów/scen, wyłącznie dla odpowiednich zadań. Gdy instrukcja skilla i drzewo repo są sprzeczne, sprawdź **aktualny kod**.

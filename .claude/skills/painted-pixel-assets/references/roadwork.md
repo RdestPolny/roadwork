@@ -4,7 +4,7 @@ Skill wymaga: Codex (`edit.sh`), macOS 14+ dla `vmask.swift`, `python3 -I` z num
 
 ## Dla czego tak, dla czego nie
 
-- **Sceny i postacie tła (kierat, cela, ward, spacerniak, port):** zwykły przepływ ze `SKILL.md` — wzorzec, edycje, cięcie, warstwy. Natywny kadr scen izometrycznych (pokoje, bójki, port) to 432×288; boczne sceny (Cień, pompki) mają 144×96.
+- **Sceny i postacie tła (cela, ward, spacerniak, port):** zwykły przepływ ze `SKILL.md` — wzorzec, edycje, cięcie, warstwy. Natywny kadr scen izometrycznych (pokoje, bójki, port) to 432×288; boczne sceny (Cień, pompki) mają 144×96.
 - **Postaci w walce i ludzie w scenach:** NIE sprite'y. W bójce izometrycznej, pokojach i porcie postać liczy `figureHD()` w `src/gym.js` na szkielecie `src/fighter-rig.js`; w bocznych scenach (Cień, pompki, `cast.js`) `drawBoxer()` w `src/boxing.js` ze szkieletu stawów + IK (`taper`, `drawLeg`, `drawGlove`) w kolorach z `src/appearance.js` (rampy 3-tonowe, np. `R_SKIN`, `R_HAIR`, `R_PANT`). Wzorzec PNG jest tylko podglądem stylu — agent odtwarza go funkcją rysującą względem stawów, jako nowy wariant obok `PO` (drelich), `workOutfit` (fartuch), `TW` (ręcznik).
 - Małe sztywne detale (włosy na klatce, blizny, tatuaże) można zapisać jako mapę znaków przypiętą do stawu, jak głowa w `boxing.js` (ASCII art przy `headX/headY`). Ręce i nogi zmieniają kształt w każdej pozie: z obrazu bierz tylko kolory, grubości i proporcje.
 

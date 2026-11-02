@@ -16,7 +16,7 @@ All isometric scenes share one native frame, 432×288 (`rendererState.hd3`, `ISO
 | --- | --- | --- |
 | Isometric room (cell / Ward, yard, bath) | `src/ward.js`, `src/exercise-yard.js`, `src/bath.js`, `src/rooms.js`, `src/gym.js` | [references/iso-room.md](references/iso-room.md) |
 | Isometric fight in those rooms | `src/iso-fight.js`, `src/gym.js` (`figureHD`), `src/fighter-rig.js` + the room module | [references/iso-room.md](references/iso-room.md) |
-| Thames port | `src/thames-port.js`, `src/port-life.js`, `src/port-scenes.js`, `src/port-district.js` | `CODEMAP.md` rows for the port |
+| Thames port | `src/thames-port.js`, `src/port-extension.js`, `src/port-life.js`, `src/port-scenes.js`, `src/port-district.js` | [references/port.md](references/port.md) |
 | Side-on 144×96: shadowboxing (Cień), push-ups | `src/sparring.js` (`renderSpar`), `src/cell-fight-scene.js`, `src/ward-wall.js`, `src/pushups.js` | [references/side-scene.md](references/side-scene.md) |
 
 Read only the scene's section of the module (`grep -n "^export function\|^function"` then `sed -n a,bp`), not the file.

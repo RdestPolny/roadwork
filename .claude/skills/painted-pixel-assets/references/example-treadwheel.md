@@ -1,3 +1,6 @@
+> Historical example: the treadwheel scene and the files named below were removed in `992736a`. Keep it as a
+> worked example of the process; the paths no longer exist (`git show 992736a^:<path>` restores them for reading).
+
 # Worked example: the treadwheel in Roadwork
 
 Roadwork (`~/Downloads/Roadwork`, native ESM, own pixel renderer, 288×192 at 2×) rebuilt its treadwheel minigame from
