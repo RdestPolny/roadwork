@@ -29,6 +29,8 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 - Nowe helpery opisuj JSDoc. Rozszerzaj `checkJs` moduł po module przy pracy nad nimi; nie deklaruj całego `src/` jako sprawdzonego bez naprawy błędów.
 - Raportuj wykonane sprawdzenia i rzeczywiste ograniczenia. Nie przypisuj wyników testom, których nie uruchomiono.
 
+- Znana baza: 15 testów walki z `tests/*.test.js` (pozy ciosów, garda, stamina) jest czerwonych niezależnie od zmian w porcie; nie ustalaj od nowa, czy to twoja wina, tylko porównaj liczbę niepowodzeń przed i po zmianie.
+
 ## Subagents
 
 - Używaj subagentów tylko wtedy, gdy oszczędzają tokeny lub poprawiają jakość wyniku.
@@ -39,3 +41,16 @@ Zacznij od krótkiej mapy `CODEMAP.md`: ustal podsystem, potem czytaj tylko wła
 
 - Skill `painted-pixel-assets` leży w `.claude/skills/painted-pixel-assets/` (kopia projektowa). Przed użyciem przeczytaj `SKILL.md` i `references/roadwork.md`.
 - Postaci rysuje kod, nie sprite'y: w bójce izometrycznej, pokojach i porcie `figureHD()` w `src/gym.js` na szkielecie `src/fighter-rig.js`; `drawBoxer()` w `src/boxing.js` tylko w bocznych scenach (Cień, pompki, praca, `cast.js`). Skin zawodnika to zmiana funkcji rysującej według PNG-wzorca (wzorce PNG trzymaj lokalnie w `art/`, poza repozytorium).
+
+## Sceny portu (grafika kodem)
+
+- Podgląd: `node scripts/shot.mjs --scene=port --at=i:j --out=nazwa` zapisuje PNG w `artifacts/tmp/`; przytnij i powiększ go (PIL, NEAREST). Pozycje obiektów są w `ANCHORS` w `src/port-district.js` (np. grajek ok. 40,6.7, wóz policyjny ok. 11,5). Przy zleceniu „usuń to coś obok” najpierw rozpoznaj na zrzucie, co to jest (np. siatka z `yardCraftProps`), dopiero potem tnij kod.
+- Izometria: jednostka `z` to ok. 1 px, ekranowa pozioma to `(di, −dj)`. Kształt z jednej linii `thin()` wygląda na „otwarty”; pełny kształt składaj z kilku gęstych rządków. Bardzo ciemne kolory giną na ceglanej ścianie.
+- `horse()` w `src/carriage.js` rysuje konie i w porcie, i przy dorożce; zmiana proporcji dotyczy obu scen.
+- Renderer nie ma alfy: zanikanie rób mieszaniem koloru z tłem (`mix`).
+
+## Git
+
+- Nie dotykaj nieśledzonych plików, których nie tworzyłeś: commituj przez `git add -u` albo z jawną listą plików.
+- Przed `push` zrób `git fetch`; na zdalnej gałęzi pracują też inne agenty, więc lokalna gałąź bywa wiele commitów do tyłu.
+- Push tylko na wyraźne polecenie.
