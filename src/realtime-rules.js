@@ -191,10 +191,10 @@ export function resolveNearMiss(attacker,defender,{gap,range,now}){
  * A perfect slip, or a dash in that gets under the punch (gap and range given), also resets the defender's evade fatigue.
  * guardLate: the guard is held but the tired arms are not up yet, so the punch lands as on an open guard.
  * @param {Combatant} attacker @param {Combatant} defender
- * @param {{pid:number,low?:boolean,now:number,gap?:number,range?:number,guardLate?:boolean}} blow
+ * @param {{pid:number,low?:boolean,now:number,gap?:number,range?:number,guardLate?:boolean,noParry?:boolean}} blow
  * @returns {{kind:'hit'|'block'|'parry'|'slip',damage:number,counter:boolean,failedSlip:boolean}}
  */
-export function resolvePunch(attacker,defender,{pid,low=false,now,gap,range,guardLate=false}){
+export function resolvePunch(attacker,defender,{pid,low=false,now,gap,range,guardLate=false,noParry=false}){
   const counter=attacker.punchCounter;
   const cMult=counter?(attacker.counterMult||TUNING.counterPower):1;
   attacker.punchCounter=false;
@@ -217,7 +217,7 @@ export function resolvePunch(attacker,defender,{pid,low=false,now,gap,range,guar
   let kind='hit';
   if(defender.guarding&&defender.sta>0&&!guardLate){
     const guardAge=now-defender.guardSince;
-    if(guardAge>=0&&guardAge<=TUNING.guardPerfect){
+    if(guardAge>=0&&guardAge<=TUNING.guardPerfect&&!noParry){
       attacker.sta=Math.max(0,attacker.sta-TUNING.parryCost);
       attacker.regenReadyAt=Math.max(attacker.regenReadyAt,now+.5);
       defender.guardSince=-Infinity;

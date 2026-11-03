@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming } from '../src/heavy-bruiser.js';
+import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming, runLength, beginRun, chainHook, wantsCharge, beginCharge, launchCharge, chargeCatches } from '../src/heavy-bruiser.js';
 
 test('three heavy misses open a vulnerable breath window only after recovery',()=>{
   const b=createBullState();
@@ -37,4 +37,26 @@ test('missing a hook causes longer recovery than hitting a target',()=>{
   assert.equal(advanceBull(missed,0.8,false),'RECOVERY');
   assert.equal(advanceBull(hit,0.8,false),'RECOVERY');
   assert.ok(missed.until>hit.until+0.3,'whiff grants the player a longer counter opportunity');
+});
+
+test('a run is 2 to 4 hooks, the first with the long warning tell, and the chain continues without a recovery',()=>{
+  assert.equal(runLength(0),2); assert.equal(runLength(0.5),3); assert.equal(runLength(0.99),4);
+  const b=createBullState(); beginRun(b,10,3);
+  assert.equal(b.mode,'WINDUP'); assert.equal(b.until,10+BULL.warnWind); assert.equal(b.run.left,2);
+  b.mode='ATTACK'; b.lastAt=11; assert.equal(advanceBull(b,11.5,false),'CHAIN');
+  assert.ok(chainHook(b,11.5)); assert.equal(b.until,11.5+BULL.chainWind); assert.equal(b.run.left,1);
+  b.mode='ATTACK'; chainHook(b,12); b.mode='ATTACK'; assert.equal(advanceBull(b,12.6,false),'RECOVERY'); assert.equal(b.run,null);
+});
+
+test('the charge starts only from a distance and off cooldown, and catches a man only on its line',()=>{
+  const b=createBullState();
+  assert.equal(wantsCharge(b,1,3),false);   // too early in the fight
+  assert.equal(wantsCharge(b,b.chargeAt,1.5),false); assert.equal(wantsCharge(b,b.chargeAt,3),true);
+  beginCharge(b,5); launchCharge(b,6,1,0); assert.equal(b.mode,'CHARGE'); assert.equal(wantsCharge(b,7,3),false);
+  assert.equal(chargeCatches(0.8,0.3),true); assert.equal(chargeCatches(0.8,1.2),false); assert.equal(chargeCatches(2,0),false);
+});
+
+test('tiredness waits until a charge is over',()=>{
+  const b=createBullState(); b.mode='CHARGE'; b.pending=true; b.lastAt=1;
+  assert.equal(advanceBull(b,1.5,false),'CHARGE');
 });

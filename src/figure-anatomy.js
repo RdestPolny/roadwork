@@ -18,7 +18,7 @@ const bounded = (v, fallback) => Number.isFinite(v) && v > 0 ? Math.max(0.5, Mat
 export function figureProportions(look = {}) {
   const heavy = look.bodyType === 'heavy';
   const base = heavy
-    ? {shoulders:1.26,arms:1.5,forearms:1.6,chest:1.3,belly:1.6,thighs:1.5,calves:1.4,neck:1.6,head:1.17}
+    ? {shoulders:1.3,arms:1.65,forearms:1.7,chest:1.3,belly:1.25,thighs:1.7,calves:1.45,neck:1.9,head:1.17}
     : {shoulders:1,arms:1,forearms:1,chest:1,belly:1,thighs:1,calves:1,neck:1,head:1};
   const b = {...base, ...(heavy ? look.bulk : {})};
   for (const key of Object.keys(base)) b[key] = bounded(b[key], base[key]);

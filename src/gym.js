@@ -342,9 +342,17 @@ export function figureHD(C,J,L,o={}){
   }
   if(legTops.length){ let top=-Infinity; for(const k of legTops) top=Math.max(top,state.ipD[k]); const shift=Math.max(0,top-(state.ipD[waistK]-0.005)); for(const k of legTops) state.ipD[k]-=shift; }   /* one shift keeps near over far */
   if(heavy){
-    // A real forward-projecting belly, attached to the spine. Soft delay is visual only: IK bone lengths remain unchanged.
-    const lag=Math.max(-0.28,Math.min(0.28,(C.lagF||0)*0.19)), r=shape.belly;
-    ipAdd(...pp(1.5+lag,0,1.35),r*0.87+inhale, ...pp(2.15+lag,0,-1.05),r+inhale,T0);
+    // A fat man, not a boy with a balloon: the soft mass wraps the whole trunk (belly in two lobes, flanks, hanging chest, rounded back,
+    // heavy seat). Soft delay is visual only: IK bone lengths remain unchanged.
+    const lag=Math.max(-0.28,Math.min(0.28,(C.lagF||0)*0.19)), r=shape.belly, c=shape.chest;
+    ipAdd(...pp(1.0+lag,0,3.0),r*0.74+inhale, ...pp(1.7+lag,0,1.7),r*0.8+inhale,T0);            // upper belly, hanging off the ribs
+    ipAdd(...pp(1.3+lag,0,0.9),r*0.84+inhale, ...pp(1.9+lag,0,-1.0),r*0.82+inhale,T0);          // lower belly, overhanging the belt
+    ipAdd(...tp(-0.9,0,-0.3),c*0.8, ...pp(-0.8,0,1.6),c*0.78,T0);                                // a rounded back
+    for(let s=-1;s<=1;s+=2){
+      ipAdd(...pp(0.1,s*1.7,0.3),c*0.6, ...pp(0.3,s*1.7,2.4),c*0.66,T0);                         // love handles: the waist is wider than the ribs
+      ipAdd(...tp(0.8,s*1.8,-1.0),c*0.6, ...tp(1.3,s*1.5,-1.9),c*0.56,T0);                      // chest sagging onto the belly
+      ipAdd(...pp(-1.1,s*1.3,-0.5),c*0.56, ...pp(-1.0,s*1.5,-1.6),c*0.54,L.pt[0]);               // a heavy seat
+    }
   }
   // A sloping trapezius/clavicle on each side replaces the former rigid shoulder bar.
   // The actual arm sockets remain at J(s).sh, preserving all combat animation arcs.
@@ -356,6 +364,8 @@ export function figureHD(C,J,L,o={}){
   ipAdd(...H,shape.headRadius, ...H,shape.headRadius, cropped?L.hair:HS);                                                       // skull beneath the hair
   if(cropped) headAdd(...hp(0.9,0,-0.2),1.15, ...hp(1.0,0,-0.65),1.0, S0);                     // face in front of the hair
   headAdd(...hp(0.45,0,-0.7),1.2, ...hp(0.85,0,-1.15),0.95, HS);                                       // jaw and chin
+  if(heavy){ for(let s=-1;s<=1;s+=2){ headAdd(...hp(0.9,s*1.15,-0.15),0.85, ...hp(0.9,s*1.0,-0.7),0.8, HS); headAdd(...hp(0.35,s*1.05,-1.0),0.95, ...hp(0.7,s*0.65,-1.55),0.85, HS); }   // full cheeks and jowls
+    headAdd(...hp(0.3,0,-1.55),1.2, ...hp(0.65,0,-1.95),1.05, HS); }                                    // a double chin
   if(L.style!=='hood') for(let s=-1;s<=1;s+=2) headAdd(...hp(-0.15,s*1.68,-0.15),0.42, ...hp(-0.1,s*1.68,-0.25),0.4, L.sk[s===nearS?0:1]);   // ears
   const st=L.style||'short';
   if(st==='long'){ headAdd(...hp(-0.35,0,0.6),1.8, ...hp(-0.35,0,0.6),1.8, L.hair); headAdd(...hp(-0.85,0,-0.3),1.45, ...hp(-1.0,0,-1.9),1.2, L.hair); }   // long, down the neck

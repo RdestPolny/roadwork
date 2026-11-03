@@ -195,3 +195,9 @@ test('a clean body hook wears the ceiling down noticeably; a late tired guard do
   const e=createCombatant({staCap:100}),h=createCombatant({staCap:100});e.sta=h.sta=10;
   tickCombatant(e,1,1);tickCombatant(h,1,1,TUNING.clinchRegen);assert.equal(h.sta-10,2*(e.sta-10));
 });
+
+test('a fresh guard parries, but an unparryable blow only counts as a block',()=>{
+  const mk=()=>{ const a=createCombatant(), d=createCombatant(); setGuard(d,true,0); return [a,d]; };
+  const [a,d]=mk(); assert.equal(resolvePunch(a,d,{pid:2,now:0.05}).kind,'parry');
+  const [a2,d2]=mk(); assert.equal(resolvePunch(a2,d2,{pid:2,now:0.05,noParry:true}).kind,'block');
+});
