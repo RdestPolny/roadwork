@@ -20,6 +20,7 @@ import {ragdollLengths, stepRagdoll, ragdollJointsIn} from './ragdoll.js';
 import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors, fixBoneLength, refitFigure} from './fighter-rig.js';
 import { mocapPunch } from './mocap-punches.js';
 import { mocapStep, stepTravel } from './mocap-steps.js';
+import { mocapIdle, mocapGetUp } from './mocap-stance.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -49,6 +50,11 @@ const punchT=(F,pid)=>bullTiming(PT[pid],!!F.bull);
 /** Farthest hip-to-hip distance (room units) at which each punch lands: the old side-on ranges 33/31/27/26 px scaled to the rooms. */
 const RANGE=[1.45,1.40,1.20,1.10];
 const LUNGE=[1.2,1.6,1.8,1.4];
+/** Seconds of one loop of the mocap fight idle, and how far its fists are dropped below the clip's (a lower, Victorian guard). */
+const IDLE_LOOP=3.13, IDLE_DROP=0.9;
+/** Fight ticks of getting up from the boards (the mocap clip, about 2.4x its own speed), and how fast it finishes once he punches
+ *  or raises his guard (walking keeps it: the steps are his feet finding the stance). */
+const RISE_TICKS=90, RISE_HURRY=12;
 /** The rear straight's body sequence, from CMU mocap 13_18 (scripts/bvh-to-keys.mjs) mixed halfway with the original
  *  in-sync motion: exponents on the punch progress for [striking, recovery]. Contact (progress 1) keeps the hand-tuned pose.
  *  Striking: weight and hips lead, the shoulders follow, the fist keeps its snap. Recovery: the hips unwind first, the fist
@@ -829,7 +835,7 @@ function tickFight(){
   S.scale=scale; if(S.kdSlow>0) S.kdSlow=Math.max(0,S.kdSlow-rawDt); if(S.slowMo>0) S.slowMo=Math.max(0,S.slowMo-rawDt);
   if(S.banner&&S.kdSlow<=0&&--S.banner.t<=0) S.banner=null;   // the knockdown's words wait for the comic to end
   tickFeet(P,scale); tickFeet(O,scale); tickSpurt(P,scale); tickSpurt(O,scale); tickParts(scale);
-  for(const F of [P,O]){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/27)>=1) F.rise=null; }
+  for(const F of [P,O]){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/(F.pk||F.gUp>0.2?RISE_HURRY:RISE_TICKS))>=1) F.rise=null; }
   if(S.kdSlow>3&&S.venue!=='sandy') recordKnockdownFrame();
   if(O.rt.guarding&&!O.gWas) O.gPop=1; O.gWas=O.rt.guarding; O.gPop=Math.max(0,(O.gPop||0)-dt*5);   // the rival's guard snaps up past its place and settles: a block you can see coming
   for(const F of [P,O]){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*ZONES[F.rt.zone].guard*scale; F.tire+=(F.rt.zone/2-F.tire)*0.04*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
@@ -1134,10 +1140,12 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     // Shoulder-relative guard. Upper arms, forearms, hands and elbows follow
     // the ribcage through slips, lunges and body hits without changing length.
     const armSwing=-s*stride*0.45+F.lagF*0.35;
-    const mill=pk?0:(1-F.gUp)*0.2, phase=t*5.5+F.seed+(s>0?0:Math.PI);
-    let pole=[sh[0]+0.65+armSwing*0.30,sh[1]+s*0.20,sh[2]-1.75];
-    let hand=[sh[0]+2.2+armSwing*0.7+Math.cos(phase)*mill,
-      sh[1]-s*1.45,sh[2]+1.55+Math.sin(phase)*mill];
+    // The resting stance is the mocap fight idle (src/mocap-stance.js) dropped to a Victorian guard: the lead fist out in front at
+    // chest height, the rear one by the ribs. A raised block (gUp) lifts both fists to the face, so the two read apart.
+    const idle=mocapIdle(t/IDLE_LOOP+F.seed), m=s*F.leadSide>0?idle.lead:idle.rear, y=F.leadSide===-1?-1:1;
+    const mid=[chest[0]-0.2,chest[1],chest[2]+RIG.shoulderHeight-IDLE_DROP];
+    let pole=[mid[0]+m.el[0]+armSwing*0.30,mid[1]+y*m.el[1],mid[2]+m.el[2]];
+    let hand=[mid[0]+m.hd[0]+armSwing*0.7,mid[1]+y*m.hd[1],mid[2]+m.hd[2]];
     if(clinch){
       pole=[sh[0]+1.1,sh[1]+s*0.35,sh[2]-1.55];
       hand=[sh[0]+3.1,sh[1]-s*1.0,sh[2]-0.1];
@@ -1249,13 +1257,30 @@ function tellOf(F){
   return F.tell;
 }
 
+/**
+ * Getting up from the boards (src/mocap-stance.js) over the stance he will stand in: from the ragdoll's last pose into the clip,
+ * the clip itself (it starts where the ragdoll's pelvis lies and ends over his feet), then into the fighting pose J.
+ * Southpaws are mirrored. Presentation only: the rules stood him up already.
+ * @param {any} F @param {any} J the fighting pose he rises into
+ */
+function risingJoints(F,J){
+  const t=Math.min(1,F.rise.t), u=Math.max(0,Math.min(1,(t-0.08)/0.8)), y=F.leadSide===-1?-1:1, R=F.rise.joints;
+  const M=mocapGetUp(u), M0=mocapGetUp(0), k=1-smooth(u), off=[(R.pel[0]-M0.pel[0])*k,(R.pel[1]-y*M0.pel[1])*k,0];
+  const put=(/** @type {number[]} */ v)=>[v[0]+off[0],y*v[1]+off[1],v[2]];
+  const side={};
+  for(const s of [-1,1]){ const m=M(s*y); side[s]={hip:put(m.hip),knee:put(m.knee),foot:put(m.foot),sh:put(m.sh),el:put(m.el),hd:put(m.hd)}; }
+  const clip=Object.assign((/** @type {number} */ s)=>side[s],{pel:put(M.pel),abd:put(M.abd),chest:put(M.chest),head:put(M.head)});
+  const into=blendJoints(R,clip,smooth(Math.min(1,t/0.1)));
+  return blendJoints(into,J,smooth(Math.max(0,(t-0.86)/0.14)));
+}
+
 /** Draw one fighter as the hub figure: on his feet, getting up (from the ragdoll's last pose to his stance) or as a ragdoll on the boards. @param {any} F */
 function drawFighter(F){
   if((F.ko||F.down)&&F.rd){ figureHD(F,ragdollJoints(F),F.look,{pose:0,base:0,noShadow:true,light:true,tilt:true}); return; }
   const v=F.vib>0?(F.vib&1?1:-1)*0.08*Math.min(1,F.vib/4):0;   // the struck man trembles along the blow during the hit-stop
   F.i+=F.vibI*v; F.j+=F.vibJ*v;
   let jf=fighterJoints(F);
-  if(F.rise){ jf=blendJoints(F.rise.joints,jf,smooth(Math.min(1,F.rise.t))); }
+  if(F.rise) jf=risingJoints(F,jf);
   const fist=fistCue(F);
   figureHD(F,jf,F.look,{pose:0,base:0,noShadow:!!F.rise,light:state.venue!=='sandy',tilt:!!F.rise||!!F.pk?.low||F.pk?.pid===2||F.pk?.pid===3||F.hurtT>0,fist:fist||undefined});
   if(fist) appearanceState.PAL.set(fist.saved,fist.rp*3);
@@ -1288,7 +1313,7 @@ export function combatRigSnapshot(which='player'){
   const F=which==='opponent'?state.O:state.P;
   if(!F)return null;
   let J=(F.rd&&(F.ko||F.down))?ragdollJoints(F):fighterJoints(F);
-  if(F.rise)J=blendJoints(F.rise.joints,J,smooth(Math.min(1,F.rise.t)));
+  if(F.rise)J=risingJoints(F,J);
   const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
   const angle=(a,b,c)=>elbowAngle(a,b,c);
   const side=(s)=>{
@@ -1659,7 +1684,7 @@ function knockdownZoom(){
  * The joint chains and their colors are diagnostic, not part of the game art. */
 function renderRigOverlay(F){
   let J=F.rd&&(F.ko||F.down)?ragdollJoints(F):fighterJoints(F);
-  if(F.rise)J=blendJoints(F.rise.joints,J,smooth(Math.min(1,F.rise.t)));
+  if(F.rise)J=risingJoints(F,J);
   const oldC=gymState.ipC,oldPose=gymState.ipPose,oldBase=gymState.ipBase;
   gymState.ipC=F;gymState.ipPose=0;gymState.ipBase=0;
   const p=(v)=>{bodyPt(v[0],v[1],v[2]);return [Math.round(gymState.bpX),Math.round(gymState.bpY)];};
