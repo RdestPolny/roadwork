@@ -1217,12 +1217,15 @@ function withMocapPunch(F,jf,pid,ps,prog){
   const chest=put(M.chest), mc=put([0,1,2].map(c=>(M.lead.sh[c]+M.rear.sh[c])/2));
   const gc=[0,1,2].map(c=>(jf(-1).sh[c]+jf(1).sh[c])/2-jf.chest[c]), shift=[0,1,2].map(c=>chest[c]+gc[c]-mc[c]);
   const at=(/** @type {number[]} */ v)=>put(v).map((q,c)=>q+shift[c]);
-  // Both arms keep the game's bones on the mocap's shoulders: the trunk blend (wt) must not move the punching arm.
+  // Both arms keep the game's bones on the mocap's shoulders, turned with the shoulder line so a guard arm stays in front of
+  // the chest however far the trunk turns; the trunk blend (wt) must not move the punching arm, which wa drives below.
+  const msh={[-1]:at((-y>0?M.lead:M.rear).sh),[1]:at((y>0?M.lead:M.rear).sh)};
+  const turn=Math.atan2(msh[1][1]-msh[-1][1],msh[1][0]-msh[-1][0])-Math.atan2(jf(1).sh[1]-jf(-1).sh[1],jf(1).sh[0]-jf(-1).sh[0]);
+  const cs=Math.cos(turn), sn=Math.sin(turn), rot=(/** @type {number[]} */ v)=>[v[0]*cs-v[1]*sn,v[0]*sn+v[1]*cs,v[2]];
   const J={};
   for(const s of [-1,1]){
-    const g=jf(s), sh=at((s*y>0?M.lead:M.rear).sh);
-    const el=[sh[0]+g.el[0]-g.sh[0],sh[1]+g.el[1]-g.sh[1],sh[2]+g.el[2]-g.sh[2]];
-    J[s]={...g,sh,el,hd:[el[0]+g.hd[0]-g.el[0],el[1]+g.hd[1]-g.el[1],el[2]+g.hd[2]-g.el[2]]};
+    const g=jf(s), sh=msh[s], el=add3(sh,rot(sub3(g.el,g.sh)));
+    J[s]={...g,sh,el,hd:add3(el,rot(sub3(g.hd,g.el)))};
   }
   const out=blendJoints(jf,refitFigure(Object.assign((/** @type {number} */ s)=>J[s],{pel:P,abd:put(M.abd),chest,head:put(M.head)})),wt);
   // The punching arm alone: its bones turned towards the mocap's by wa, hung from the blended shoulder.
@@ -1232,6 +1235,7 @@ function withMocapPunch(F,jf,pid,ps,prog){
   return out;
 }
 const sub3=(/** @type {number[]} */ a,/** @type {number[]} */ b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
+const add3=(/** @type {number[]} */ a,/** @type {number[]} */ b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]];
 const norm3=(/** @type {number[]} */ v)=>{const l=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/l,v[1]/l,v[2]/l];};
 const move3=(/** @type {number[]} */ a,/** @type {number[]} */ v,/** @type {number} */ d)=>{const n=norm3(v);return [a[0]+n[0]*d,a[1]+n[1]*d,a[2]+n[2]*d];};
 
