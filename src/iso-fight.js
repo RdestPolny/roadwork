@@ -764,7 +764,8 @@ function bullCharge(F,P,b,now){
   }
   const moved=walk(F,P,c.di,c.dj,BULL.chargeSpeed*state.scale);
   c.dist+=moved; F.moving=moved>0; F.mf=1; F.ms=0;
-  if(c.dist>0.5&&fightBlocked(F.i+c.di*0.5,F.j+c.dj*0.5)){   // into the wall with nobody on the line: the bull is the one who is stunned
+  const onLine=Math.abs(across)<0.75&&along>0&&along<2.2;   // a man just ahead is caught or missed, not mistaken for a wall
+  if(c.dist>0.5&&!onLine&&fightBlocked(F.i+c.di*0.5,F.j+c.dj*0.5)){   // into the wall with nobody on the line: the bull is the one who is stunned
     b.mode='EXHAUSTED'; b.until=now+BULL.exhausted; b.missLoad=0; b.pending=false; b.charge=null;
     sfxCrack(1); sfxPunch(1.3,0.9,true); state.freeze=8; say('Wbił się w ścianę · teraz!'); return;
   }
