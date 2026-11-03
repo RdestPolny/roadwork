@@ -100,6 +100,22 @@ const TELL_POSE=[
   {yaw:0.75,hip:0.35,lean:-0.4, drop:0.35,side:-0.5,hand:[-1.1,0.8,1.3],  pole:[-0.7,1.2,2.1]},    // hook: the elbow cocked up over the shoulder, the trunk wound the other way
   {yaw:0.35,hip:0.2, lean:0.45, drop:1.3, side:0.3, hand:[-0.6,0.4,-2.4], pole:[-0.5,0.6,-1.0]},
   {yaw:0,   hip:0,   lean:1.5,  drop:1.6, side:0,   hand:[0,0,0],         pole:[0,0,0]}];   // the bull's charge: head down, sat low over his front foot  // uppercut: sat into the knees, the fist dropped to the hip  // uppercut: sat into the knees, the fist dropped to the hip
+/** The bull's arms held wide, as if blocking the way: fists out to the sides at shoulder height, elbows bent a little, all clear of his belly. */
+function bullWide(/** @type {number[]} */ sh,/** @type {number} */ s,/** @type {number} */ swing=0,/** @type {number} */ idle=0){
+  const open=0.5*Math.abs(swing);   // the arms swing against the legs and fling out a little with every stride; at rest they sway like a balancing man
+  return {hand:[sh[0]+2.6+swing*4.5+idle*0.5,sh[1]+s*(5.0+open),sh[2]-0.2+idle*0.6+open*0.5],pole:[sh[0]+0.8+swing*2.2+idle*0.25,sh[1]+s*(4.0+open*0.6),sh[2]-0.1+idle*0.3]};
+}
+/** The bull's hook: the fist travels a level arc round the front of his chest (angle a from the side, 0 straight ahead) with the
+ *  elbow out beyond it at a right angle, so the arm sweeps wide in one plane. @param {number[]} chest @param {number[]} sh @param {number} s @param {number} a */
+function bullHook(chest,sh,s,a){
+  const c=[chest[0]+0.2,chest[1],sh[2]-0.3], R=6.2, hand=[c[0]+R*Math.cos(a),c[1]+s*R*Math.sin(a),c[2]];
+  const mx=(sh[0]+hand[0])/2, my=(sh[1]+hand[1])/2, cx=hand[0]-sh[0], cy=hand[1]-sh[1], l=Math.hypot(cx,cy)||1;
+  let px=-cy/l, py=cx/l; if(px*(mx-c[0])+py*(my-c[1])<0){ px=-px; py=-py; }   // the perpendicular that points away from the arc's centre
+  return {hand,pole:[mx+px*2.6,my+py*2.6,(sh[2]+hand[2])/2]};
+}
+/** Where the bull's hook starts, passes contact and ends its follow-through, as arc angles (radians). */
+const BULL_ARC={start:1.9,contact:0.2,through:-0.55};
+
 /** Upper arm and forearm (to the middle of the fist), thigh and shin: the bones keep their length in every pose. */
 const ARM_U=ARM_UPPER, ARM_L=ARM_FORE, LEG_U=3.2, LEG_L=3.2;
 
@@ -1167,7 +1183,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const feet={}, step=stepLegs(F);
   for(const side of [-1,1]){
     const f=footJoint(F,side);
-    feet[side]=[f.fwd,f.side,RIG.footHeight+f.lift];
+    feet[side]=[f.fwd,f.side+(F.bull?side*0.9:0),RIG.footHeight+f.lift];   // the bull stands with his feet apart: thighs that thick would meet
     if(step) feet[side]=lerp3(feet[side],step.feet[side],step.w);   // the mocap boxing step over the game's own footwork
   }
   if(step) bob+=step.bob*step.w;
@@ -1209,13 +1225,26 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
       pole=[sh[0]+0.5,sh[1]+s*0.55,sh[2]-3.0];
       hand=[sh[0]+1.45,sh[1]+s*0.18,sh[2]-5.45];
     }
-    if(TP&&s===ts){
+    if(F.bull&&!breathing&&!clinch){   // arms spread wide, blocking the way; a raised guard (gUp) still brings them to the face
+      const w=bullWide(sh,s,armSwing,Math.sin(t*1.9+F.seed+s*1.6)), k=1-Math.min(1,F.gUp*1.5);
+      hand=lerp3(hand,w.hand,k); pole=lerp3(pole,w.pole,k);
+    }
+    if(F.bull&&tl&&tl.pid===2&&s===ts&&!pk){   // the tell: the fist is drawn back and out to the start of the arc
+      const w=bullHook(chest,sh,s,BULL_ARC.start), k=Math.min(1,tw);
+      hand=lerp3(hand,w.hand,k); pole=lerp3(pole,w.pole,k);
+    } else if(TP&&s===ts){
       hand=[hand[0]+TP.hand[0]*tw,hand[1]+s*TP.hand[1]*tw,hand[2]+TP.hand[2]*tw];
       pole=[pole[0]+TP.pole[0]*tw,pole[1]+s*TP.pole[1]*tw,pole[2]+TP.pole[2]*tw];
     }
     if(punching){
-      const target=strikeArmTargets(pk.pid,s,sh,hand,pole,arm,wind,pk.low);
-      hand=target.hand;pole=target.pole;
+      if(F.bull&&hook){
+        const a=prog<=1?BULL_ARC.start+(BULL_ARC.contact-BULL_ARC.start)*e:BULL_ARC.contact+(BULL_ARC.through-BULL_ARC.contact)*smooth(Math.min(1,(prog-1)/0.4));
+        const w=bullHook(chest,sh,s,a), back=prog>1?smooth(Math.max(0,Math.min(1,(prog-1.35)/0.65))):0, wd=bullWide(sh,s);
+        hand=lerp3(w.hand,wd.hand,back); pole=lerp3(w.pole,wd.pole,back);   // after the follow-through the arm opens wide again
+      } else {
+        const target=strikeArmTargets(pk.pid,s,sh,hand,pole,arm,wind,pk.low);
+        hand=target.hand;pole=target.pole;
+      }
     }
     if(cover>0.01&&!punching){
       const k=Math.min(0.82,cover*0.74);
@@ -1248,7 +1277,7 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
     headHint[2]+=(F.hurtDir===3?0.6:0)*hs;
   }
   jf.head=headSocket(chest,headHint);
-  return pk&&!pk.low&&prog>=0?withMocapPunch(F,jf,pk.pid,ps,prog):jf;
+  return pk&&!pk.low&&prog>=0&&!F.bull?withMocapPunch(F,jf,pk.pid,ps,prog):jf;   // the bull's hook is his own wide arc, not the boxer's mocap
 }
 
 /** How much of a mocap punch is used: the trunk and head at most TRUNK, the punching arm fully only around contact
