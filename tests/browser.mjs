@@ -4,6 +4,7 @@ import { checkCombatDash, captureCombatDashFrames } from './combat-dash-browser.
 import { checkBull, checkBullAttacks, captureBull } from './heavy-bruiser-browser.mjs';
 import { checkPortDistrict } from './port-district-browser.mjs';
 import { checkPub } from './pub-browser.mjs';
+import { checkAlley } from './alley-browser.mjs';
 import { checkCrank } from './crank.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -163,6 +164,7 @@ try {
   await check('Thames life: fixed routine phases',()=>checkPortLife(page));
   await check('Thames district: 13 native exploration, NPC, brawl and story captures',()=>checkPortDistrict(page));
   await check('Thames pub interior: enter, walk, leave',()=>checkPub(page));
+  await check('Thames alley: enter, walk the full length, collisions, leave',()=>checkAlley(page));
   await check('432x288: six native scene captures and Thames camera regression', async()=>{
     const capture=async(file)=>{
       const image=await page.evaluate(async()=>{

@@ -1,6 +1,6 @@
 // Native-framebuffer capture of a dev scene for art review.
-//   node scripts/shot-scene.mjs --scene=cell|yard|laznia|port|pub --steps=60 [--port=34.5:9.9] [--hero=i:j] [--crop=x:y:w:h] [--scale=4] [--eval='...'] --out=name
-// --hero places the pub player (and its camera) at i:j; --crop cuts a native-pixel box and enlarges it --scale times (nearest neighbour).
+//   node scripts/shot-scene.mjs --scene=cell|yard|laznia|port|pub|alley --steps=60 [--port=34.5:9.9] [--hero=i:j] [--crop=x:y:w:h] [--scale=4] [--eval='...'] --out=name
+// --hero places the pub or alley player (and its camera) at i:j; --crop cuts a native-pixel box and enlarges it --scale times (nearest neighbour).
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -18,7 +18,7 @@ try {
   const png = await page.evaluate(async ({ scene, steps, at, ev, hero, crop, scale }) => {
     document.querySelector(`[data-dev-scene="${scene}"]`)?.click();
     if (at) { const T = await import('/src/thames-port.js'); const [i, j] = at.split(':').map(Number); T.debugPortView(i, j); }
-    if (hero) { const P = await import('/src/pub.js'); const [i, j] = hero.split(':').map(Number); P.pubPlace(i, j); }
+    if (hero) { const [i, j] = hero.split(':').map(Number); if (scene === 'alley') (await import('/src/alley.js')).alleyPlace(i, j); else (await import('/src/pub.js')).pubPlace(i, j); }
     if (ev) await (new Function(`return (async()=>{${ev}})()`))();
     window.__boxer.step(steps);
     const R = await import('/src/renderer.js'); R.render();

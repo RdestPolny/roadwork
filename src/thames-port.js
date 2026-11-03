@@ -13,10 +13,11 @@ import { walkJoints, UNIT } from './port-life.js';
 import { mocapWalk, WALK_STRIDE } from './mocap-walk.js';
 import { DEBUG } from './config.js';
 import { pubInside, enterPub, leavePub, pubTick, renderPub, pubRivalNear } from './pub.js';
+import { alleyInside, leaveAlley, alleyTick, renderAlley } from './alley.js';
 import { portDistrictStatic, portDecks, portRiverDistance, portDistrictProps, portDistrictFX, PUB_LIT, PUB_DOOR } from './port-extension.js';
 
 /** Enter the standalone developer preview without changing the saved room. */
-export function startThamesPort(){ leavePub(); Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; invalidateBackground(); clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
+export function startThamesPort(){ leavePub(); leaveAlley(); Object.assign(player,{i:21.5,j:9,fi:-1,fj:0,ph:0,moving:false,carrying:false,lift:-1,pose:null}); Object.assign(playerSack,{i:20.9,j:8.5}); Object.assign(portJob,{ticks:0,delivered:0,entry:null,finished:false}); resetStory(); Object.assign(view,{z:1,cx:144,cy:96,pixelRatio:1}); portStory(); say(); camera.x=162-(player.i-player.j)*12; camera.y=84-(player.i+player.j)*6; invalidateBackground(); clearThamesInput(); setGstate('port'); setPanelMode(); setInfo(); }
 
 const C={black:rgb('#080a0a'), mortar:rgb('#211e1a'), brick:[rgb('#42322a'),rgb('#49372c'),rgb('#382d27'),rgb('#524034')],
   stock:[rgb('#4d4636'),rgb('#564d3b'),rgb('#443e31'),rgb('#5d523e')], brickC:[rgb('#3b2a25'),rgb('#45302a'),rgb('#33261f'),rgb('#4c362d')],
@@ -77,6 +78,7 @@ export function thamesBlocked(i,j){
 export function thamesKey(code,down,repeat=false){
   if(DEBUG&&code==='F8'){ if(down&&!repeat) propMap=!propMap; return true; }
   if(storyPlaying()) return true;
+  if(code==='KeyE'&&alleyInside()) return true;
   if(code==='KeyE'&&pubInside()){ if(down&&!repeat&&pubRivalNear()){ clearThamesInput(); startIsoFight(0,'pub'); } return true; }
   if(code==='KeyE'){
     if(down&&!repeat&&player.lift<0&&!portJob.entry){
@@ -104,6 +106,11 @@ export function tickThamesPort(){
     else if(e.tick<=105){ player.moving=false; if(e.tick===56){ player.carrying=false; portJob.delivered++; playerSack.i=20.9; playerSack.j=8.5; portStory(); } }
     else if(e.tick<=160){ const u=(e.tick-105)/55; player.i=13.15; player.j=lerp(-1.4,1.15,u); player.fi=0; player.fj=1; player.moving=true; player.ph+=.045; }
     else { portJob.entry=null; player.moving=false; clearThamesInput(); if(portJob.delivered===2&&!portJob.finished) beginScene(()=>beginBefore(boxingState.tick)); }
+    return;
+  }
+  if(alleyInside()){
+    const dx=Number(keys.has('ArrowRight')||keys.has('KeyD'))-Number(keys.has('ArrowLeft')||keys.has('KeyA')), dy=Number(keys.has('ArrowDown')||keys.has('KeyS'))-Number(keys.has('ArrowUp')||keys.has('KeyW'));
+    if(alleyTick(dx,dy)==='exit'){ leaveAlley(); followPortCamera(); setInfo(); }
     return;
   }
   if(pubInside()){
@@ -1417,7 +1424,8 @@ export function withThamesCamera(fn){ return withPortPixels(()=>{ const previous
 export function resumeThamesPort(){ setGstate('port'); setPanelMode(); portStory(); setInfo(); }
 /** Outfit shared by the port opponent and his fight figure. */
 export function portFightOutfit(fn){ const A=appearanceState; withCellOutfit(()=>{ setRamp(A.R_HSH,['#797974','#b7b4a7','#e1dbca'],false); setRamp(A.R_HSHF,['#797974','#b7b4a7','#e1dbca'],true); setRamp(A.R_HPT,['#181b1d','#2a2e31','#454a4a'],false); setRamp(A.R_HPTF,['#181b1d','#2a2e31','#454a4a'],true); fn(); }); }
-export function renderThamesPort(fighters=null){ const story=document.getElementById('portStory'), inPub=!fighters&&pubInside(); if(story) story.hidden=inPub;
+export function renderThamesPort(fighters=null){ const story=document.getElementById('portStory'), inPub=!fighters&&pubInside(), inAlley=!fighters&&alleyInside(); if(story) story.hidden=inPub||inAlley;
+  if(inAlley){ setPortSackPrompt(false,0,0); return renderAlley(); }
   if(inPub){ setPortSackPrompt(false,0,0); return renderPub(); } return withPortPixels(()=>renderPortFrame(fighters)); }
 /** Run fn in the port's projection with the camera moved to (x,y) (2× units), as the pub interior draws with the same helpers and scale. */
 export function withPortView(x,y,fn){ const ox=camera.x, oy=camera.y; camera.x=x; camera.y=y; try{ return withThamesCamera(fn); } finally { camera.x=ox; camera.y=oy; } }

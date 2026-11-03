@@ -50,6 +50,7 @@ Zapis:   src/progression.js -> src/save-store.js -> localStorage
 | Korba | `src/crank.js`, `src/crank-rules.js` | `src/crank-scene.js`, `src/prison.js`; `CRANK.md` |
 | Siłowanie, praca w rzeźni | `src/armwrestle.js` lub `src/work.js` | `src/prison.js`, `src/cast.js` |
 | Pub nad Tamizą — wnętrze (podtryb portu, drzwi frontowe) | `src/pub.js`, `src/pub-layout.js` | `src/pub-shell.js`, `src/pub-bar.js`, `src/pub-tables.js`, `tests/pub-browser.mjs`, `scripts/shot-scene.mjs` |
+| Alejka East End (podtryb portu, wejście tylko z debugu) | `src/alley.js`, `src/alley-layout.js` | `src/alley-shell.js`, `src/alley-props.js`, `src/alley-fx.js`, `tests/alley-browser.mjs`, `scripts/shot-scene.mjs` |
 | Port / prolog / dorożka, kamera i wypiekane tło portu | `src/thames-port.js`, `src/port-story.js` | `src/carriage.js`, `src/iso-fight.js`; `.claude/skills/roadwork-scene-art/references/port.md` |
 | Życie nabrzeża, rutyny postaci, rekwizyty portu | `src/port-life.js`, `src/port-scenes.js` | `src/port-district.js` (kotwice, pokład, `PORT_PROPS`: obrysy, kolizja i klucze głębi stałych rekwizytów; F8 = mapa obrysów), `src/port-extension.js`, `src/port-details.js`, `src/ragdoll.js` |
 | XP, statystyki, Profesor, drzewka, Cechy | `src/progression.js`, `src/stats.js`, `src/profesor.js` | `src/skill-tree.js`, `src/card-data.js`, `src/perk-rules.js`, `src/char-sheet.js`; `PROGRESSION.md`, `PERKI.md` |
