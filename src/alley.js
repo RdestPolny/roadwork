@@ -10,6 +10,7 @@ import { depthOrder } from './pub.js';
 import { alleyShellStatic, alleyShellProps } from './alley-shell.js';
 import { alleyPropsStatic, alleyProps } from './alley-props.js';
 import { alleyFX, alleyFXGround } from './alley-fx.js';
+import { alleyRats, resetAlleyRats } from './alley-rats.js';
 import { ALLEY } from './alley-layout.js';
 export { ALLEY };
 
@@ -22,7 +23,7 @@ export const state={inside:false,i:ALLEY.hero.i,j:ALLEY.hero.j,fi:ALLEY.hero.fi,
 /** Whether the port player is in the alley. */
 export function alleyInside(){ return state.inside; }
 /** Step into the alley at its street mouth, facing the blind end. */
-export function enterAlley(){ const h=ALLEY.hero; Object.assign(state,{inside:true,i:h.i,j:h.j,fi:h.fi,fj:h.fj,ph:0,moving:false}); follow(true); }
+export function enterAlley(){ const h=ALLEY.hero; Object.assign(state,{inside:true,i:h.i,j:h.j,fi:h.fi,fj:h.fj,ph:0,moving:false}); resetAlleyRats(); follow(true); }
 /** Debug/art capture: stand the player at (i,j) and snap the camera to him. */
 export function alleyPlace(/** @type {number} */i,/** @type {number} */j){ state.i=i; state.j=j; follow(true); }
 /** Leave the alley (the port puts its player back on the quay). */
@@ -90,7 +91,7 @@ export function renderAlley(){
     alleyFXGround(t);   // puddles lie on the floor: under the props and the hero
     const hero=state, side=hero.fi-hero.fj>=0?1:-1, g=hero.moving?hero.ph%1:.25;
     const actors=[{box:[hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22],draw:()=>{ contact(hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22,0,.45); portHero(hero,walkJoints(g,false,side)); }}];
-    for(const p of depthOrder([...alleyShellProps(t),...alleyProps(t),...actors])) p.draw();
+    for(const p of depthOrder([...alleyShellProps(t),...alleyProps(t),...alleyRats(t,hero),...actors])) p.draw();
     alleyFX(t);
   });
 }
