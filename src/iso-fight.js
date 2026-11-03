@@ -19,6 +19,7 @@ import {ARM_UPPER, ARM_FORE, solveLimb, strikeArmTargets, elbowAngle} from './co
 import {ragdollLengths, stepRagdoll, ragdollJointsIn} from './ragdoll.js';
 import {RIG, buildSpine, headSocket, shoulderSocket, supportPelvis, legAnchors, fixBoneLength, refitFigure} from './fighter-rig.js';
 import { mocapPunch } from './mocap-punches.js';
+import { mocapStep, stepTravel } from './mocap-steps.js';
 import { state as npcsState, cnLookHD } from './npcs.js';
 import { state as sparringState, oppDef, oppLevels, oppStars, setSparFight, setRigged, setFightLimit } from './sparring.js';
 import { setRoomRaw } from './rooms.js';
@@ -1108,11 +1109,13 @@ function fighterJoints(F, t=state.t, clinch=state.clinch){
   const hipYaw=-asin(hipRot*0.45/1.25)
     -(D?ps*(D.hip*eH-(hook||upper?0.15:0)*wind):0)+(TP?ts*TP.hip*tw:0);
   const tilt=D?D.tilt*eS+(upper?-0.6*wind:0):0;
-  const feet={};
+  const feet={}, step=stepLegs(F);
   for(const side of [-1,1]){
     const f=footJoint(F,side);
     feet[side]=[f.fwd,f.side,RIG.footHeight+f.lift];
+    if(step) feet[side]=lerp3(feet[side],step.feet[side],step.w);   // the mocap boxing step over the game's own footwork
   }
+  if(step) bob+=step.bob*step.w;
   const pelvisHint=[lung*0.24-F.lagF*0.14,
     lateral*0.48-F.lagS*0.15,RIG.pelvisHeight+bob];
   const pelvis=supportPelvis(pelvisHint,feet,hipYaw);
@@ -1433,6 +1436,7 @@ function tickFeet(F,scale=1,now=state.t){
     F.hLagF+=(F.lagF*1.25-vf*0.4-F.hLagF)*0.22*scale; F.hLagS+=(F.lagS*1.25-vs*0.4-F.hLagS)*0.22*scale;
   }
   const sp=Math.hypot(vi,vj), mi=sp>1e-4?vi/sp:0, mj=sp>1e-4?vj/sp:0;
+  tickStepClip(F,vi,vj,scale);
   const A=F.ft[1], B=F.ft[-1];
   for(const s of [1,-1]){ const f=F.ft[s];
     if(f.sw>0){ f.sw=Math.min(1,f.sw+scale/(F.dash?5:F.bull?SWING*1.2:SWING));
@@ -1451,6 +1455,34 @@ function tickFeet(F,scale=1,now=state.t){
   const T=stance(F,cand[0].s), ahead=Math.min(.43,STEP_LEAD+sp*3.2), ti=T.i+mi*ahead, tj=T.j+mj*ahead;
   const dx=ti-f.i, dy=tj-f.j, len=Math.hypot(dx,dy)||1, limit=F.dash?.72:.56;
   f.to={i:f.i+dx*Math.min(1,limit/len),j:f.j+dy*Math.min(1,limit/len)};
+}
+
+/**
+ * The mocap boxing step the legs show (src/mocap-steps.js): forward or back by the body's forward speed, the side step by the
+ * sideways one (a step towards the lead side is the right step played backwards: lead foot first, rear foot dragged after). The
+ * phase follows the distance covered, so a planted shoe stays put; the weight fades in while he moves and out when he stops.
+ * @param {any} F @param {number} vi @param {number} vj world speed per fight tick @param {number} scale
+ */
+function tickStepClip(F,vi,vj,scale){
+  const vf=(vi*F.fi+vj*F.fj)*7.5, vs=(vi*-F.fj+vj*F.fi)*7.5*(F.leadSide===-1?-1:1), v=Math.hypot(vf,vs);   // vs: + towards the lead side
+  const moving=v>0.02&&!F.dash&&!F.ko&&!F.down&&!state.clinch;
+  if(moving){
+    F.stepKind=Math.abs(vf)>=Math.abs(vs)?(vf>0?'forward':'back'):'right'; F.stepRev=F.stepKind==='right'&&vs>0;
+    const T=stepTravel(F.stepKind), along=Math.abs(F.stepKind==='right'?vs:vf);
+    F.stepU=(F.stepU||0)+along/Math.hypot(T[0],T[1]);
+  }
+  F.stepW=(F.stepW||0)+((moving?1:0)-(F.stepW||0))*Math.min(1,0.3*scale);
+}
+
+/** The mocap step's feet for F (body-local [forward, side, height] by side), placed on F's own stance, and the pelvis' rise and
+ *  fall, or null when he is not stepping. @param {any} F */
+function stepLegs(F){
+  if(!F.stepKind||!(F.stepW>0.01)) return null;
+  const y=F.leadSide===-1?-1:1, u=F.stepRev?1-(F.stepU%1):F.stepU, M=mocapStep(F.stepKind,u), M0=mocapStep(F.stepKind,0);
+  /** @type {Record<number,number[]>} */ const feet={};
+  for(const s of [-1,1]){ const k=s*y>0?'lead':'rear', st=STANCE[s*y], m=M[k].foot, m0=M0[k].foot;
+    feet[s]=[m[0]-m0[0]+st[0],y*(m[1]-m0[1])+s*1.7,m[2]]; }
+  return {feet,bob:M.pel[2]-M0.pel[2],w:F.stepW};
 }
 
 /** Foot s of F as a body-local joint [forward, side, height] and its air progress 0..1. @param {any} F @param {number} s */
