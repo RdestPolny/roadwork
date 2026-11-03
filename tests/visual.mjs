@@ -29,6 +29,8 @@ if (!scenes.length) { console.error(`no scene matches --only=${only}`); process.
 await mkdir(dir, { recursive: true });
 
 const game = await openGame(), page = game.page;
+// The game writes its save when the page unloads, so a reload would carry one scene's save into the next: start every load from empty storage.
+await page.addInitScript(() => { try { localStorage.clear(); sessionStorage.clear(); } catch { /* storage blocked */ } });
 let failed = 0;
 try {
   for (const s of scenes) {
