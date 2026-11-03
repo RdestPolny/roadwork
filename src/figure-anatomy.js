@@ -5,7 +5,7 @@
  * these render-only dimensions. Values are radii in legacy shape units, before
  * ISO_K scaling. Keep all characters on the same surface anatomy model.
  */
-export const HEAD_SCALE = 0.76; // a head of about 1/6 of the height: mocap anatomy, a touch larger to read at pixel scale
+export const HEAD_SCALE = 0.90;
 export const FIGURE_PART_CAPACITY = 64;
 
 const bounded = (v, fallback) => Number.isFinite(v) && v > 0 ? Math.max(0.5, Math.min(2.5, v)) : fallback;
@@ -27,30 +27,26 @@ export function figureProportions(look = {}) {
     /* the head's whole frame: skull, face, hair and headgear grow together, so a larger skull never swallows its cap */
     headScale: HEAD_SCALE * b.head,
     headRadius: 1.75 * HEAD_SCALE * b.head,
-    /* Cross-sections of a clothed mocap-proportioned man (chest about 0.21 of the height across, the coat included),
-     * kept a little fuller than bare anatomy so a limb stays at least three pixels wide. */
-    neckLower: .70 * b.neck,
-    neckUpper: .60 * b.neck,
-    clavicle: .80 * b.shoulders,
-    shoulderCap: .90 * b.arms,
-    upperArm: .85 * b.arms,
-    elbow: .68 * b.arms,
-    forearm: .72 * b.forearms,
-    wrist: .50 * b.forearms,
-    fist: .60 * b.forearms,
-    pelvis: 1.65 * b.chest,
-    waist: 1.42 * b.chest,
-    ribs: 1.62 * b.chest,
-    chest: 1.80 * b.chest,
-    thigh: 1.08 * b.thighs,
-    knee: .78 * b.thighs,
-    calf: .82 * b.calves,
-    ankle: .56 * b.calves,
-    heel: .78,
-    toe: .60,
+    neckLower: .82 * b.neck,
+    neckUpper: .69 * b.neck,
+    clavicle: .92 * b.shoulders,
+    shoulderCap: 1.10 * b.arms,
+    upperArm: 1.13 * b.arms,
+    elbow: .87 * b.arms,
+    forearm: .91 * b.forearms,
+    wrist: .65 * b.forearms,
+    fist: .74 * b.forearms,
+    pelvis: 1.91 * b.chest,
+    waist: 1.73 * b.chest,
+    ribs: 1.96 * b.chest,
+    chest: 2.20 * b.chest,
+    thigh: 1.32 * b.thighs,
+    knee: .98 * b.thighs,
+    calf: 1.02 * b.calves,
+    ankle: .72 * b.calves,
+    heel: .91,
+    toe: .72,
     belly: 2.35 * b.belly,
-    /** Fixtures on the torso (collar, buttons, pocket, belt) were placed on the former 2.2 chest: their forward and side offsets scale by this. */
-    surface: 1.80 / 2.20,
   };
 }
 

@@ -3,8 +3,8 @@
  * Coordinates are fighter-local: +x forward, +/-y to each hand, +z up.
  * Presentation only; hit ranges, damage and clocks stay in the combat rules.
  */
-export const ARM_UPPER=3.05;
-export const ARM_FORE=3.3; // includes the wrist-to-knuckle section; with the upper arm, a mocap human's reach
+export const ARM_UPPER=3.0;
+export const ARM_FORE=3.75; // includes the wrist-to-knuckle section
 
 const mix3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
 const clamp01=v=>Math.max(0,Math.min(1,v));
@@ -57,10 +57,8 @@ export function strikeArmTargets(punch,side,shoulder,restHand,restPole,extension
     reach=punch===0?(low?[5.80,-1.35,-1.65]:[6.30,-1.25,0.95]):(low?[5.92,-1.48,-1.65]:[6.35,-1.30,0.95]);
     elbow=[2.15,1.78,low?-1.45:-1.15];
   }
-  // The targets were shaped for a 6.65-long arm; they scale with the rig's arm so the joint angles stay the same.
-  const g=(ARM_UPPER+ARM_FORE)/6.65;
-  const handTarget=[shoulder[0]+reach[0]*g,shoulder[1]+s*reach[1]*g,shoulder[2]+reach[2]*g];
-  const poleTarget=[shoulder[0]+elbow[0]*g,shoulder[1]+s*elbow[1]*g,shoulder[2]+elbow[2]*g];
+  const handTarget=[shoulder[0]+reach[0],shoulder[1]+s*reach[1],shoulder[2]+reach[2]];
+  const poleTarget=[shoulder[0]+elbow[0],shoulder[1]+s*elbow[1],shoulder[2]+elbow[2]];
   const hand=mix3(restHand,handTarget,k),pole=mix3(restPole,poleTarget,k);
   // Circular hook and compact uppercut load visibly before the strike.
   if(punch===2){hand[0]-=0.35*w;hand[1]+=s*0.90*w;hand[2]-=0.14*w;}

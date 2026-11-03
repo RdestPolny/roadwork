@@ -151,5 +151,5 @@ test('a hand-written pose takes the rig lengths, keeps its feet on the floor and
     near(L.foot[2],0.9); near(Math.abs(L.hip[1]),RIG.hipHalf); near(Math.abs(L.sh[1]),RIG.shoulderHalf);
     for(const k of ['hip','knee','foot','sh','el','hd']) near(dist(L[k],again(s)[k]),0,1e-4);
   }
-  assert.ok(R.pel[2]>J.pel[2]+1,'longer legs lift the standing body');
+  assert.ok(Math.abs(R.pel[2]-J.pel[2])<0.6,'a pose written for the stylized figure keeps its height');
 });

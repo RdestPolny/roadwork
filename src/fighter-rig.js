@@ -9,14 +9,14 @@
  * shoulder/hip sockets around their respective spine joints; it never pulls
  * the chest, neck or hips apart as if they were unrelated animation controls.
  *
- * Proportions follow a mocap (CMU/Mixamo) human about 16 units tall: hip joint
- * near 0.53 of the height, shoulders near 0.82, a head of about 1/6. Each rig
- * joint has one mocap bone (MOCAP_JOINTS), so a clip retargets by bone angles.
+ * Proportions are the game's stylized figure (short legs, a long trunk, a big
+ * head), not a real human's. Each rig joint still has one mocap bone
+ * (MOCAP_JOINTS), so a clip retargets onto these bones by their angles.
  */
 export const RIG=Object.freeze({
-  pelvisHeight:7.9, hipHeight:0.3, hipHalf:1.15,
-  lowerSpine:2.40, upperSpine:2.60, shoulderHalf:2.10, shoulderHeight:0.2,
-  neckToHead:2.5, legUpper:3.85, legLower:3.85,
+  pelvisHeight:6.6, hipHeight:0.3, hipHalf:1.38,
+  lowerSpine:2.68, upperSpine:2.94, shoulderHalf:2.40, shoulderHeight:0.2,
+  neckToHead:3.4, legUpper:3.2, legLower:3.2,
   footHeight:0.9, minimumFootClearance:0.05
 });
 
@@ -64,7 +64,7 @@ export function supportPelvis(target,feet,hipYaw){
     cap=Math.min(cap,maxZ);any=true;
   }
   // Keep pelvis grounded in a deep squat even if a distant dash foot is a stale anchor.
-  return [target[0],target[1],any?Math.max(4.6,cap):target[2]];
+  return [target[0],target[1],any?Math.max(3.85,cap):target[2]];
 }
 
 /** With a planted shoe the leg must reach the GROUND, not stop in mid-air.
@@ -134,7 +134,7 @@ const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]], add=(a,b)=>[a[0]+b[0],a[1]+b[1
 const half=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2];
 
 /**
- * Any figure pose (hand-written NPC poses, ragdolls, the fight rig) on the rig's proportions, the way a mocap clip is
+ * Any figure pose (hand-written NPC poses, ragdolls, the fight rig, mocap) on the rig's proportions, the way a mocap clip is
  * retargeted: every bone keeps its direction and takes the rig's length; the shoulder and hip lines keep their centre and
  * turn and take the rig's width. A foot standing on the floor stays where it stood and the body rises or sinks over it,
  * so standing and sitting figures keep their ground contact. A pose already on the rig's proportions comes back unchanged.

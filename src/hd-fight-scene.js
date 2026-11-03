@@ -60,7 +60,6 @@ export function drawHDCharacterDetails(F,J,L,hp,hd0){
   /** Depth (i+j) of a body point; a seam or button on the front of a part belongs to it only while that front faces the camera. */
   const depth=(p)=>{ bodyPt(p[0],p[1],p[2]); return gymState.bpD; };
   const front=(p,fwd)=>depth([p[0]+fwd,p[1],p[2]])>depth(p)+0.02;
-  const k=figureProportions(L).surface, on=(p,x,y,z)=>[p[0]+x*k,p[1]+y*k,p[2]+z];   // a seam or button on the body's surface
   try{
     const chest=J.chest, pel=J.pel, head=J.head, h0=hp?.(0,0,0), h1=hp?.(1,0,0), hs=h0&&h1?Math.hypot(h1[0]-h0[0],h1[1]-h0[1],h1[2]-h0[2]):1;
     const hpt=(x,y,z)=>hp?hp(x-0.1/hs,y,z+0.6/hs):headDetailPoint(head,x,y,z);
@@ -68,11 +67,11 @@ export function drawHDCharacterDetails(F,J,L,hp,hd0){
     const fdot=(p,c)=>{ if(faces(p)) dot(p,c); }, fseam=(p,q,c)=>{ if(faces(p,q)) seam(p,q,c); };
     if(!L.bare){ // Bathers have no jacket, trousers or shirt seams.
     // Separate collar, crumpled lapels and the moving button placket.
-    if(front(chest,2*k)){
-    seam(on(chest,1.4,-0.9,0.2),on(chest,2,-0.3,-1.5),clothH);
-    seam(on(chest,1.3,0.8,0.2),on(chest,2,0.2,-1.5),clothD);
-    seam(on(chest,2,0,-1.5),on(pel,1.7,0,0.8),clothD);
-    for(let dz=-2;dz<2;dz+=1.3) dot(on(chest,2.1,0.12,dz),clothH);
+    if(front(chest,2)){
+    seam([chest[0]+1.4,chest[1]-0.9,chest[2]+0.2],[chest[0]+2,chest[1]-0.3,chest[2]-1.5],clothH);
+    seam([chest[0]+1.3,chest[1]+0.8,chest[2]+0.2],[chest[0]+2,chest[1]+0.2,chest[2]-1.5],clothD);
+    seam([chest[0]+2,chest[1],chest[2]-1.5],[pel[0]+1.7,pel[1],pel[2]+0.8],clothD);
+    for(let dz=-2;dz<2;dz+=1.3) dot([chest[0]+2.1,chest[1]+0.12,chest[2]+dz],clothH);
     }
     // Wrinkles track the skeleton rather than sliding on the framebuffer.
     /* A leg shows its own marks only while no other leg covers it: it is the nearer shin, or the shins are apart on the screen. */
@@ -81,16 +80,16 @@ export function drawHDCharacterDetails(F,J,L,hp,hd0){
     for(const s of [-1,1]){
       const arm=J(s), knee=arm.knee;
       /* an arm or leg behind the body, or with its front turned from the camera, shows no seam through the body */
-      if(front(arm.sh,0.55*k)&&(depth(arm.sh)+depth(arm.el))/2>depth(chest)-0.03){
-        seam(on(arm.sh,0.25,0,-0.8),on(arm.el,0.55,0,0.7),clothD);
-        seam(on(arm.el,0.5,0,0.35),on(arm.el,0.7,0,-0.35),clothH); }
+      if(front(arm.sh,0.55)&&(depth(arm.sh)+depth(arm.el))/2>depth(chest)-0.03){
+        seam([arm.sh[0]+0.25,arm.sh[1],arm.sh[2]-0.8],[arm.el[0]+0.55,arm.el[1],arm.el[2]+0.7],clothD);
+        seam([arm.el[0]+0.5,arm.el[1],arm.el[2]+0.35],[arm.el[0]+0.7,arm.el[1],arm.el[2]-0.35],clothH); }
       if(L.yorks!==undefined&&clear(s)){   /* yorks: string tied round the trouser leg under the knee, across the shin on the screen */
         const a=point(knee), b=point(arm.foot), l=Math.hypot(b[0]-a[0],b[1]-a[1])||1, ux=(b[0]-a[0])/l, uy=(b[1]-a[1])/l, cx=a[0]+ux*l*0.24, cy=a[1]+uy*l*0.24, r=legR*0.85;
         line(Math.round(cx-uy*r),Math.round(cy+ux*r),Math.round(cx+uy*r),Math.round(cy-ux*r),L.yorks,L.yorks); }
-      if(front(knee,0.9*k)&&depth(arm.hip)>depth(pel)-0.03&&clear(s)){
-        seam(on(arm.hip,0.7,0,-0.75),on(knee,0.65,0,0.45),pantD);
-        seam(on(knee,0.4,-0.45,0.2),on(knee,0.9,0.35,-0.3),pantH); }
-      dot([arm.foot[0]+0.8,arm.foot[1],arm.foot[2]+0.12],shade(L.shoe,2));   // the shoe keeps its length
+      if(front(knee,0.9)&&depth(arm.hip)>depth(pel)-0.03&&clear(s)){
+        seam([arm.hip[0]+0.7,arm.hip[1],arm.hip[2]-0.75],[knee[0]+0.65,knee[1],knee[2]+0.45],pantD);
+        seam([knee[0]+0.4,knee[1]-0.45,knee[2]+0.2],[knee[0]+0.9,knee[1]+0.35,knee[2]-0.3],pantH); }
+      dot([arm.foot[0]+0.8,arm.foot[1],arm.foot[2]+0.12],shade(L.shoe,2));
     }
     }
     // Readable nose ridge, cheekbone, eyebrow, temple and jaw from the same head joint.
@@ -109,8 +108,8 @@ export function drawHDCharacterDetails(F,J,L,hp,hd0){
     if(L.stubble) for(let i=0;i<3;i++) fdot(hpt(+1.25-i*0.17,+0.72,-1.38-i*0.22),hairD);
     }
     if(!L.bare&&L.scarf!==undefined){
-      seam(on(chest,1.85,-0.45,0.35),on(chest,2.1,0.4,0.2),L.scarf);
-      dot(on(chest,2.2,0.1,-0.45),L.scarf);
+      seam([chest[0]+1.85,chest[1]-0.45,chest[2]+0.35],[chest[0]+2.1,chest[1]+0.4,chest[2]+0.2],L.scarf);
+      dot([chest[0]+2.2,chest[1]+0.1,chest[2]-0.45],L.scarf);
     }
   }finally{
     gymState.ipC=oldC; gymState.ipPose=oldPose; gymState.ipBase=oldBase;
