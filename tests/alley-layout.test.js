@@ -71,3 +71,28 @@ test('signs lie on the wall range and never overlap windows or doors of their fa
   }
   for(const w of ALLEY.windows){ if(face(w)!=='wall') continue; for(const d of ALLEY.doors) if(face(d)==='wall'&&w.floor===0) assert.ok(!overlap(w.i0,w.i1,d.i0,d.i1),`${w.id} x ${d.id}`); }
 });
+
+test('round 2: no post lamps, braziers, candle schedules, rat holes and lanes', () => {
+  assert.ok(ALLEY.lamps.every(l=>l.side!=='post'));
+  assert.ok(!ALLEY.boxes.some(b=>b.kind==='post'));
+  assert.ok(ALLEY.lamps.some(l=>l.kind==='lantern'&&l.mode==='gutter'));
+  for(const L of [ALLEY.lamps,ALLEY.fires,ALLEY.glows,ALLEY.ratHoles,ALLEY.ratLanes]) assert.equal(new Set(ids(L)).size,L.length);
+  const inSolid=(i,j,m=0)=>solids.some(({box:b})=>i>b[0]-m&&i<b[2]+m&&j>b[1]-m&&j<b[3]+m);
+  for(const f of ALLEY.fires){ assert.equal(f.mode,'fire'); assert.ok(f.flicker>=.5&&f.flicker<=.8,f.id);
+    const b=ALLEY.boxes.find(x=>x.kind==='brazier'&&f.i>x.box[0]&&f.i<x.box[2]&&f.j>x.box[1]&&f.j<x.box[3]); assert.ok(b&&b.solid,`${f.id} sits in a brazier box`); }
+  const win=new Map(ALLEY.windows.map(w=>[w.id,w])), candles=ALLEY.windows.filter(w=>w.state==='candle');
+  assert.ok(candles.length>=5&&candles.length<=6);
+  for(const w of candles){
+    const s=w.schedule; assert.ok(s.period>=40&&s.period<=140&&s.on>0&&s.on<1&&s.phase>=0&&s.phase<1&&w.flicker>=.3&&w.flicker<=.7,w.id);
+    const g=ALLEY.glows.find(x=>x.window===w.id); assert.ok(g&&g.radius>=2&&g.radius<=3.5&&JSON.stringify(g.schedule)===JSON.stringify(s),w.id);
+    const on=(t)=>((t/s.period+s.phase)%1)<s.on; assert.equal(on(37),on(37));
+  }
+  for(const w of ALLEY.windows) if(w.state==='lit') assert.ok(!w.schedule);
+  for(const a of candles) for(const b of candles) if(a!==b&&a.floor===b.floor&&Math.abs((a.i0+a.i1-b.i0-b.i1)/2)<4) assert.notEqual(a.schedule.phase,b.schedule.phase);
+  for(const h of ALLEY.ratHoles){ assert.ok(h.i>=0&&h.i<=ALLEY.I&&h.j>=0&&h.j<=ALLEY.J,h.id); assert.ok(!inSolid(h.i,h.j),h.id); }
+  assert.ok(ALLEY.ratHoles.length>=10&&ALLEY.ratHoles.length<=14);
+  for(const L of ALLEY.ratLanes) for(let k=1;k<L.pts.length;k++){
+    const [a,b]=[L.pts[k-1],L.pts[k]], n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.1);
+    for(let q=0;q<=n;q++){ const i=a[0]+(b[0]-a[0])*q/n, j=a[1]+(b[1]-a[1])*q/n;
+      assert.ok(i>=0&&i<=ALLEY.I&&j>=0&&j<=ALLEY.J,L.id); assert.ok(!inSolid(i,j,.12),`${L.id} at ${i.toFixed(2)},${j.toFixed(2)}`); } }
+});
