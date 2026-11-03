@@ -9,6 +9,7 @@ import { state as gymState, isoX, isoY } from './gym.js';
 import { mix } from './cast.js';
 import { vn, spot } from './thames-port.js';
 import { ALLEY } from './alley-layout.js';
+import { fireLevel, candleLevel } from './alley-light.js';
 import { state as alleyState } from './alley.js';
 
 /** Hex colour to [r,g,b] in 0..255. @param {string} h */
@@ -26,7 +27,7 @@ const COL={
   lowFog:hx('#5c6664'), highFog:hx('#7a8077'), warmFog:hx('#8a8466'),
   haloNear:hx('#e0a850'), haloFar:hx('#9a6a30'), haloEdge:hx('#6a6a3a'),
   dark:hx('#07090a'), water:hx('#10181a'), sky:hx('#2a3638'), gas:hx('#b88c4a'), drop:rgb('#9fb0ad'), rim:hx('#0a0c0d'),
-  pawn:hx('#c8964a'), candle:hx('#a88a58'), steam:hx('#7a8077'), core:rgb('#fff1b8'), flame:rgb('#f0c060'),
+  pawn:hx('#c8964a'), candle:hx('#a88a58'), steam:hx('#7a8077'), core:rgb('#fff1b8'), fireBloom:rgb('#e0762a'), flame:rgb('#f0c060'),
 };
 const AMBIENT_TINT=[.9,1,1.1];          // cool shadow: light that is not gas leans blue-green
 const E0=.3, E1=.8;                      // exposure: multiplier = E0+E1*light (1 = the shell's full palette)
@@ -34,20 +35,27 @@ const NODE=4;                            // node spacing of the lighting grid, p
 const BAYER=new Float32Array([0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>.5+((v+.5)/16-.5)*.8));
 
 // ---- light sources ----
-/** @typedef {{i:number,j:number,z:number,r:number,g:number,b:number,R:number,I:number,gain:number,lamp:boolean,mode:string,flick:number,seed:number,sx:number,sy:number,P:number}} Src */
+/** @typedef {{i:number,j:number,bi:number,bj:number,z:number,r:number,g:number,b:number,R:number,I:number,gain:number,lamp:boolean,mode:string,flick:number,seed:number,sx:number,sy:number,P:number,id:string,fire:boolean,hn:number[],hf:number[],he:number[],sched?:any}} Src */
+const GAS_TINT=[.88,.95,.55];
+const HALO_GAS={hn:COL.haloNear,hf:COL.haloFar,he:COL.haloEdge}, HALO_FIRE={hn:hx('#e0762a'),hf:hx('#a23c18'),he:hx('#7a2a14')};
 /** @type {Src[]} */
 const SRC=[];
 ALLEY.lamps.forEach((l,n)=>{
   if(!l.lit||l.mode==='dead'||!(l.radius>0)) return;
-  const c=hx(l.color);
-  SRC.push({i:l.i,j:l.j,z:l.z,r:c[0]/255,g:c[1]/255,b:c[2]/255,R:l.radius,I:1,gain:.95,lamp:true,mode:l.mode,flick:l.flicker,seed:n*17.3,sx:0,sy:0,P:20-9*l.flicker,id:l.id});
+  const c=hx(l.color), cand=l.kind==='lantern', t=cand?0:.3;      // gas leans yellow-green, a stable candle stays plain warm
+  SRC.push({i:l.i,j:l.j,bi:l.i,bj:l.j,z:l.z,r:(c[0]/255)*(1-t+t*GAS_TINT[0]),g:(c[1]/255)*(1-t+t*GAS_TINT[1]),b:(c[2]/255)*(1-t+t*GAS_TINT[2]),R:l.radius,I:1,gain:cand?.7:1,lamp:true,mode:l.mode,flick:l.flicker,seed:n*17.3,sx:0,sy:0,P:20-9*l.flicker,id:l.id,fire:false,...HALO_GAS});
+});
+(ALLEY.fires||[]).forEach((f,n)=>{
+  const c=hx(f.color);
+  SRC.push({i:f.i,j:f.j,bi:f.i,bj:f.j,z:f.z,r:c[0]/255,g:c[1]/255,b:c[2]/255,R:f.radius,I:1,gain:1.05,lamp:true,mode:'fire',flick:f.flicker,seed:200+n*13.1,sx:0,sy:0,P:0,id:f.id,fire:true,...HALO_FIRE});
 });
 /** @type {Src[]} */
 const GLOW=[];
-ALLEY.glows.forEach((g,n)=>{ const c=hx(g.color); GLOW.push({i:g.i,j:g.id==='glow-pawn'?g.j-1:g.j,z:g.z,r:c[0]/255,g:c[1]/255,b:c[2]/255,R:g.radius,I:1,gain:g.id==='glow-pawn'?.55:.3,lamp:false,mode:'steady',flick:g.flicker||0,seed:90+n*11,sx:0,sy:0,P:0,id:g.id}); });
+ALLEY.glows.forEach((g,n)=>{ const c=hx(g.color); GLOW.push({i:g.i,j:g.id==='glow-pawn'?g.j-1:g.j,bi:g.i,bj:g.j,z:g.z,r:c[0]/255,g:c[1]/255,b:c[2]/255,R:g.radius,I:g.schedule?0:1,gain:g.id==='glow-pawn'?.55:g.schedule?.6:.3,lamp:false,mode:'steady',flick:g.flicker||0,seed:90+n*11,sx:0,sy:0,P:0,id:g.id,fire:false,...HALO_GAS,sched:g}); });
 const LIGHTS=[...SRC,...GLOW];
+const GL_PAWN=GLOW.find(g=>g.id==='glow-pawn'), GL_LODG=GLOW.find(g=>g.id==='glow-lodging');
 /** The hero's discreet torch, so he never sinks into a black hole. */
-const TORCH={i:0,j:0,z:6,r:.95,g:.88,b:.72,R:4,I:1,gain:.2,lamp:false,mode:'steady',flick:0,seed:0,sx:0,sy:0,P:0};
+const TORCH={bi:0,bj:0,id:'torch',fire:false,hn:COL.haloNear,hf:COL.haloFar,he:COL.haloEdge,i:0,j:0,z:6,r:.95,g:.88,b:.72,R:4,I:1,gain:.2,lamp:false,mode:'steady',flick:0,seed:0,sx:0,sy:0,P:0};
 
 const AMB_I=ALLEY.ambient.map(a=>a.i), AMB_K=ALLEY.ambient.map(a=>a.k);
 /** Ambient exposure along the alley (linear between the plan's points). @param {number} i */
@@ -86,17 +94,21 @@ function setCamera(/** @type {number} */t){
   const c=gymState.propCamera||CAM;
   CAM.x=c.x; CAM.y=c.y; CAM.ix=c.ix; CAM.jx=c.jx; CAM.iy=c.iy; CAM.jy=c.jy; CAM.z=c.z; CAM.det=c.ix*c.jy-c.jx*c.iy;
   S_=t/60;
-  for(let n=0;n<LIGHTS.length;n++){ const L=LIGHTS[n]; L.sx=isoX(L.i,L.j,0); L.sy=isoY(L.i,L.j,L.z); }
+  for(let n=0;n<LIGHTS.length;n++){ const L=LIGHTS[n]; L.sx=isoX(L.bi,L.bj,0); L.sy=isoY(L.bi,L.bj,L.z); }
   const A=alleyState; CAM.hi=A.i; CAM.hj=A.j; CAM.hx=isoX(A.i,A.j,0); CAM.hy=isoY(A.i,A.j,0);
   TORCH.i=A.i; TORCH.j=A.j;
 }
 /** Update lamp and window levels for this frame. */
 function updateLevels(){
   const s=S_;
-  for(const L of SRC) L.I=lampLevel(L,s);
+  for(const L of SRC){
+    if(L.fire){ L.I=fireLevel({i:L.bi,j:L.bj,flicker:L.flick},s); L.i=L.bi+.15*n1(s*6.1,L.seed); L.j=L.bj+.15*n1(s*5.3,L.seed+4); }   // the pool of light wavers with the flame
+    else L.I=lampLevel(L,s);
+  }
   for(const G of GLOW){
     if(G.id==='glow-pawn'){ const u=(s+7)/50, k=Math.floor(u), dt=(u-k-h1(k)*.9)*50; G.I=1-.25*sm(0,.5,dt)*sm(2,1.5,dt); }   // someone passes with a lamp
-    else G.I=1+.1*n1(s/2.2,G.seed)+.05*n1(s*4.1,G.seed);                                                                      // candle
+    else if(G.sched) G.I=candleLevel(G.sched,s,G.seed);                                                                         // candle window on its schedule
+    else G.I=1+.1*n1(s/2.2,G.seed)+.05*n1(s*4.1,G.seed);                                                                      // lodging candle
   }
 }
 
@@ -132,7 +144,7 @@ function lightPass(){
   const {x:cx0,y:cy0,ix,jx,iy,jy,z:cz,det}=CAM, I=ALLEY.I, s=S_, nodes=NODES;
   const hx=CAM.hx, hy=CAM.hy-14;
   // per-frame hoisted halo data
-  const halos=[]; for(const L of SRC) if(L.I>.01) halos.push(L);
+  const halos=[]; for(const L of SRC) if(L.I>.01) halos.push(L); for(const L of GLOW) if(L.sched&&L.I>.02) halos.push(L);
   let q=0;
   for(let gy=0;gy<ny;gy++){ const y=gy*NODE, dy=y-cy0;
     for(let gx=0;gx<nx;gx++,q+=6){
@@ -165,9 +177,9 @@ function lightPass(){
         const L=halos[n], rx=3.4*L.R+10, ry=rx*.9, ux=(x-L.sx)/rx, uy=(y-L.sy)/ry, d2=ux*ux+uy*uy; if(d2>=1) continue;
         const f=(1-d2)*(1-d2)*L.I, nr=clamp(1-d2*4,0,1), nr2=nr*nr;
         const hn=.3*nr2*f, hf=.14*f;
-        const e=sm(.3,1,d2), cr=COL.haloFar[0]+(COL.haloEdge[0]-COL.haloFar[0])*e, cg=COL.haloFar[1]+(COL.haloEdge[1]-COL.haloFar[1])*e, cb=COL.haloFar[2]+(COL.haloEdge[2]-COL.haloFar[2])*e;
+        const e=sm(.3,1,d2), cr=L.hf[0]+(L.he[0]-L.hf[0])*e, cg=L.hf[1]+(L.he[1]-L.hf[1])*e, cb=L.hf[2]+(L.he[2]-L.hf[2])*e;
         mr*=1-hf; mg*=1-hf; mb*=1-hf; ar=ar*(1-hf)+cr*hf; ag=ag*(1-hf)+cg*hf; ab=ab*(1-hf)+cb*hf;
-        mr*=1-hn; mg*=1-hn; mb*=1-hn; ar=ar*(1-hn)+COL.haloNear[0]*hn; ag=ag*(1-hn)+COL.haloNear[1]*hn; ab=ab*(1-hn)+COL.haloNear[2]*hn;
+        mr*=1-hn; mg*=1-hn; mb*=1-hn; ar=ar*(1-hn)+L.hn[0]*hn; ag=ag*(1-hn)+L.hn[1]*hn; ab=ab*(1-hn)+L.hn[2]*hn;
       }
       // vignette, centred on the hero
       const vx=(x-hx)/(W*.62), vy=(y-hy)/(H*.62), vv=clamp(.36*(vx*vx+vy*vy)*1.3,0,.42), kv=1-vv;
@@ -347,17 +359,50 @@ function motes(){
   }
 }
 
+const GLASS=[0xff,0x9a,0x4e], WIN_CANDLE=ALLEY.windows.filter(w=>w.state==='candle');
+/** A candle window's glass lit from within: dark glass pixels turn warm, frame bars (brighter pixels) stay as they are. @param {any} w @param {number} lv */
+function paneGlow(w,lv){
+  if(lv<=.02) return;
+  const W=appearanceState.W, H=appearanceState.H, fb=rendererState.fb, {x:cx0,y:cy0,ix,iy,z:cz}=CAM;
+  const ya=isoY(w.i0,0,w.z1), yb=isoY(w.i1,0,w.z0), xa=isoX(w.i0,0,0), xb=isoX(w.i1,0,0);
+  if(xb<0||xa>=W) return;
+  const y0=Math.max(0,Math.floor(Math.min(ya,yb))-1), y1=Math.min(H-1,Math.ceil(Math.max(ya,yb))+1), x0=Math.max(0,Math.floor(xa)), x1=Math.min(W-1,Math.ceil(xb));
+  for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++){
+    const i=(x+.5-cx0)/ix, z=(cy0+i*iy-(y+.5))/cz;
+    if(i<w.i0||i>w.i1||z<w.z0||z>w.z1) continue;
+    const k=y*W+x, c=fb[k]; if(c===0) continue;
+    const r=c&255, g=(c>>8)&255, b=(c>>16)&255, lum=(r+g+b)/3, a=lv*sm(70,35,lum)*.8*(.85+.3*vn(i*3,z*.3+S_*.5));
+    if(a<=.01) continue;
+    const nr=r+(GLASS[0]-r)*a, ng=g+(GLASS[1]-g)*a, nb=b+(GLASS[2]-b)*a;
+    fb[k]=0xff000000|((nb|0)<<16)|((ng|0)<<8)|(nr|0);
+  }
+}
+const SPARK=[rgb('#fff0b0'),rgb('#ffc060'),rgb('#e0762a'),rgb('#a23c18')];
+/** Sparks rising from a coke basket in arcs and dying out; positions are pure functions of time on the pixel grid, a gust throws a spray. */
+function sparks(/** @type {Src} */L){
+  const s=S_, n=14+(L.I>1.25?14:0), life=1.7;
+  for(let k=0;k<n;k++){
+    const u=s/life+k/n*(k<14?1:3.1)+(k<14?0:.37), c=Math.floor(u), a=u-c, hs=h1(c*7.7+k*13.1+L.seed);
+    if(k>=14&&hs>L.I-1) continue;                                                // spray sparks only during a gust
+    const vx=(h1(c*3.3+k*5.9+L.seed)-.5)*26, rise=16+hs*22, x=Math.round(L.sx+vx*a+Math.sin(a*6+k)*1.5), y=Math.round(L.sy-3-rise*a+8*a*a*(1+hs));
+    const f=1-a, col=SPARK[a<.25?0:a<.55?1:a<.8?2:3];
+    put(x,y,col,f*1.1);
+  }
+}
 /** Per-frame effects inside the alley camera (native px): the ground pass if alley.js did not run it, then lighting, fog and overlays. */
 export function alleyFX(/** @type {number} */t){
   setCamera(t); updateLevels();
   if(groundT!==t){ evAt(dripEv,S_); paintPuddles(true); }
   groundT=-1;
   lightPass();
-  const s=S_, G0=GLOW[0], G1=GLOW[1];
+  const s=S_, G0=GL_PAWN, G1=GL_LODG;
   if(G0) windowPatch(20.3,2.3,5.1,.6,1,2.4,COL.pawn,.42*G0.I);
   if(G1) windowPatch(12.4,1.2,4.2,.3,.4,1.3,COL.candle,.13*G1.I);
+  for(const G of GLOW) if(G.sched){ const w=WIN_CANDLE.find(q=>q.id===G.sched.window); if(w) paneGlow(w,G.I); }
   steam();
-  for(const L of SRC){ if(L.I<=.01) continue; spot(L.sx,L.sy,7,6,.28*L.I,COL.flame); spot(L.sx,L.sy,3,3,.4*L.I,COL.core); }
+  for(const L of SRC){ if(L.I<=.01) continue;
+    if(L.fire){ spot(L.sx,L.sy-2,10,8,.16*L.I,COL.fireBloom); spot(L.sx,L.sy-2,4,3,.22*L.I,COL.flame); sparks(L); }
+    else { spot(L.sx,L.sy,7,6,.28*L.I,COL.flame); spot(L.sx,L.sy,3,3,.4*L.I,COL.core); } }
   dripFX();
   const t0=evAt(curtainEv,s), ts=s-t0;
   if(WIN_LODGING&&ts<4.5){ const e=sm(0,.6,ts)*sm(4.5,3.6,ts), i0=WIN_LODGING.i0+.12+ts*.05+.04*Math.sin(ts*2); paneShade(0,i0,i0+.67,WIN_LODGING.z0+4,WIN_LODGING.z0+11,.35*e); }

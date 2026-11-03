@@ -223,15 +223,27 @@ function floor(){
 
 /* ---------- wall fixtures ---------- */
 const BAYJ=2.3;
-/** Soot fans above lit wall lamps and the smashed bracket. */
+/** Soot fans above the remaining wall lamps, the stable lantern hook, the smashed bracket; black stains and soot fall under the braziers. */
 function lampSoot(){
-  for(const L of ALLEY.lamps.filter(l=>l.side==='wall'&&l.lit||l.id==='lamp-broken')){
-    const U0=Math.round(L.i*18), V0=Math.round(L.z*3), face=L.id==='lamp-arch'?BAYJ:0;
-    elem('J',face,L.i-.8,L.z,L.i+.8,L.z+16,(lu,lv,W,H,U,V)=>{
-      const dx=Math.abs(U-U0), dy=V-V0; if(dy<2||dy>46) return 0; const wd=3+dy*.28, k=(1-dy/46)*(1-dx/wd); if(k<=0) return 0;
-      const hh=.55+.45*vnz(U/3,V/4,60); return k*hh>.25?rgb('#12100e'):0;
-    },1);
-  }
+  const fan=(/** @type {number} */i,/** @type {number} */z,/** @type {number} */h,/** @type {number} */w0)=>{
+    const U0=Math.round(i*18), V0=Math.round(z*3);
+    dark(0,i-.9,z,i+.9,z+h/3,(lu,lv,W,H,U,V)=>{ const dx=Math.abs(U-U0), dy=V-V0; if(dy<2||dy>h) return 0; const wd=w0+dy*.28, k=(1-dy/h)*(1-dx/wd); if(k<=0) return 0; return k*(.55+.45*vnz(U/3,V/4,60))>.22?.28:0; });
+  };
+  fan(31.9,26,46,3); fan(12.7,26,46,3); fan(11.7,20,36,3); fan(3.1,18,40,2);
+  // iron hook and ring for the stable lantern (the lantern itself is a prop)
+  elem('J',0,2.95,16.4,3.3,19.6,(lu,lv,W,H)=>{ const c=Math.floor(W/2); if(lu===c&&lv>=H-3) return IRON[3]; if(lv===H-1&&lu>=c-1&&lu<=c+1) return IRON[2]; if(lv<=H-4&&lv>=H-6&&Math.abs(lu-c)<=1&&lu!==c) return IRON[1]; return 0; });
+  // braziers on the near side: scorched cobbles and kerb, fallen soot
+  for(const [bi,bj] of [[13.05,6.35],[4.15,6.35]]) quad(bi-1.3,bj-.9,0,bi+1.3,bj-.9,0,bi+1.3,6.8,0,bi-1.3,6.8,0,(x,y)=>{
+    const a=(x+.5-G.ox)/18, b=(y+.5-G.oy)/9, i=(a+b)/2, j=(b-a)/2, d=Math.hypot((i-bi)/1.2,(j-bj)/.75)+.3*(vnz(i*4,j*4,63)-.5);
+    return d<1?sh(rendererState.fb[y*A.W+x],1-.55*(1-sm(.2,1,d))):0; });
+}
+/** Narrative marks: patched brick, soot-wiped handprints low on the wall in the dark stretches. */
+function marks(){
+  for(const [i,z,w,h] of [[7.1,4,.7,6],[1.0,12,.5,7],[16.6,1,.35,5],[22.4,3,.5,5]]) elem('J',0,i,z,i+w,z+h/3*3/3,(lu,lv,W,H,U,V)=>{ if(lu<0||lv<0||lu>=W||lv>=H) return 0; const c=brickAt(U+3,V+2,50); return c===MORT?sh(MORT,1.3):sh(mix(c,FRESH[1],.6),.95); });
+  const hand=(/** @type {number} */i,/** @type {number} */z)=>elem('J',0,i,z,i+.4,z+2.4,(lu,lv)=>{ const f=lv>=5&&(lu===0||lu===2||lu===4||lu===6)&&lv<=7, palm=lv>=1&&lv<=4&&lu>=1&&lu<=5, th=lv===3&&lu===6; return f||palm||th?sh(SOOT[1],1.35):0; });
+  hand(2.9,5); hand(3.3,8.5); hand(8.7,6); hand(9.1,3.4); hand(17.0,4);
+  // a smear dragged down the wall below the last handprint
+  wJ(0,8.8,0,9.0,3.4,(U,V)=>V>2&&V<10&&vnz(U,V/3,64)>.4?sh(SOOT[1],1.3):0);
 }
 /** Wall incidents that break the regularity: iron tie plates, a settlement crack, the loading door of a warehouse floor above the bay. */
 function extras(){
@@ -301,6 +313,10 @@ function drawWindow(/** @type {any} */w){
     const gl=GLS[0], ref=Math.abs((lu*1.6+lv)%22-6)<1.6&&lu>1&&lv>H*.3, top=GLS[1];
     let col=mix(gl,top,sm(0,H,lv)*.7+.1*vnz(U/4,V/5,71));
     if(ref) col=mix(col,GLS[2],.9);
+    if(st==='candle'){ const cd=Math.floor(hs(sid,9)*3);
+      if(cd===0&&lv>=1&&lv<=5&&Math.abs(lu-W*.65)<=1) col=lv<=2?IRON[3]:lu===Math.round(W*.65)?CHALK:col;              // spent candle on its stick
+      if(cd===1&&lu>=2&&lu<W*.5&&lv>H*.55&&lv<H*.9&&lu>1) col=(lv%3===0)?sh(CHALK,.45):sh(rgb('#6e6652'),.55);        // newspaper stuffed in a pane
+      if(cd===2&&lu>W*.55&&lv>H*.35&&Math.abs(lv-H*.35-(lu-W*.55)*1.2)<1.2) col=rgb('#4b5a5c'); }
     if(st==='broken'){ if(((lv-H*.62)>-(lu-W*.45)*(H/W)*.9)&&lu>W*.35){ col=BLACK; if(Math.abs((lv-H*.62)+(lu-W*.45)*(H/W)*.9)<1.5) col=rgb('#4b5a5c'); } }
     else if(w.floor>=1){
       if(vr===0||vr===1){ const dr=lu<W*.28+(lv%5===0?1:0), dr2=vr===1&&lu>W*.78; if(dr||dr2) col=mix(rgb('#1b1a1a'),rgb('#2a2824'),(Math.floor(U/2)%2)*.5); }
@@ -555,6 +571,7 @@ export function alleyShellStatic(){
   extras();
   pipes();
   lampSoot();
+  marks();
   drawPilaster();
   drawBay();
   for(const w of ALLEY.windows) if(w.face==='bay-bridge') drawWindow(w);

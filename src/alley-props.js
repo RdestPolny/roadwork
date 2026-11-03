@@ -8,6 +8,7 @@ import { mix } from './cast.js';
 import { h2 } from './boxing.js';
 import { camera, contact, thin, floor, rope, cyl, roundLit, vn, frac, onI, onJ, ground, crate, lettering } from './thames-port.js';
 import { ALLEY } from './alley-layout.js';
+import { fireLevel } from './alley-light.js';
 
 const ramp=(/** @type {string[]} */a)=>a.map(h=>rgb(h));
 const WOOD=ramp(['#2a221b','#3a2f24','#4d3f30','#65543e']), MOSSW=ramp(['#272c23','#343c2c','#454d38']),
@@ -416,7 +417,7 @@ function rail(/** @type {any} */e){
   for(let k=0;k<3;k++){ const i=i0+.4+rd(sd,k)*(i1-i0-.8); thin(i,j,h,i+.08,j,h-1.4,RM2); } // rust runs
 }
 
-// ---------- gas: posts, wall brackets, lanterns ----------
+// ---------- gas brackets, lanterns, fire ----------
 
 /** Smooth 1D noise in -1..1. */
 const n1=(/** @type {number} */x,/** @type {number} */s)=>vn(x,s*3.7)*2-1;
@@ -428,7 +429,7 @@ export function lampLevel(/** @type {any} */l,/** @type {number} */t){
   if(!steady){
     const per=11+(s%7), cyc=Math.floor((t+s)/per), at=(cyc*per+2+(h2(cyc,s)/255)*(per-5)), u=t+s-at;
     if(u>=0&&u<.5) k*=u<.15?1-.55*u/.15:u<.25?.45+.75*(u-.15)/.1:1.2-.2*(u-.25)/.25;
-    if(l.id==='lamp-lodging'){ const p2=40+(s%30), c2=Math.floor((t+s*3)/p2), a2=c2*p2+5+(h2(c2,s+9)/255)*(p2-12), u2=t+s*3-a2; if(u2>=0&&u2<.4) k=.05; }
+    if(l.kind==='bracket'){ const p2=40+(s%30), c2=Math.floor((t+s*3)/p2), a2=c2*p2+5+(h2(c2,s+9)/255)*(p2-12), u2=t+s*3-a2; if(u2>=0&&u2<.4) k=.05; }
   }
   return k;
 }
@@ -469,30 +470,52 @@ function lantern(/** @type {number} */i,/** @type {number} */j,/** @type {number
   if(k>0.02) flame(cx,sy(i,j,z+h*.2)+0,k,0);
 }
 
-/** The animated state of a lamp as a {k,smashed} pair; time in seconds. */
-const lampOf=(/** @type {{i:number,j:number}[]} */L,/** @type {number[]} */box)=>{ const ci=(box[0]+box[2])/2, cj=(box[1]+box[3])/2; return /** @type {any} */(ALLEY.lamps.find(l=>Math.hypot(l.i-ci,l.j-cj)<.5)); };
-
-/** Cast-iron gas post: stepped plinth, fluted shaft with a lamplighter's bar, lantern on top. */
-function post(/** @type {any} */e,/** @type {number} */t){
-  const b=e.box, ci=(b[0]+b[2])/2, cj=(b[1]+b[3])/2, l=lampOf(ALLEY.lamps,b), sd=hsh(e.id), top=e.z, k=l?lampLevel(l,t):0;
-  contact(ci-.3,cj-.3,ci+.3,cj+.3,0,.5);
-  const body=(/** @type {number} */z,/** @type {number} */s,/** @type {number} */m)=>light(mix(IRON[3],RM,Math.max(0,.45-z*.06)+.25*wn(s*4+z*.2,z*3,.8,sd%11)),roundLit(s)*m);
-  cyl(ci,cj,.2,0,2.6,(z,s)=>body(z,s,1.0),(s,v)=>light(IRON[3],.95),.1);
-  cyl(ci,cj,.15,2.6,3.6,(z,s)=>light(IRON[3],roundLit(s)*1.05),(s,v)=>light(IRON[3],.95));
-  cyl(ci,cj,.125,3.6,top-11,(z,s)=>body(z,s,frac(s*2.6+.5)<.28?1.0:1.55),(s,v)=>light(IRON[3],1));
-  cyl(ci,cj,.14,12.8,13.8,(z,s)=>light(IRON[3],roundLit(s)*1.5),(s,v)=>light(IRON[3],1.2));
-  // lamplighter's bar near the top
-  const zb=top-14.4; th2(ci-.4,cj,zb,ci+.4,cj,zb,IRON[3],IRON[2]); thin(ci-.4,cj,zb,ci-.4,cj,zb+.8,IRON[3]); thin(ci+.4,cj,zb,ci+.4,cj,zb+.8,IRON[3]);
-  cyl(ci,cj,.2,top-11,top-10,(z,s)=>light(IRON[3],roundLit(s)*1.5),(s,v)=>light(IRON[3],1.2));
-  lantern(ci,cj,top-10,7.6,.27,k,'ok',sd);
+/** Coke brazier: perforated iron basket on a tripod, glowing coke, faint flames, scorched ground, a few logs. Level follows fireLevel. */
+function brazier(/** @type {any} */e,/** @type {number} */t){
+  const [i0,j0,i1,j1]=e.box, ci=(i0+i1)/2, cj=(j0+j1)/2, sd=hsh(e.id), fire=ALLEY.fires.find(f=>Math.hypot(f.i-ci,f.j-cj)<.6)||{i:ci,j:cj,flicker:.6}, k=fireLevel(fire,t);
+  const core=rgb('#e0762a'), halo=rgb('#a23c18'), zb=5, zt=8.4, r=.33;
+  // scorched earth and scattered embers/coke lumps
+  floor(i0+.02,j0+.05,i1-.02,j1-.02,.03,(x,y)=>{ const [i,j]=ground(x,y,.03), u=(i-ci)/.45, v=(j-cj)/.42, d=u*u+v*v+(wn(x,y,.5,sd%5)-.5)*.5; return d>1?0:mix(under(x,y),SOOT,.65*(1-d*.6)); });
+  for(let q=0;q<7;q++){ const a=rd(sd,q)*6.28, rr=.3+rd(sd,q+9)*.12, x=Math.round(sx(ci+Math.cos(a)*rr,cj+Math.sin(a)*rr)), y=Math.round(sy(ci+Math.cos(a)*rr,cj+Math.sin(a)*rr,0)); px(x,y,rgb('#1b1d20')); px(x+1,y,rgb('#26282b')); if(q%3===0) px(x,y-1,mix(halo,SOOT,.4)); }
+  // logs at the side
+  for(let q=0;q<3;q++){ const jj=j1-.14-q*.1, z=.8+q*.7; th2(i0+.06,jj,z,i0+.06+.28,jj-.04,z,WOOD[3],WOOD[2]); }
+  // tripod legs
+  for(let q=0;q<3;q++){ const a=q*2.09+.4, gi=ci+Math.cos(a)*(r+.08), gj=cj+Math.sin(a)*(r+.08); th2(ci+Math.cos(a)*r*.75,cj+Math.sin(a)*r*.75,zb,gi,gj,0,IRON[3],IRON[2]); }
+  contact(ci-.2,cj-.2,ci+.2,cj+.2,0,.5);
+  // basket: sooty perforated wall that lets the glow through
+  cyl(ci,cj,r,zb,zt,(z,s)=>{ const lit=roundLit(s);
+    if(z>zt-.9||z<zb+.7) return light(IRON[3],lit*1.2);
+    const hole=frac((Math.asin(s)+1.6)*2.4)<.5&&frac(z*.8)<.55;
+    if(hole) return mix(VOID,core,Math.min(1,.55*k*(.4+.6*wn(Math.floor(s*8),Math.floor(z),.9,sd%7)))*(z<zt-1.8?1:.5));
+    return light(mix(IRON[2],SOOT,.4+.4*(z-zb)/(zt-zb)),lit*1.15); },(s,v)=>{
+      if(Math.abs(v)>.82||Math.abs(s)>.88) return light(IRON[3],1.1);
+      const n=wn(Math.round(sx(ci,cj)+s*8),Math.round(v*5),.7,sd%9), g=Math.min(1,k*(.55+.7*n));
+      return n<.25?mix(rgb('#2a2220'),halo,g*.6):mix(halo,core,Math.min(1,g*.9)); },.04);
+  // short flame tongues over the bed (barely there) and a pulsing heat shimmer at the rim
+  const fx=sx(ci,cj), fy=sy(ci,cj,zt);
+  for(let q=0;q<4;q++){ const ph=Math.sin(t*(7+q*2.3)+q*1.7), h=Math.round((1+q%2+1.2*k)*(.6+.4*ph)), x=Math.round(fx-4+q*2.6+ph*.8); for(let y=0;y<h;y++) px(x,fy-2-y,y>h-2?mix(core,halo,.5):core); }
+  // iron handle ring and sooty streak above the rim
+  th2(ci-r,cj,zt-.5,ci-r-.12,cj,zt-1.6,IRON[3],IRON[2]);
 }
 
-/** Wall bracket lantern (kinkiet) on a scrolled arm; mounted on the long wall, the bay face or the end wall. smashed = no glass, no flame. */
+/** Wall bracket lantern (kinkiet) on a scrolled arm; mounted on the wall or the pilaster face. smashed = no glass, no flame. */
 function wallLamp(/** @type {any} */l,/** @type {number} */t,/** @type {boolean} */smashed){
-  const sd=hsh(l.id), k=smashed?0:lampLevel(l,t), z=l.z, i=l.i, j=l.j, atEnd=l.i<.5, m=atEnd?[0,j]:[i,l.id==='lamp-arch'?2.3:0], n=(/** @type {number} */a)=>atEnd?[m[0]+(i-m[0])*a,j]:[i,m[1]+(j-m[1])*a];
+  const sd=hsh(l.id), k=smashed?0:lampLevel(l,t), z=l.z, i=l.i, j=l.j, m=[i,l.face==='pilaster-mouth'?.8:0], n=(/** @type {number} */a)=>[i,m[1]+(j-m[1])*a];
   const a=n(0), b=n(.85), c=n(.5);
   th2(a[0],a[1],z-3.2,b[0],b[1],z-3.2,IRON[3],IRON[2]); thin(a[0],a[1],z-5.6,b[0],b[1],z-3.2,IRON[3]); thin(b[0],b[1],z-3.2,b[0],b[1],z-1.6,IRON[2]);
   lantern(i,j,z-1.6,5,.2,k,smashed?'smashed':'ok',sd);
+}
+
+/** Small tin stable lantern with a tallow candle, hanging from a hook; it sways a pixel or two (the whole lantern is shifted, never rotated). */
+function stableLantern(/** @type {any} */l,/** @type {number} */t){
+  const sd=hsh(l.id), k=fireLevel(l,t*.9)*.8, sw=.07*Math.sin(2*Math.PI*t/2.6+sd)*(.6+.4*Math.sin(2*Math.PI*t/17)), i=l.i, z=l.z;
+  th2(i,0,z+1.6,i,.2,z+1.6,IRON[3],IRON[2]); thin(i,.2,z+1.6,i,.2+sw*.4,z+.2,IRON[3]);
+  const j=.2+sw;
+  quad(i-.13,j+.13,z-4,i+.13,j+.13,z-4,i+.17,j+.17,z,i-.17,j+.17,z,(x,y)=>{ const u=Math.abs(x-sx(i,j))/3, v=(y-sy(i,j,z-2))/6, g=Math.max(0,1-u*u*.8-v*v)*k; return mix(mix(rgb('#5a4a24'),rgb('#7a6a40'),.4+.3*wn(x,y,.8,sd%7)),mix(FLAME[2],FLAME[0],Math.min(1,g)),Math.min(1,g*1.3+.2)); });
+  quad(i+.13,j-.13,z-4,i+.13,j+.13,z-4,i+.17,j+.17,z,i+.17,j-.17,z,()=>light(rgb('#6a5a30'),.8));
+  thin(i-.13,j+.13,z-4,i-.17,j+.17,z,IRON[3]); th2(i+.13,j+.13,z-4,i+.17,j+.17,z,IRON[2],IRON[1]); thin(i-.13,j+.13,z-4,i+.13,j+.13,z-4,IRON[3]);
+  quad(i-.2,j+.2,z,i+.2,j+.2,z,i,j,z+1.4,i,j,z+1.4,()=>light(IRON[3],1.1)); thin(i-.2,j+.2,z,i+.2,j+.2,z,light(IRON[3],1.4));
+  flame(sx(i,j+.13),sy(i,j,z-3.2),k*.7,Math.sin(t*9+sd));
 }
 
 // ---------- wall and ground fixtures (baked) ----------
@@ -587,7 +610,7 @@ function pipe(/** @type {any} */e){
 
 /** Smashed gas bracket of the broken lamp with the soot above it on the wall. */
 function brokenBracket(/** @type {any} */e){
-  const l=ALLEY.lamps.find(q=>q.id==='lamp-broken');
+  const l=ALLEY.lamps.find(q=>q.mode==='dead');
   if(l) quad(l.i-.35,.02,l.z+4,l.i+.35,.02,l.z+4,l.i+.1,.02,l.z+19,l.i-.1,.02,l.z+19,(x,y)=>{ const [a,z]=onJ(.02,x,y), f=(z-l.z-4)/15, n=wn(x,y,.7,5); return mix(under(x,y),SOOT,Math.min(.7,(1-f)*(.35+.55*n))); });
   if(l) wallLamp(l,0,true);
 }
@@ -734,7 +757,7 @@ function drawProp(e,t){
     case 'kerb': return kerb(e);
     case 'steps': return steps(e);
     case 'rail': return rail(e);
-    case 'post': return post(e,t);
+    case 'brazier': return brazier(e,t);
     case 'washing': return washing(e,t);
     case 'bracket': return forge(e,t);
     case 'balls': return balls(e,t);
@@ -748,7 +771,7 @@ let NOW=0;
 /** Dynamic entries are built once; their draw closures read NOW. */
 const DYN=/** @type {{box:number[],draw:()=>void}[]} */([]);
 for(const e of ALLEY.boxes) if(!isBaked(e)&&e.kind!=='bay') DYN.push({box:e.id==='balls-pawn'?[BAY_FACE,.3,BAY_FACE+.5,2.2]:e.box,draw:()=>drawProp(e,NOW)});
-for(const l of ALLEY.lamps) if(l.side==='wall'&&l.id!=='lamp-broken'){ const m=l.i<.5; DYN.push({box:m?[0,l.j-.2,.5,l.j+.2]:[l.i-.2,l.id==='lamp-arch'?2.3:0,l.i+.2,l.j+.2],draw:()=>wallLamp(l,NOW,false)}); }
+for(const l of ALLEY.lamps){ if(l.mode==='dead') continue; if(l.kind==='lantern') DYN.push({box:[l.i-.3,0,l.i+.3,l.j+.3],draw:()=>stableLantern(l,NOW)}); else if(l.kind==='bracket') DYN.push({box:[l.i-.2,l.face==='pilaster-mouth'?.8:0,l.i+.2,l.j+.2],draw:()=>wallLamp(l,NOW,false)}); }
 
 /** Static props baked with the shell: gratings, the cellar well, the mat, skylight, pipes, the broken bracket and the gate. */
 export function alleyPropsStatic(){
@@ -764,5 +787,5 @@ export function alleyPropsStatic(){
     else if(e.id==='bracket-broken') brokenBracket(e);
   }
 }
-/** Props sorted with the player: freestanding things, gas posts and lamps, washing and swinging signs. @returns {{box:number[],draw:()=>void}[]} */
+/** Props sorted with the player: freestanding things, gas brackets, braziers and lamps, washing and swinging signs. @returns {{box:number[],draw:()=>void}[]} */
 export function alleyProps(/** @type {number} */t){ NOW=t/TPS; return DYN; }
