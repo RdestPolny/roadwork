@@ -1,7 +1,7 @@
 import { checkPortLife } from './port-life-browser.mjs';
 import { checkIsoFight, checkIsoFightRooms } from './isofight.mjs';
 import { checkCombatDash, captureCombatDashFrames } from './combat-dash-browser.mjs';
-import { checkBull, captureBull } from './heavy-bruiser-browser.mjs';
+import { checkBull, checkBullAttacks, captureBull } from './heavy-bruiser-browser.mjs';
 import { checkPortDistrict } from './port-district-browser.mjs';
 import { checkPub } from './pub-browser.mjs';
 import { checkCrank } from './crank.mjs';
@@ -196,7 +196,8 @@ try {
   await check('combat dash and LMB: eight directions, chained punches, collisions and resets',()=>checkCombatDash(page));
   await check('combat dash visual poses: eight native snapshots',()=>captureCombatDashFrames(page));
   await check('heavy bull: NPC, whiff fatigue, exposed counter and recovery',()=>checkBull(page));
-  await check('heavy bull visual: nine native 432x288 shots',()=>captureBull(page));
+  await check('heavy bull: hook runs, charge pins the man, wall crash stuns the bull',()=>checkBullAttacks(page));
+await check('heavy bull visual: nine native 432x288 shots',()=>captureBull(page));
   await check('the unlit Ward lamp has no blinking ember', async () => {
     const colors=await page.evaluate(async()=>{
       const R=await import('/src/renderer.js'), L=await import('/src/cell-light.js'), G=await import('/src/gym.js'), W=await import('/src/ward.js'), B=await import('/src/boxing.js'), A=await import('/src/appearance.js');

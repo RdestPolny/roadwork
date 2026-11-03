@@ -68,6 +68,45 @@ export async function checkBull(page){
   assert.equal(result.recovered,true);
 }
 
+/** The bull's own attacks in the real fight loop: a run of hooks that opens with the long warning, a charge that pins the man
+ *  to the wall for five seconds while he hooks, and a charge into a wall that stuns the bull. */
+export async function checkBullAttacks(page){
+  const r=await page.evaluate(async()=>{
+    const b=window.__boxer, I=await import('/src/iso-fight.js'), G=await import('/src/gym.js'), H=await import('/src/heavy-bruiser.js');
+    const fresh=()=>{ b.goRoom('cell');b.pause();b.step(3);b.startSpar(5,'cell');b.step(65);
+      for(const c of G.state.fightSpectators||[]) if(c.step?.k==='spectator') c.i+=20;   // no crowd to grab him mid-test
+      I.state.O.bull.chargeAt=Infinity; return I.state; };
+    // 1. A run of hooks: only hooks, 2..4 of them, the first after the long warning, and no parry on any of them.
+    let S=fresh(), B=S.O.bull, pids=new Set(), warn=null, hooks=0, seen=false, last=null;
+    for(let k=0;k<900&&hooks<2;k++){ b.step(1);
+      if(B.mode==='WINDUP'&&!seen){ seen=true; warn=B.until-B.at; }
+      if(S.O.pk&&S.O.pk!==last){ last=S.O.pk; hooks++; pids.add(S.O.pk.pid); } }
+    const run={hooks,pids:[...pids],warn};
+    // 2. A charge at a man standing still: carried, slammed, pinned for the full five seconds, and the bull hooks him meanwhile.
+    S=fresh(); B=S.O.bull; { const di=S.O.i-S.P.i, dj=S.O.j-S.P.j, d=Math.hypot(di,dj); S.O.i=S.P.i+di/d*3.2; S.O.j=S.P.j+dj/d*3.2; }   // back him off along the line, the man stays put
+    H.beginCharge(B,S.t); B.chargeAt=S.t+99;
+    let slam=null, hpAtSlam=0, hooked=0, lastPk=null;
+    for(let k=0;k<900;k++){ b.step(1);
+      if(!slam&&B.mode==='SLAMMED'){ slam={t:S.t,pinned:S.P.stagger}; hpAtSlam=S.P.rt.hp; }
+      if(slam&&S.O.pk&&S.O.pk!==lastPk){ lastPk=S.O.pk; hooked++; }
+      if(slam&&S.t-slam.t>=H.BULL.pinned) break; }
+    const pin={slam,hooked,hpLoss:hpAtSlam-S.P.rt.hp,stillPinned:S.P.stagger>0||S.P.pinUntil>S.t};
+    // 3. A charge into a wall with nobody on the line leaves the bull stunned.
+    S=fresh(); B=S.O.bull; S.P.i=S.O.i+3; S.P.j=S.O.j-3; S.P.li=S.P.i; S.P.lj=S.P.j;   // the man is behind him, the wall ahead
+    const ch={x:S.O.i,y:S.O.j}; H.launchCharge(B,S.t,-0.7071,0.7071);
+    let crash=false; for(let k=0;k<600&&!crash;k++){ b.step(1); if(B.mode==='EXHAUSTED') crash=true; if(B.mode==='RECOVERY') break; }
+    return {run,pin,crash:{stunned:crash,mode:B.mode,moved:Math.hypot(S.O.i-ch.x,S.O.j-ch.y)}};
+  });
+  assert.ok(r.run.hooks>=2,'a run has at least two hooks');
+  assert.deepEqual(r.run.pids,[2],'he throws hooks only');
+  assert.ok(r.run.warn>=0.9,'the opening hook has the long warning');
+  assert.ok(r.pin.slam,'a charge at a standing man catches him');
+  assert.ok(r.pin.slam.pinned>=4.9,'the pinned man is stunned for five seconds');
+  assert.ok(r.pin.hooked>=2,'the bull hooks the pinned man');
+  assert.ok(r.pin.hpLoss>0,'the hooks land on the pinned man');
+  assert.equal(r.crash.stunned,true,'a charge into the wall stuns the bull');
+}
+
 /** Nine deterministic diagnostic poses; generated files must still be inspected by a human. */
 export async function captureBull(page){
   await page.evaluate(async()=>{
