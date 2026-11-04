@@ -47,6 +47,15 @@ export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null
 /** Seconds from the start of a punch to contact and to the end of the recovery. */
 /** Seconds after a stagger in which blows add no stun, so a jab chain cannot re-stagger a man the moment he recovers. */
 const STUN_IMMUNE=1.0;
+/** Seconds of punch clock before contact inside which a punch counts as simultaneous: both land instead of the first cutting the second. */
+const TRADE_WINDOW=0.02;
+/** Seconds of punch clock after the contact frame during which a punch that is still out of reach keeps looking for contact. */
+const CONTACT_WINDOW=0.05;
+/** A body blow lowers the head from this share of its windup until this many seconds after contact: head punches pass over it. */
+const DUCK_FROM=0.4, DUCK_AFTER=0.12;
+/** Whether two punches in flight meet on one line. Facing each other, my lead hand (1) is opposite his rear hand (-1), so opposite hands clash and the quicker one stops the other;
+ * the same hand value passes beside the other fist and both blows land. @param {{hand?:number}} a @param {{hand?:number}} b */
+function punchesClash(a,b){ return !a.hand||!b.hand||a.hand===-b.hand; }
 const PT=[{hit:.10,end:.30},{hit:.15,end:.40},{hit:.19,end:.48},{hit:.19,end:.48}];
 /** Keep the shared boxing rules and only stretch this rival's contact/recovery frames. */
 const punchT=(F,pid)=>bullTiming(PT[pid],!!F.bull);
@@ -550,10 +559,33 @@ function onPerfectEvade(D){
 }
 
 /** Contact of a punch at its apex, with the rules of realtime-rules.js. @param {any} A @param {any} D */
+/** Whether a punch past its contact frame is still inside its short active window with the target just out of reach: the fist keeps looking for contact, so a man who steps into it is hit.
+ * @param {any} F @param {any} G */
+function stillReaching(F,G){
+  const k=F.pk;
+  return !k.special&&!G.ko&&!G.down&&k.t<punchT(F,k.pid).hit+CONTACT_WINDOW&&toward(F,G)[2]>RANGE[k.pid];
+}
+
+/** Whether a man is crouched inside his own body blow, so his head is below the line of a high punch.
+ * @param {any} D */
+function ducking(D){
+  const k=D.pk;
+  if(!k||!k.low||k.special||D.stagger>0) return false;
+  const hit=punchT(D,k.pid).hit;
+  return k.t>=hit*DUCK_FROM&&k.t<=hit+DUCK_AFTER;
+}
+
 function impact(A,D){
   const S=state, now=S.t, pid=A.pk.pid, low=A.pk.low, gap=toward(A,D)[2], R=RANGE[pid];
   if(A.pk.special){ special(A,D); return; }
   if(D.ko||D.down) return;
+  if(!low&&ducking(D)){   // a head punch passes over a man who is throwing a body blow: his own blow lands, this one does not
+    whiffPunch(A.rt,now);
+    if(A.bull) registerBullMiss(A.bull,pid,now);
+    popup(sparringState.T_OVER,hx(D),hy(D)-8,appearanceState.C_SPARK,1,28);
+    if(A===S.P) say('Pod ciosem');
+    return;
+  }
   if(gap>R){
     whiffPunch(A.rt,now);
     if(A===S.O) A.pk.whiff=true;   // the rival's miss carries him over his front foot: an opening to punish
@@ -607,7 +639,7 @@ function impact(A,D){
   const interrupted=!blocked&&o.damage>0&&!armored&&(!!D.tell||D.bull?.mode==='WINDUP');   // a clean blow while he loads a punch takes it away
   if(interrupted&&D.tell){ D.tell=null; D.aiAt=Math.max(D.aiAt,now+.3); }
   if(!blocked&&o.damage>0&&!armored&&D.bull?.mode==='WINDUP'){ D.bull.mode='RECOVERY'; D.bull.until=now+0.48; D.bull.run=null; }
-  if(!stagger&&!armored&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit) D.pk=null;   /* a clean hit interrupts the windup */
+  if(!stagger&&!armored&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit-TRADE_WINDOW&&punchesClash(A.pk,D.pk)) D.pk=null;   /* a clean hit on a punch that is still loading stops it, but only if the two fists meet on one line */
   const [ui,uj]=toward(A,D), kb=A.bull?BULL.knockback:1; walk(D,A,ui,uj,(blocked?.05:A===S.P&&A.rt.comboCount>1?.06:.12)*kb);
   const slide=blocked||o.damage<=0||A.rt.comboCount>1?0:o.counter?.18:pid>=2?.1:0;   // a lone hook, uppercut or counter drives him back across the floor; combinations still connect
   if(slide) D.slide={di:ui,dj:uj,left:slide*kb};
@@ -979,7 +1011,7 @@ function tickFight(){
     F.stun=Math.max(0,F.stun-dt*4);
     F.c.minSta=Math.min(F.c.minSta,F.rt.sta/F.rt.staCap);
     if(F.wounds.cuts&&!F.down&&!F.ko) F.rt.hp=Math.max(1,F.rt.hp-(0.25*F.wounds.cuts)*dt);
-    if(F.pk){ F.pk.t+=(F.pk.fastCounter?rawDt:dt*ZONES[F.rt.zone].punch)*(F.pk.exhausted?0.5:1)*(S.venue==='port'&&F===O?.5:1); if(!F.pk.hit&&F.pk.t>=punchT(F,F.pk.pid).hit){ F.pk.hit=true; impact(F,G); if(S.phase!=='fight') return; } if(F.pk&&F.pk.t>=punchT(F,F.pk.pid).end) F.pk=null; }
+    if(F.pk){ F.pk.t+=(F.pk.fastCounter?rawDt:dt*ZONES[F.rt.zone].punch)*(F.pk.exhausted?0.5:1)*(S.venue==='port'&&F===O?.5:1); if(!F.pk.hit&&F.pk.t>=punchT(F,F.pk.pid).hit&&!stillReaching(F,G)){ F.pk.hit=true; impact(F,G); if(S.phase!=='fight') return; } if(F.pk&&F.pk.t>=punchT(F,F.pk.pid).end) F.pk=null; }
     if(F.buf&&(!F.pk||canCancel(F))&&!F.dash&&F.stagger<=0&&!F.down&&(now-F.slipSince>=TUNING.slipActive||(F===P&&S.slowMo>0&&now<F.rt.counterUntil))){ const b=F.buf; F.buf=null; if(now<=b.until) press(F,b.pid,b.low); }
     if(F.buf&&now>F.buf.until) F.buf=null;
     if(F.down&&!F.ko){   /* the count: the player gets up with enough taps, the rival on his own */

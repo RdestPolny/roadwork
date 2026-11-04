@@ -179,6 +179,32 @@ export async function checkIsoFight(page){
       // after a stagger the rival is immune to stun for a moment: a jab chain cannot re-stagger or rebuild the meter
       fresh(); near(1.0); S.O.stun=81; key('Digit1'); b.step(24); const staggered=S.O.stagger>0; near(1.0); key('Digit1'); b.step(14);
       out.stunImmune=[staggered,S.O.rt.hp<S.O.rt.hpMax,S.O.stun<=30];
+      // a jab meets a hook in flight: opposite hands clash and the jab stops the hook, the same hand passes beside it and both land
+      out.clash=[];
+      for(const hand of [-1,1]){
+        fresh(); near(1.0); S.O.pk={pid:2,low:false,t:0,hit:false,hand}; key('Digit1'); const jabHand=S.P.pk?.hand; b.step(40);
+        out.clash.push([hand===-jabHand,S.P.c.landed,S.O.c.landed]);
+      }
+      // a head punch passes over a man who is throwing a body blow; his own blow still lands
+      out.duck=[];
+      for(const low of [true,false]){
+        fresh(); near(1.0); S.O.pk={pid:2,low,t:.02,hit:false,hand:1}; key('Digit1'); b.step(40);
+        out.duck.push([low,S.P.c.landed,S.O.c.landed]);
+      }
+      // a fist that is a hair short at its contact frame keeps looking for contact for a moment: a man who steps into it is hit
+      out.reach=[];
+      for(const step of [true,false]){
+        fresh(); near(1.6); key('Digit1'); let closed=false;
+        for(let n=0;n<14;n++){ b.step(1); if(!closed&&S.P.pk&&!S.P.pk.hit&&S.P.pk.t>=.1){ closed=true; if(step) near(1.3); } }
+        out.reach.push([step,closed,S.P.c.landed]);
+      }
+      // contact is physical: a rival who has slid off the line of the fist is passed by it though he is inside the punch's reach, until the fist turns after him
+      out.passed=[];
+      for(const slide of [1.0,0]){
+        fresh(); near(1.0); key('Digit1'); let moved=false, sawMiss=false;
+        for(let n=0;n<14;n++){ b.step(1); const k=S.P.pk; if(k&&!k.hit&&k.touch===false) sawMiss=true; if(!moved&&k&&!k.hit&&k.t>=.07){ moved=true; S.O.i+=slide*S.P.fj; S.O.j-=slide*S.P.fi; S.O.li=S.O.i; S.O.lj=S.O.j; } }
+        out.passed.push([slide,sawMiss,S.P.c.landed]);
+      }
       // the count: the rival rises on his own, the player with taps
       fresh(); near(1.0); let replayOutfit=0; const heroWrap=S.P.wrap; S.P.wrap=fn=>heroWrap(()=>{ if(S.kdSlow>0) replayOutfit++; fn(); }); S.O.rt.hp=1; key('Digit1'); b.step(36); out.kd=[S.O.down,S.O.kdN,S.O.rt.hp>1,!!S.O.rd]; out.kdSlow=[S.kdSlow>0,S.scale<1]; out.replayOutfit=replayOutfit>0; b.step(390); out.rose=!S.O.down&&!S.O.rd;
       fresh(); S.P.down=true; S.P.downAt=S.t; S.P.kdN=1; S.P.pk=null; for(let k=0;k<8;k++){ key('Digit1'); b.step(10); } out.mash=[S.P.down,S.P.kdMash>=7];
@@ -253,6 +279,10 @@ export async function checkIsoFight(page){
   assert.ok(r.aiThrown>=2,'the rival fights without commands: '+r.aiThrown);
 assert.deepEqual(r.tell,[true,true,true],'the rival shows the punch, then throws that punch when the tell runs out');
 assert.deepEqual(r.stunImmune,[true,true,true],'a rival just staggered takes no more stun for a moment, so a jab chain cannot lock him');
+assert.deepEqual(r.clash.sort(),[[false,1,1],[true,1,0]],'my jab stops a hook thrown with the opposite hand, and both blows land when the hands are on the same side');
+assert.deepEqual(r.duck,[[true,0,1],[false,1,0]],'a body blow is not hit by a head punch and still lands; a head punch that meets a loading head hook stops it');
+assert.deepEqual(r.reach,[[true,true,1],[false,true,0]],'a punch looks for contact through its active window, but whiffs when the target stays out of reach');
+assert.deepEqual(r.passed,[[1,true,1],[0,false,1]],'a fist that passes beside the body does not hit while it is off the line, though the rival is inside the punch\'s reach; it turns after him and lands later, and a rival on the line is hit at once');
 assert.deepEqual(r.tellInterrupted,[null,0,1],'a clean jab during the tell cancels the rival\'s punch');
   assert.deepEqual(r.kd,[true,1,true,true],'the first knockdown sends the rival to the boards (as a ragdoll) with a fraction of his health'); assert.deepEqual(r.kdSlow,[true,true],'knockdown slows the fight'); assert.equal(r.replayOutfit,true,'the knockdown replay draws the hero with his room outfit palette'); assert.equal(r.rose,true,'he gets up after the count and the ragdoll is released');
   assert.deepEqual(r.mash,[false,true],'taps get the player up');

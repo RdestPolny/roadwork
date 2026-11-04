@@ -34,7 +34,7 @@ export async function checkBull(page){
     for(let n=0;n<3;n++){
       O.pk={pid:2,low:false,t:0.22,hit:false,hand:1};
       B.mode='ATTACK';
-      b.step(5);
+      b.step(9);   // the contact frame, plus the short active window in which a fist out of reach keeps looking for contact
     }
     const misses={pending:B.pending,load:B.missLoad,thrown:O.c.thrown,near:P.rt.hp===P.rt.hpMax};
     O.pk=null;b.step(2);
