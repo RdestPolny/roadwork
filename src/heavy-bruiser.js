@@ -7,6 +7,8 @@ export const BULL = Object.freeze({
   warnWind: 0.95, chainWind: 0.36, runMin: 2, runMax: 4,
   // The charge: a long stamp, then a straight run along the line fixed when it starts. A hit carries the man to the wall.
   chargeWind: 1.05, chargeSpeed: 0.085, chargeReach: 7, chargeTime: 1.5, chargeEvery: 6, chargeFrom: 2.4,
+  // Poise while loading or throwing a hook: each windup absorbs this much light-blow weight before a clean hit cancels it.
+  armor: 2.5, jabArmorCost: 0.5,
   carrySpeed: 0.13, carryMax: 4.5, pinned: 5, slamDamage: 12, slamBeat: 0.55, punishHooks: 3, pinnedDamage: 0.65
 });
 
@@ -15,7 +17,7 @@ const CHARGING=new Set(['CHARGE_WIND','CHARGE','CARRY','SLAMMED']);
 
 /** The fighter owns his transient fatigue; this object is never written into save data. */
 export function createBullState(){
-  return {mode:'APPROACH',missLoad:0,pending:false,missed:false,until:0,lastAt:0,pid:2,run:null,charge:null,chargeAt:3,runs:0,carry:null};
+  return {mode:'APPROACH',missLoad:0,pending:false,missed:false,until:0,lastAt:0,pid:2,run:null,charge:null,chargeAt:3,runs:0,carry:null,armor:0};
 }
 
 /** The strike only counts if it actually passed through the contact check with no impact.
@@ -69,13 +71,21 @@ export function runLength(r=Math.random()){
 
 /** Start a run of hooks: the first one carries the long warning tell. @param {ReturnType<typeof createBullState>} b @param {number} now @param {number} [n] */
 export function beginRun(b,now,n=runLength()){
-  b.run={left:n-1,first:true}; b.pid=2; b.mode='WINDUP'; b.at=now; b.until=now+BULL.warnWind; b.runs++;
+  b.run={left:n-1,first:true}; b.pid=2; b.mode='WINDUP'; b.at=now; b.until=now+BULL.warnWind; b.runs++; b.armor=BULL.armor;
+}
+
+/** Whether a clean hit is absorbed by the bull's poise instead of cancelling his hook; spends the armor when it is.
+ * Only a windup or a hook in flight is armored. @param {ReturnType<typeof createBullState>|undefined} b @param {number} pid punch id (0 = jab) */
+export function absorbBullHit(b,pid){
+  if(!b||!(b.armor>0)||!(b.mode==='WINDUP'||b.mode==='ATTACK'||b.mode==='CHAIN')) return false;
+  b.armor-=pid===0?BULL.jabArmorCost:1;
+  return true;
 }
 
 /** The next hook of a running combination, thrown after a short tell. @param {ReturnType<typeof createBullState>} b @param {number} now */
 export function chainHook(b,now){
   if(!b.run||b.run.left<=0) return false;
-  b.run.left--; b.run.first=false; b.pid=2; b.mode='WINDUP'; b.at=now; b.until=now+BULL.chainWind;
+  b.run.left--; b.run.first=false; b.pid=2; b.mode='WINDUP'; b.at=now; b.until=now+BULL.chainWind; b.armor=BULL.armor;
   return true;
 }
 

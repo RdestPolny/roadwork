@@ -3,7 +3,7 @@ import { renderPub, withPubCamera, pubBlocked, PUB_RIVAL, followPubFight, prepar
 import { state as alleyState, ALLEY, alleyBlocked, alleyPlace, withAlleyCamera, prepareAlley, renderAlley } from './alley.js';
 import { PORT_BRAWL } from './port-story.js';
 import { DASH, dashTravel, dashPose, dashDirection } from './combat-dash.js';
-import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming, beginRun, chainHook, wantsCharge, beginCharge, launchCharge, chargeCatches } from './heavy-bruiser.js';
+import { BULL, absorbBullHit, createBullState, registerBullMiss, advanceBull, bullTiming, beginRun, chainHook, wantsCharge, beginCharge, launchCharge, chargeCatches } from './heavy-bruiser.js';
 /* Isometric fight: the prison's brawl, played in the isometric hub rooms (the Ward, the yard, the bath) with free movement in
    eight directions. The punches, guard, slip, stamina and damage are the rules of realtime-rules.js; the opponents, their
    styles, the knockdowns, the wounds and the result card are the fight's old ones. The people are the 3D-skeleton figures of
@@ -45,6 +45,8 @@ export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null
   enemies:/** @type {any[]} */ ([]),tape:/** @type {any[]} */ ([]),fin:/** @type {any} */ (null),windUsed:false,kick:0};
 
 /** Seconds from the start of a punch to contact and to the end of the recovery. */
+/** Seconds after a stagger in which blows add no stun, so a jab chain cannot re-stagger a man the moment he recovers. */
+const STUN_IMMUNE=1.0;
 const PT=[{hit:.10,end:.30},{hit:.15,end:.40},{hit:.19,end:.48},{hit:.19,end:.48}];
 /** Keep the shared boxing rules and only stretch this rival's contact/recovery frames. */
 const punchT=(F,pid)=>bullTiming(PT[pid],!!F.bull);
@@ -173,7 +175,7 @@ export function startIsoFight(idx,venue,station){
   const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=group?[[alleyState.i,alleyState.j],[alleyState.i-2,alleyState.j]]:sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:V==='pub'?[[11.5,5.5],[PUB_RIVAL.i,PUB_RIVAL.j]]:startSpots(room);
   S.P=makeFighter(pa[0],pa[1],0.7071,-0.7071,hero.look,hero.wrap,{hpMax:100+PS.hpBonus,staCap:3*Math.max(25,cap),pow:PS.pow,regen:PS.regen,hunger:hungerLevel()},PS,-1);
   S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V==='pub'?'cell':V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
-  if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.bullClock=0; }
+  if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.stunTaken=0.5; S.O.bullClock=0; }
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
   S.enemies=[]; if(group) for(let k=0;k<4;k++){
     const angle=k*Math.PI/2, candidates=[];
@@ -583,13 +585,14 @@ function impact(A,D){
   A.pk.landed=o.kind==='hit'&&o.damage>0;
   if(blocked) D.c.blocks++;
   if(!blocked&&o.damage>0){ landRun(A,D,now); A.c.landed++; if(pid>0) A.c.power++; if(low) A.c.body++; else D.faceDamage+=o.damage; if(o.counter) A.c.counters++; D.dmg=Math.min(1,D.dmg+o.damage/D.rt.hpMax*1.6); }
+  const armored=!blocked&&o.damage>0&&absorbBullHit(D.bull,pid);   // the bull's poise soaks light blows so a jab spam cannot lock his hooks
   let stagger=false;
   if(!blocked){
     if(low){
-      if(pid>=2&&(D.rt.sta<22||o.counter)){ D.wounds.ribs=(D.wounds.ribs||0)+1; D.rt.hp=Math.max(0,D.rt.hp-4); D.stagger=.5; D.pk=null; stagger=true; sfxCrack(0.85); popup(sparringState.T_RIB,px,py-10,sparringState.C_BLOOD2,1,36); }
+      if(pid>=2&&(D.rt.sta<22||o.counter)&&!armored){ D.wounds.ribs=(D.wounds.ribs||0)+1; D.rt.hp=Math.max(0,D.rt.hp-4); D.stagger=.5; D.pk=null; stagger=true; sfxCrack(0.85); popup(sparringState.T_RIB,px,py-10,sparringState.C_BLOOD2,1,36); }
     } else {
-      D.stun+=[11,20,28,32][pid]*(o.counter?1.45:1)*((A.stunDealt||1)/(D.stunTaken||1));
-      if(D.stun>=82&&D.rt.hp>0){ D.stun=30; D.stagger=.7; D.pk=null; stagger=true; popup(sparringState.T_CARD+19,px,py-16,appearanceState.C_SPARK,1,38); }
+      if(now>=(D.stunImmuneUntil||0)) D.stun+=[11,20,28,32][pid]*(o.counter?1.45:1)*((A.stunDealt||1)/(D.stunTaken||1));
+      if(D.stun>=82&&D.rt.hp>0&&!armored){ D.stun=30; D.stunImmuneUntil=now+STUN_IMMUNE; D.stagger=.7; D.pk=null; stagger=true; popup(sparringState.T_CARD+19,px,py-16,appearanceState.C_SPARK,1,38); }
       if(pid===2&&D.dmg>0.42&&(D.wounds.cuts||0)<3&&Math.random()<0.28){ D.wounds.cuts=(D.wounds.cuts||0)+1; D.cutAt.push(now); popup(sparringState.T_CUT,px,py-18,sparringState.C_BLOOD2,1,38); }
       if((pid===1||pid===3)&&o.counter&&D.dmg>0.48&&!D.wounds.nose){ D.wounds.nose=true; D.rt.regen*=0.82; sfxCrack(0.8); popup(sparringState.T_CARD+15,px,py-18,sparringState.C_BLOOD2,1,38); }
     }
@@ -601,10 +604,10 @@ function impact(A,D){
   D.hurtPower=(blocked?0.25:1)*(1+0.8*(1-Math.max(0,Math.min(1,D.rt.sta/D.rt.staCapInitial))))*(low&&!blocked?1+pid*.08:1);
   const [sideI,sideJ]=toward(D,A);
   D.hurtSide=Math.max(-1,Math.min(1,(sideI*-D.fj+sideJ*D.fi)*1.8+(A.pk.hand||1)*0.3));
-  const interrupted=!blocked&&o.damage>0&&(!!D.tell||D.bull?.mode==='WINDUP');   // a clean blow while he loads a punch takes it away
+  const interrupted=!blocked&&o.damage>0&&!armored&&(!!D.tell||D.bull?.mode==='WINDUP');   // a clean blow while he loads a punch takes it away
   if(interrupted&&D.tell){ D.tell=null; D.aiAt=Math.max(D.aiAt,now+.3); }
-  if(!blocked&&o.damage>0&&D.bull?.mode==='WINDUP'){ D.bull.mode='RECOVERY'; D.bull.until=now+0.48; D.bull.run=null; }
-  if(!stagger&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit) D.pk=null;   /* a clean hit interrupts the windup */
+  if(!blocked&&o.damage>0&&!armored&&D.bull?.mode==='WINDUP'){ D.bull.mode='RECOVERY'; D.bull.until=now+0.48; D.bull.run=null; }
+  if(!stagger&&!armored&&!blocked&&!low&&D.pk&&D.pk.t<punchT(D,D.pk.pid).hit) D.pk=null;   /* a clean hit interrupts the windup */
   const [ui,uj]=toward(A,D), kb=A.bull?BULL.knockback:1; walk(D,A,ui,uj,(blocked?.05:A===S.P&&A.rt.comboCount>1?.06:.12)*kb);
   const slide=blocked||o.damage<=0||A.rt.comboCount>1?0:o.counter?.18:pid>=2?.1:0;   // a lone hook, uppercut or counter drives him back across the floor; combinations still connect
   if(slide) D.slide={di:ui,dj:uj,left:slide*kb};

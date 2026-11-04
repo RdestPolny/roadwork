@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming, runLength, beginRun, chainHook, wantsCharge, beginCharge, launchCharge, chargeCatches } from '../src/heavy-bruiser.js';
+import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming, runLength, beginRun, chainHook, wantsCharge, beginCharge, launchCharge, chargeCatches, absorbBullHit } from '../src/heavy-bruiser.js';
 
 test('three heavy misses open a vulnerable breath window only after recovery',()=>{
   const b=createBullState();
@@ -59,4 +59,18 @@ test('the charge starts only from a distance and off cooldown, and catches a man
 test('tiredness waits until a charge is over',()=>{
   const b=createBullState(); b.mode='CHARGE'; b.pending=true; b.lastAt=1;
   assert.equal(advanceBull(b,1.5,false),'CHARGE');
+});
+
+test('windup armor absorbs a jab spam but a heavier run of blows still cancels the hook',()=>{
+  const b=createBullState();
+  beginRun(b,0,3);
+  assert.equal(b.armor,BULL.armor);
+  for(let n=0;n<4;n++) assert.equal(absorbBullHit(b,0),true,'jab '+n);
+  assert.equal(absorbBullHit(b,1),true);
+  assert.equal(absorbBullHit(b,0),false,'armor spent');
+  b.mode='RECOVERY'; b.armor=BULL.armor;
+  assert.equal(absorbBullHit(b,2),false,'no armor while recovering');
+  const c=Object.assign(createBullState(),{run:{left:1,first:false}});
+  chainHook(c,0);
+  assert.equal(c.armor,BULL.armor,'each hook of a run is loaded with fresh armor');
 });
