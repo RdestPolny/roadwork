@@ -21,6 +21,7 @@ export async function checkBull(page){
     b.goRoom('cell');b.pause();b.step(3);
     const npc=N.state.CN.find(c=>c.name==='Briggs');
     const seated={act:npc?.act,bed:npc?.bed?.t,seat:npc?.after?.t,body:npc?.hd?.bodyType};
+    b.step(240); const stillLying=npc?.act==='bullLie'&&npc?.after?.t==='bunk';
     b.startSpar(5,'cell');b.step(65);
     const O=I.state.O, P=I.state.P, B=O.bull;
     // Spectators should not interfere with this isolated mechanical test.
@@ -47,9 +48,10 @@ export async function checkBull(page){
     // Allow the recovery without another attack from the player.
     P.i=O.i-2;P.j=O.j+2;P.li=P.i;P.lj=P.j;
     b.step(210);
-    return {seated,start,misses,exhausted,counter,recovered:B.mode!=='EXHAUSTED'};
+    return {seated,stillLying,start,misses,exhausted,counter,recovered:B.mode!=='EXHAUSTED'};
   });
-  assert.deepEqual(result.seated,{act:'bullSit',bed:'bunk',seat:'bunk',body:'heavy'});
+  assert.deepEqual(result.seated,{act:'bullLie',bed:'bunk',seat:'bunk',body:'heavy'});
+  assert.equal(result.stillLying,true);
   assert.equal(result.start.name,'BRIGGS');
   assert.equal(result.start.other,'WALTER','legacy Walter is not replaced');
   assert.equal(result.start.heavy,true);

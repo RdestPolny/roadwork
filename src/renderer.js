@@ -28,7 +28,7 @@ export function hdRoom(){ return gymState.hubRoom==='cell'||gymState.hubRoom==='
 
 /** Single source of truth for native isometric frame size; side-view modes retain 2×.
  * @param {string} venue */
-export function isometricFrame(venue){ return ['cell','canteen','yard','laznia','port','pub','sandy'].includes(venue)?state.hd3:state.hd; }
+export function isometricFrame(venue){ return ['cell','canteen','yard','laznia','port','pub','alley','sandy'].includes(venue)?state.hd3:state.hd; }
 /** Select the current room framebuffer. */
 export function roomFrame(){ return isometricFrame(gymState.hubRoom); }
 

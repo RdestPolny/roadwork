@@ -11,6 +11,7 @@ import { resetStory, storyPlaying, storyBegun, beginBefore, beginAfter, storyTic
 import { DISTRICT, portSurface, districtBlocked, propBlocked, propDraws, PORT_PROPS, propKey } from './port-district.js';
 import { walkJoints, UNIT } from './port-life.js';
 import { mocapWalk, WALK_STRIDE } from './mocap-walk.js';
+import { mocapBreathingIdle, IDLE_TICKS } from './mocap-breathing-idle.js';
 import { DEBUG } from './config.js';
 import { pubInside, enterPub, leavePub, pubTick, renderPub, pubRivalNear } from './pub.js';
 import { alleyInside, leaveAlley, alleyTick, renderAlley } from './alley.js';
@@ -78,6 +79,7 @@ export function thamesBlocked(i,j){
 export function thamesKey(code,down,repeat=false){
   if(DEBUG&&code==='F8'){ if(down&&!repeat) propMap=!propMap; return true; }
   if(storyPlaying()) return true;
+  if(alleyInside()&&code==='KeyG'&&DEBUG){ if(down&&!repeat){ clearThamesInput(); startIsoFight(0,'alley'); } return true; }
   if(code==='KeyE'&&alleyInside()) return true;
   if(code==='KeyE'&&pubInside()){ if(down&&!repeat&&pubRivalNear()){ clearThamesInput(); startIsoFight(0,'pub'); } return true; }
   if(code==='KeyE'){
@@ -1449,7 +1451,7 @@ function renderPortFrame(fighters){
       ...(!fighters?[[player.i+player.j,()=>{ if(portJob.entry&&portJob.entry.tick>55&&portJob.entry.tick<=105) return;
         const A=appearanceState, side=player.fi-player.fj>=0?1:-1, g=player.moving?player.ph%1:.25;
         const lifting=player.lift>=0?liftSack(player,[playerSack.i,playerSack.j,0,0],player.lift/120,side):null;
-        const J=lifting?lifting.J:player.pose||(player.moving&&!player.carrying?mocapWalk(player.wg||0):walkJoints(g,player.carrying,side));
+        const J=lifting?lifting.J:player.pose||(player.moving&&!player.carrying?mocapWalk(player.wg||0):!player.moving&&!player.carrying?mocapBreathingIdle(boxingState.tick/IDLE_TICKS):walkJoints(g,player.carrying,side));
         const draw=()=>{
         contact(player.i-.22,player.j-.22,player.i+.22,player.j+.22,0,.4);
         withCellOutfit(()=>figureHD(player,J,{sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true},{noShadow:true}));

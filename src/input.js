@@ -123,7 +123,7 @@ export function setInfo(){
     state.nextEl.textContent=roomsState.hubAct?'Esc / E — przerwij':'strzałki / WASD — chodzenie · E — użyj · Esc — pauza · P — karta · '+statShort();
     return;
   }
-  if(boxingState.gstate==='port'&&alleyInside()){ state.infoEl.textContent='ALEJKA · EAST END · NOC'; state.nextEl.textContent='strzałki / WASD — ruch · dolny-prawy kraniec — wyjście'; return; }
+  if(boxingState.gstate==='port'&&alleyInside()){ state.infoEl.textContent='ALEJKA · EAST END · NOC'; state.nextEl.textContent='strzałki / WASD — ruch · G — walka grupowa · dolny-prawy kraniec — wyjście'; return; }
   if(boxingState.gstate==='port'&&pubInside()){ state.infoEl.textContent='PUB THE ROPE & ANCHOR · NOC'; state.nextEl.textContent='strzałki / WASD — ruch · podejdź do Harry’ego i naciśnij E, by walczyć · drzwi — wyjście'; return; }
   if(boxingState.gstate==='port'){ state.infoEl.textContent='PORT NAD TAMIZĄ · NOC'; state.nextEl.textContent='strzałki / WASD — ruch · E — podnieś / odłóż worek · Esc — powrót'; return; }
   if(boxingState.gstate==='work'){ state.infoEl.textContent='RZEŹNIA · półtusza '+Math.min(workState.WK.n+(workState.WK.phase==='end'?0:1),workState.WK_N)+'/'+workState.WK_N+(workState.WK.drops?' · upuszczone: '+workState.WK.drops:''); state.nextEl.textContent=workHint()+(workState.WK.phase==='end'?'':' · Esc — koniec zmiany'); return; }

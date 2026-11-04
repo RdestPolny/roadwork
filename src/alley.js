@@ -6,6 +6,7 @@ import { state as appearanceState } from './appearance.js';
 import { state as boxingState } from './boxing.js';
 import { withPortView, portHero, contact } from './thames-port.js';
 import { walkJoints } from './port-life.js';
+import { mocapBreathingIdle, IDLE_TICKS } from './mocap-breathing-idle.js';
 import { depthOrder } from './pub.js';
 import { alleyShellStatic, alleyShellProps } from './alley-shell.js';
 import { alleyPropsStatic, alleyProps } from './alley-props.js';
@@ -82,16 +83,17 @@ export function withAlleyCamera(/** @type {()=>any} */fn){
 export function prepareAlley(){ if(!state.bake) state.bake=bake(); }
 
 /** The alley frame (inside withHD, at the native 432×288). */
-export function renderAlley(){
+export function renderAlley(fighters=null){
   const t=boxingState.tick, fb=rendererState.fb, W=appearanceState.W, H=appearanceState.H;
   prepareAlley();
   const cy=2*Math.round(state.cy/2), oy=(CY_TOP-cy)*1.5, ox=3*Math.round(state.ox/3), B=/** @type {Uint32Array} */(state.bake);
   for(let y=0;y<H;y++) fb.set(B.subarray((oy+y)*BW+ox,(oy+y)*BW+ox+W),y*W);
-  withAlleyCamera(()=>{
+  const draw=()=>{
     alleyFXGround(t);   // puddles lie on the floor: under the props and the hero
     const hero=state, side=hero.fi-hero.fj>=0?1:-1, g=hero.moving?hero.ph%1:.25;
-    const actors=[{box:[hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22],draw:()=>{ contact(hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22,0,.45); portHero(hero,walkJoints(g,false,side)); }}];
+    const actors=fighters?fighters.map(F=>({box:[F.i-.22,F.j-.22,F.i+.22,F.j+.22],draw:()=>F.draw()})):[{box:[hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22],draw:()=>{ contact(hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22,0,.45); portHero(hero,hero.moving?walkJoints(g,false,side):mocapBreathingIdle(boxingState.tick/IDLE_TICKS)); }}];
     for(const p of depthOrder([...alleyShellProps(t),...alleyProps(t),...alleyRats(t,hero),...actors])) p.draw();
     alleyFX(t);
-  });
+  };
+  if(fighters) draw(); else withAlleyCamera(draw);
 }

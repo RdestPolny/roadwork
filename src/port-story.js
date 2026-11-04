@@ -174,10 +174,10 @@ function whisperStand(t){ const p=t%1800; return p<720?0:p<840?ease((p-720)/120)
 /** The woman and the constable at stand (0 she kneels before him .. 1 she stands against the wall, he behind her). */
 function whisperPose(t,stand){
   const nod=.25*Math.sin(t*.031), glance=vn(t*.01,3)>.62?-.5:0;
-  const bow=.5+.5*Math.sin(t*.0372), headF=lerp(.55+1.1*bow,1,stand), headZ=lerp(10.8-2.2*bow,15.1,stand), sway=Math.sin(t*.025)*.08*stand;
-  const W={i:16.9,j:lerp(1.05,.85,stand),fi:1-stand,fj:lerp(.12,-1,stand),z0:0}, P={i:lerp(18.35,16.95,stand),j:lerp(1.2,1.42+sway,stand),fi:lerp(-1,0,stand),fj:lerp(-.1,-1,stand),z0:0};
-  const Jw=s=>({hip:[0,s*1.05,lerp(3.5,7,stand)],knee:[lerp(1.8,.5,stand),s*1.1,lerp(.9,3.8,stand)],foot:[lerp(-1.3,.1,stand),s*1.2,lerp(.5,.9,stand)],sh:[.2,s*2.35,lerp(8.5,12,stand)],el:[lerp(1,2,stand),s*2.8,lerp(6.4,14,stand)],hd:[lerp(1.7,4,stand),s*lerp(.7,2.8,stand),lerp(7.8,16,stand)]});
-  Jw.pel=[0,0,lerp(2.9,6.4,stand)]; Jw.chest=[.35,0,lerp(8.3,11.8,stand)]; Jw.head=[headF,glance*.3,headZ];
+  const bow=.5+.5*Math.sin(t*.0372), headF=lerp(.55+1.1*bow,1,stand), headZ=lerp(10.8-2.2*bow,15.1,stand), sway=Math.sin(t*.025)*.12*stand, hipF=-sway*3.75;
+  const W={i:16.9,j:lerp(1.05,.85,stand),fi:1-stand,fj:lerp(.12,-1,stand),z0:0}, P={i:lerp(18.35,16.95,stand),j:lerp(1.2,1.30+sway,stand),fi:lerp(-1,0,stand),fj:lerp(-.1,-1,stand),z0:0};
+  const Jw=s=>({hip:[hipF,s*1.05,lerp(3.5,7,stand)],knee:[lerp(1.8,.5,stand),s*1.1,lerp(.9,3.8,stand)],foot:[lerp(-1.3,.1,stand),s*1.2,lerp(.5,.9,stand)],sh:[.2,s*2.35,lerp(8.5,12,stand)],el:[lerp(1,2,stand),s*2.8,lerp(6.4,14,stand)],hd:[lerp(1.7,4,stand),s*lerp(.7,2.8,stand),lerp(7.8,16,stand)]});
+  Jw.pel=[hipF,0,lerp(2.9,6.4,stand)]; Jw.chest=[.35,0,lerp(8.3,11.8,stand)]; Jw.head=[headF,glance*.3,headZ];
   const Jp=s=>({hip:[0,s*1.25,7.3],knee:[.6,s*1.35,3.9],foot:[0,s*1.45,.9],sh:[.3,s*2.8,12.6],
     el:s>0?[lerp(3,2.2,stand),s*2.5,lerp(11.5,9.6,stand)]:[lerp(-.1,2.2,stand),s*3.5,lerp(9.9,9.6,stand)],hd:s>0?[lerp(10.8-headF,4.2+sway*7.5,stand),lerp(1.1,1.2,stand),lerp(headZ+1.5,7.5,stand)]:[lerp(.4,4.2+sway*7.5,stand),lerp(s*3.4,-2,stand),lerp(7.9,7.5,stand)]});
   Jp.pel=[0,0,6.7]; Jp.chest=[.7,0,12.3]; Jp.head=[1,0,15.6+nod*.4];
@@ -221,9 +221,10 @@ function skirt(P,J){
 /** A wool shawl round her shoulders, its ends crossed over her chest and its point down her back when she turns away. */
 function shawl(P,J,ramp){
   const Q=J.chest, SL=J(-1).sh, SR=J(1).sh, w=a=>toWorld(P,...a);
-  if(P.fi+P.fj<0) rod(w([Q[0]-.5,Q[1],Q[2]+.2]),w([Q[0]-1.3,Q[1],Q[2]-4.4]),3.4,.8,ramp);
+  const back=P.fi+P.fj<0;
+  if(back) rod(w([Q[0]-.5,Q[1],Q[2]+.2]),w([Q[0]-1.3,Q[1],Q[2]-4.4]),3.4,.8,ramp);
   rod(w([SL[0]-.3,SL[1]*.9,SL[2]+.2]),w([SR[0]-.3,SR[1]*.9,SR[2]+.2]),2.3,2.3,ramp);
-  for(const S of [SL,SR]) rod(w([S[0]+.1,S[1]*.85,S[2]-.1]),w([Q[0]+1.5,Q[1]-Math.sign(S[1])*.5,Q[2]-2.7]),1.9,1.2,ramp);
+  if(!back) for(const S of [SL,SR]) rod(w([S[0]+.1,S[1]*.85,S[2]-.1]),w([Q[0]+1.5,Q[1]-Math.sign(S[1])*.5,Q[2]-2.7]),1.9,1.2,ramp);
 }
 /** The constable in his navy tunic and helmet with its brass star. */
 function copFig(P,J){
@@ -345,7 +346,7 @@ function heroAt(n){
 }
 /** The player before the brawl: out of the gate, stops to watch the drunk, shouts at him, steps back and calls the constable. */
 function heroBefore(n,t,D){
-  const [i,j]=heroAt(n), d=(n-HERO_GO)*HERO_V, cop=[16.95,1.42];
+  const [i,j]=heroAt(n), d=(n-HERO_GO)*HERO_V, cop=[16.95,1.30];
   if(n<HERO_GO) return {...at(i,j,Math.PI/2),pose:body({breath:Math.sin(t*.05)*.08})};
   if(d<heroLen()){ const [,,a]=along(HERO_WALK,d); return {...at(i,j,a),pose:walkJoints(d/.69,false,1),moving:true}; }
   const arrive=HERO_GO+heroLen()/HERO_V, aD=toward([i,j],D), aCop=toward([i,j],cop);
@@ -358,7 +359,7 @@ function heroBefore(n,t,D){
 /* ---------- the scene after the brawl ---------- */
 
 /** The van's side door, the constable's way there with the drunk and his run back to the woman. */
-const DRAG_VIA=[15,7.05], DOOR_STOP=[7.75,7.15], DOOR_IN=[8.3,6.5], COP_BACK=[[8.32,6.75],[9.2,7.2],[15,7.25],[15.7,4.45]], COP0=[16.95,1.42];
+const DRAG_VIA=[15,7.05], DOOR_STOP=[7.75,7.15], DOOR_IN=[8.3,6.5], COP_BACK=[[8.32,6.75],[9.2,7.2],[15,7.25],[15.7,4.45]], COP0=[16.95,1.30];
 /** The woman runs from the nook by the crates out onto the open setts before the gate (HER), where the stranger catches her (RIP_AT);
  * she falls there, the player kneels beside her (KNEEL) and the stranger runs back behind the crates into the dark. */
 const HER=[15.85,2.6], RIP_AT=[16.5,2], KNEEL=[15.6,1.9], WOMAN_RUN=[[16.9,1],[16.2,1.9],HER];

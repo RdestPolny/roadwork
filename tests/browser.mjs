@@ -164,6 +164,70 @@ try {
   await check('Thames life: fixed routine phases',()=>checkPortLife(page));
   await check('Thames district: 13 native exploration, NPC, brawl and story captures',()=>checkPortDistrict(page));
   await check('Thames pub interior: enter, walk, leave',()=>checkPub(page));
+  await check('Thames alley group fight: four attackers, combat and return',async()=>{
+    const r=await page.evaluate(async()=>{
+      const b=window.__boxer, A=await import('/src/alley.js'), I=await import('/src/iso-fight.js'), T=await import('/src/thames-port.js');
+      const P=await import('/src/progression.js'), R=await import('/src/renderer.js'), N=await import('/src/navigation.js');
+      document.querySelector('[data-dev-scene="alley"]').click(); b.pause(); A.alleyPlace(25,3.4);
+      const save=JSON.stringify(P.state.save); T.thamesKey('KeyG',true);
+      const S=I.state, start=S.enemies.map(F=>({i:F.i,j:F.j,hp:F.rt.hp,blocked:A.alleyBlocked(F.i,F.j),style:F.look.style}));
+      b.step(200); R.render();
+      const after=S.enemies.map((F,k)=>({distance:Math.hypot(F.i-start[k].i,F.j-start[k].j),sta:F.rt.sta,cap:F.rt.staCap,thrown:F.c.thrown}));
+      const result={venue:S.venue,count:S.enemies.length,start,after,harry:S.opp.hp,phase:S.phase,playerHp:S.P.rt.hp};
+      N.exitToHub(); result.returned=A.alleyInside()&&b.gstate==='port'; result.unchanged=save===JSON.stringify(P.state.save);
+      return result;
+    });
+    assert.equal(r.venue,'alley'); assert.equal(r.count,4);
+    assert.ok(r.start.every(x=>x.hp===r.harry/2&&!x.blocked&&x.style==='hood'));
+    assert.ok(r.after.every(x=>x.distance>.1&&x.sta>x.cap*.8),'all attackers approach without tiring');
+    assert.ok(r.after.some(x=>x.thrown>0),'attackers throw punches');
+    assert.equal(r.returned,true); assert.equal(r.unchanged,true);
+  });
+  await check('Thames alley group fight: defeat all four to win',async()=>{
+    const r=await page.evaluate(async()=>{
+      const b=window.__boxer,A=await import('/src/alley.js'),I=await import('/src/iso-fight.js'),T=await import('/src/thames-port.js');
+      document.querySelector('[data-dev-scene="alley"]').click(); b.pause(); A.alleyPlace(25,3.4); T.thamesKey('KeyG',true); b.step(50);
+      const S=I.state; for(const F of S.enemies) F.aiAt=Infinity;
+      const hit=(F)=>{ F.i=S.P.i-1.1; F.j=S.P.j; F.rt.hp=.01; S.P.fi=-1; S.P.fj=0; S.P.stagger=0; S.P.grab=null;
+        I.isoFightKey({code:'Digit1',preventDefault(){},repeat:false},true); b.step(40); };
+      hit(S.enemies[0]); const first={ko:S.enemies[0].ko,phase:S.phase};
+      for(const F of S.enemies.slice(1,3)) F.ko=true;
+      hit(S.enemies[3]); b.step(120);
+      return {first,last:S.enemies[3].ko,phase:S.phase,won:S.winner===S.P};
+    });
+    assert.deepEqual(r.first,{ko:true,phase:'fight'}); assert.equal(r.last,true); assert.equal(r.phase,'end'); assert.equal(r.won,true);
+  });
+  await check('Thames alley group fight: rear attacker can hold and release',async()=>{
+    const r=await page.evaluate(async()=>{
+      const b=window.__boxer,A=await import('/src/alley.js'),I=await import('/src/iso-fight.js'),T=await import('/src/thames-port.js');
+      document.querySelector('[data-dev-scene="alley"]').click(); b.pause(); A.alleyPlace(25,3.4); T.thamesKey('KeyG',true); b.step(50);
+      const S=I.state, [front,rear,...others]=S.enemies;
+      for(const F of S.enemies) F.aiAt=Infinity;
+      front.i=S.P.i-.85; front.j=S.P.j; rear.i=S.P.i+1; rear.j=S.P.j; S.P.fi=-1; S.P.fj=0; rear.aiAt=0;
+      b.step(1); const held=S.P.grab?.person===rear; b.step(150);
+      return {held,released:!S.P.grab};
+    });
+    assert.equal(r.held,true); assert.equal(r.released,true);
+  });
+  await check('Thames alley fight zoom: mouse movement and dodge use the camera',async()=>{
+    const r=await page.evaluate(async()=>{
+      const b=window.__boxer,A=await import('/src/alley.js'),I=await import('/src/iso-fight.js'),T=await import('/src/thames-port.js');
+      const R=await import('/src/renderer.js'),G=await import('/src/gym.js'),In=await import('/src/input.js');
+      document.querySelector('[data-dev-scene="alley"]').click(); b.pause(); A.alleyPlace(25,3.4); T.thamesKey('KeyG',true); b.step(50);
+      const S=I.state; for(const F of S.enemies) F.aiAt=Infinity;
+      R.render(); const C=S.cam, W=R.state.hd3.W, H=R.state.hd3.H, sc=W/144, z=C.z;
+      const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
+      const [x,y]=A.withAlleyCamera(()=>[(W/2+(G.isoX(S.P.i,S.P.j)*sc/2-cx)*z)/sc,(H/2+(G.isoY(S.P.i,S.P.j,0)*sc/2-cy)*z)/sc]);
+      const cv=R.state.screen, rect=cv.getBoundingClientRect(), k=cv.width/cv.clientWidth;
+      In.state.paused=false; R.state.stage.dispatchEvent(new PointerEvent('pointermove',{clientX:rect.left+(R.state.vx+(x-18)*R.state.vs)/k,clientY:rect.top+(R.state.vy+y*R.state.vs)/k,bubbles:true})); In.state.paused=true;
+      const start=[S.P.i,S.P.j]; b.step(5); const movement=[S.P.i-start[0],S.P.j-start[1]];
+      I.isoFightKey({code:'KeyE',preventDefault(){},repeat:false},true);
+      return {zoom:z,movement,dodge:S.eTap&&[S.eTap.di,S.eTap.dj]};
+    });
+    assert.ok(r.zoom>1.3,'fight zooms in');
+    assert.ok(r.movement[0]<0&&r.movement[1]>0,'mouse movement follows the visible cursor');
+    assert.ok(r.dodge&&r.dodge[0]<0&&r.dodge[1]>0,'dodge follows the visible cursor');
+  });
   await check('Thames alley: enter, walk the full length, collisions, leave',()=>checkAlley(page));
   await check('432x288: six native scene captures and Thames camera regression', async()=>{
     const capture=async(file)=>{

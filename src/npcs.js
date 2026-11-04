@@ -163,9 +163,8 @@ function cnFree(C,key){ return !state.CN.some(o=>o!==C&&o.res===key); } function
     return;
   }
   if(C.name==='Briggs'){
-    // The spare bed is the first seat on the back-wall guard-bed, away from Harry.
-    const seat=WARD_SEATS[0]; C.res='bull-bed';
-    P.push({k:'go',i:seat.a[0],j:seat.a[1]},{k:'bullSit',s:seat,night:true,d:999999});
+    const B=cnBedOf(C); C.res='bull-bed';
+    if(B) P.push({k:'go',i:B.app[0],j:B.app[1]},{k:'bullLie',night:true,d:999999});
     return;
   }
   if(cnNight()){ const B=cnBedOf(C); if(B){ C.res='bed'; P.push({k:'go',i:B.app[0],j:B.app[1]},{k:'sleep',night:true,d:999999}); return; } }
@@ -204,6 +203,7 @@ function cnFree(C,key){ return !state.CN.some(o=>o!==C&&o.res===key); } function
   switch(S.k){
     case 'bullSit': C.act='bullSit'; C.i=S.s.c[0]; C.j=S.s.c[1]; C.fi=S.s.f[0]; C.fj=S.s.f[1];
       C.after=gymState.cellList.find(x=>x.t==='bunk')||null; break;
+    case 'bullLie': { const B=cnBedOf(C); if(!B){ C.step=null; return; } C.act='bullLie'; C.i=B.at[0]; C.j=B.at[1]; C.fi=B.face[0]; C.fj=B.face[1]; C.after=B.it; break; }
     case 'sit': C.act='sit'; C.i=S.s.c[0]; C.j=S.s.c[1]; C.fi=S.s.f[0]; C.fj=S.s.f[1];
       if(C.name==='Harry'&&state.PROF.visit?.kind==='harry'&&state.PROF.visit.arrived) npcFace(C,state.PROF.i-C.i,state.PROF.j-C.j,1);
       C.after=gymState.cellList.find(x=>(x.t==='bunk'||x.t==='bunk2')&&S.s.c[0]>=x.i&&S.s.c[0]<x.i+itemW(x)&&S.s.c[1]<x.j+itemH(x))||null; break;   /* sitting on the edge of the guard-bed */
@@ -336,7 +336,11 @@ export function cnLookHD(C){ const rb=C.rb, L={sk:[rb,rb+1],top:[rb+6,rb+7],pt:[
   return L; }
 
 function cnSkel(C,J,lie,base){        // J(s) -> {hip,knee,foot,sh,el,hd}; J.pel / J.chest / J.head: body joints [fwd,side,z]
-  if(gymState.ISO_K>1){ figureHD(C,J,cnLookHD(C),{pose:lie?1:0,base,noShadow:lie||J.noShadow}); return; }   // the 2× cell
+  if(gymState.ISO_K>1){
+    const look=cnLookHD(C), pose=lie?1:0;
+    figureHD(C,J,look,{pose,base,noShadow:!!lie||J.noShadow});
+    return;
+  }   // the 2× cell
   gymState.ipC=C; gymState.ipN=0; gymState.ipPose=lie?1:0; gymState.ipBase=base||0;
   const rb=C.rb, nearS=(-C.fj+C.fi)>=0?1:-1;
   for(let s=-1;s<=1;s+=2){
@@ -428,6 +432,18 @@ export function cnDraw(C){
       }
       return; }
     case 'walk': case 'idle': case 'rest': case 'loose': case 'behind': drawIsoNPC(C); return;
+    case 'bullLie': {
+      const B=cnBedOf(C); if(!B) return;
+      // Frame 1 of Male Laying Pose.fbx, converted from metres to figure units.
+      const p=([x,y,z])=>[(-x-0.005)*7.3,(-y-0.007)*7.3,z*7.3];
+      const left={hip:p([0.083,0.053,0.145]),knee:p([0.363,-0.019,0.481]),foot:p([0.551,0.068,0.087]),sh:p([-0.211,0.114,0.402]),el:p([0,-0.015,0.274]),hd:p([-0.107,-0.209,0.099])};
+      const right={hip:p([0.038,-0.086,0.070]),knee:p([0.467,-0.185,0.123]),foot:p([0.909,-0.226,0.082]),sh:p([-0.431,-0.060,0.279]),el:p([-0.16,-0.11,0.30]),hd:p([0.12,-0.15,0.30])};
+      const J=s=>s>0?left:right;
+      J.pel=p([-0.005,-0.007,0.130]); J.abd=p([-0.103,0.017,0.144]); J.chest=p([-0.247,0.007,0.270]); J.head=p([-0.372,-0.011,0.475]);
+      const look=cnLookHD(C), opts={pose:2,base:B.base+0.25,noShadow:true,tilt:true,fixedPose:true};
+      look.sk=[C.rb,C.rb]; look.bulk={...look.bulk,forearms:1.05};
+      figureHD(C,J,look,opts);
+      figureHD(C,J,look,{...opts,only:'hands',side:-1}); return; }
     case 'bullSit': {
       // Deep breaths, elbows resting on knees; one hand wipes the bald head every few seconds.
       const breathe=Math.sin(t*0.085), wipe=(t%530)>430?(Math.sin(Math.PI*(t%530-430)/100)):0;
@@ -570,7 +586,7 @@ state.PROF = {name:'Profesor',rb:166,hd:{style:'long',beard:true},bed:{t:'bunk2'
 crewRamps(166,{sk:['#8a5e46','#b98a6c','#dcae8e'],tr:state.CN_PANT,tt:state.CN_PANT,top:state.CN_TOP,gl:['#8a5e46','#b98a6c','#dcae8e'],hair:['#9a9aa2','#cfcfd6','#f0f0f4']});
 /* Śmierdziel: a filthy man squatting shirtless on the wet flags by the night tub, flies over his head; he sells an
    ointment of his own making (healers.js). In prison only, always in the same spot, he sleeps sitting. */
-state.STINK = {name:'Śmierdziel',rb:216,hd:{style:'shaved',beard:true,stubble:true,top:[216,217],bare:true},yard:true,sleeves:false,wraps:false,gloves:false,pants:true,i:1.6,j:6.3,fi:0.9,fj:0.45,z0:0,ph:0,moving:false,act:'floor',t:0,
+state.STINK = {name:'Śmierdziel',rb:216,hd:{style:'shaved',beard:'short',stubble:true,sk:[216,216],top:[216,216],bare:true},yard:true,sleeves:false,wraps:false,gloves:false,pants:true,i:1.6,j:6.3,fi:0.9,fj:0.45,z0:0,ph:0,moving:false,act:'floor',t:0,
   step:{k:'stink'},after:null,up:1,pq:[],pt:0,smoke:false};
 crewRamps(216,{sk:['#6a5644','#8f765e','#ad927a'],tr:['#241e18','#382f25','#4c4132'],tt:['#241e18','#382f25','#4c4132'],top:['#241e18','#382f25','#4c4132'],gl:['#6a5644','#8f765e','#ad927a'],hair:['#1a1610','#2a241a','#3a3224']});
 /** Cell people for drawing: the inmates, Profesor and Śmierdziel. */

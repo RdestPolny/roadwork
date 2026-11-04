@@ -6,6 +6,7 @@ import { state as appearanceState } from './appearance.js';
 import { state as boxingState } from './boxing.js';
 import { withPortView, portHero, contact } from './thames-port.js';
 import { walkJoints } from './port-life.js';
+import { mocapBreathingIdle, IDLE_TICKS } from './mocap-breathing-idle.js';
 import { pubShellStatic, pubShellFireplace, pubShellProps, pubShellFX } from './pub-shell.js';
 import { pubBarStatic, pubBarProps } from './pub-bar.js';
 import { pubTablesStatic, pubTablesProps } from './pub-tables.js';
@@ -126,7 +127,7 @@ export function renderPub(fighters=null){
     const hero=state, side=hero.fi-hero.fj>=0?1:-1, g=hero.moving?hero.ph%1:.25;
     /** @type {PubProp[]} */
     const actors=fighters?fighters.map(F=>({box:[F.i-.22,F.j-.22,F.i+.22,F.j+.22],draw:()=>F.draw()})):[
-      {box:[hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22],draw:()=>{ contact(hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22,0,.45); portHero(hero,walkJoints(g,false,side)); }},
+      {box:[hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22],draw:()=>{ contact(hero.i-.22,hero.j-.22,hero.i+.22,hero.j+.22,0,.45); portHero(hero,hero.moving?walkJoints(g,false,side):mocapBreathingIdle(boxingState.tick/IDLE_TICKS)); }},
       {box:[PUB_RIVAL.i-.22,PUB_RIVAL.j-.22,PUB_RIVAL.i+.22,PUB_RIVAL.j+.22],draw:()=>figureHD(PUB_RIVAL,walkJoints(.25,false,1),{...cnLookHD(npcsState.CN[0]),irons:false})}];
     const props=[...pubShellProps(t),...pubBarProps(t),...pubTablesProps(t),...actors];
     for(const p of depthOrder(props)) p.draw();

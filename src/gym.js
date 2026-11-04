@@ -7,6 +7,7 @@ import { drawHDCharacterDetails } from './hd-fight-scene.js';
 import {FIGURE_PART_CAPACITY, figureProportions} from './figure-anatomy.js';
 import {RIG, refitFigure} from './fighter-rig.js';
 import { mocapWalk, WALK_STRIDE } from './mocap-walk.js';
+import { mocapBreathingIdle, IDLE_TICKS } from './mocap-breathing-idle.js';
 import { state as progressionState } from './progression.js';
 import { buildYard, state as npcsState, cnTick, ynTick, cnBlocks, ynBlocks, cnNight, cnRect, cnDraw, cnToiletStream } from './npcs.js';
 import { lightCell, drawCellLights, cellLights } from './cell-light.js';
@@ -220,7 +221,7 @@ export function hubTick(){
 }
 
 export // ipC = the character being drawn (hubP or the trainer)
-function bodyPt(fwd,side,z){ if(state.ipPose===1){ const f=z-9; z=state.ipBase+fwd*0.45+2; fwd=f; } else if(state.ipPose===2) z+=state.ipBase;   // lying: height becomes length, chest up
+function bodyPt(fwd,side,z){ if(state.ipPose===1){ const f=z-9; z=state.ipBase+fwd*0.45+2; fwd=f; } else if(state.ipPose===2) z+=state.ipBase;   // lying: height becomes length
   const C=state.ipC||state.hubP, S=1/7.5, i=C.i+(fwd*C.fi-side*C.fj)*S, j=C.j+(fwd*C.fj+side*C.fi)*S; state.bpX=isoX(i,j); state.bpY=isoY(i,j,z+(C.z0||0)); state.bpD=i+j; }
 
 /** The light on a figure standing at C: the strongest source of the room [i, j, height, strength 0..1] (the Ward's barred window by day or
@@ -282,25 +283,26 @@ function litEnd(lit,st,cx,cy){
  * @param {any} C @param {any} J
  * In the bath L.bare strips the drelich (top and trousers take the skin), L.waist wraps a towel round the hips
  * and L.censor puts a pixel mosaic over the groin.
- * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,yorks?:number,beard?:boolean,stubble?:boolean,mustache?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
+ * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,yorks?:number,beard?:boolean|'short',stubble?:boolean,mustache?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
  * Newgate: style 'flatcap' (L.cap ramp), L.chops mutton-chop whiskers, L.scarf a neckerchief colour, L.irons leg irons.
  * The docks: style 'bowler' (billycock) or 'knit' (a seaman's watch cap), both in the L.cap ramp; L.yorks ties each trouser leg below the knee with string of that colour.
- * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,look?:number[],only?:string,side?:number,fist?:{side:number,grow:number,rp:number}}} [o]   fist: one hand drawn larger (grow: share of its size) in ramp rp, the rival's cue before a punch; look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
+ * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,fixedPose?:boolean,look?:number[],only?:string,side?:number,fist?:{side:number,grow:number,rp:number}}} [o]   fist: one hand drawn larger (grow: share of its size) in ramp rp, the rival's cue before a punch; look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
 export function figureHD(C,J,L,o={}){
-  J=refitFigure(J);   // every pose on the rig's mocap proportions
+  if(!o.fixedPose) J=refitFigure(J);   // imported fixed poses retain their source joint positions
   state.ipC=C; state.ipN=0; state.ipPose=o.pose||0; state.ipBase=o.base||0;
   const shape=figureProportions(L), heavy=shape.heavy;
   // All figures share the same anatomical cross-sections; bodyType/bulk only changes muscle and fat volumes.
   const inhale=heavy?Math.sin((C.bullClock??(C.t||0)/60)*7)*((C.bull?.mode==='EXHAUSTED')?0.32:0.12):0;
   const lit=o.light?figureLight(C):null, nearS=((C.fi||0)-(C.fj||0))>=0?1:-1, mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
-  // Facial fixtures and hair volume shrink together; reducing only the skull would leave detached details.
+  const shoulders=[-1,1].map(s=>o.fixedPose?J(s).sh:mix(J(s).sh,J(s).el,0.16));
+  // Scale the facial fixtures and hair with the skull so they remain attached.
   const HK=shape.headScale, headAdd=(f0,s0,z0,r0,f1,s1,z1,r1,rp,rp2,zz1,zz2,rp3)=>ipAdd(f0,s0,z0,r0*HK,f1,s1,z1,r1*HK,rp,rp2,zz1,zz2,rp3);
   /* Upright, the trousers' tops sit under the coat: thighs and seat may not sort in front of the waist, and a thigh sorts mostly by its
    * hip, so at the crotch the near leg covers the far one even while the far knee swings towards the camera. */
   const upright=!state.ipPose&&!o.tilt, legTops=[];
   for(let s=-1;s<=1;s+=2){
-    const k=s===nearS?0:1, A=J(s), SK=L.sk[k], PT=L.pt[k], TP=L.top[k], wr=mix(A.el,A.hd,0.8), toe=[A.foot[0]+0.85,A.foot[1],A.foot[2]-0.25];
+    const k=s===nearS?0:1, A=J(s), SK=L.sk[k], PT=L.pt[k], TP=L.top[k], wr=mix(A.el,A.hd,0.8), toe=[A.foot[0]+1.2,A.foot[1],A.foot[2]-0.25];
     const heelLift=Math.max(0,Math.min(0.34,A.heelLift||0)); // heel pivots up while the planted toe and ankle stay grounded
     if(o.only==='hands'){ if(!o.side||o.side===s){ ipAdd(...A.el,shape.forearm, ...wr,shape.wrist, L.rolledSleeves?SK:TP); ipAdd(...wr,shape.wrist*0.92, ...A.hd,shape.fist, SK); } continue; }   // forearm and hand only (of one side), over a prop
     const thighK=state.ipN;
@@ -308,7 +310,7 @@ export function figureHD(C,J,L,o={}){
     if(upright&&A.hip[2]-A.knee[2]>0.7*Math.hypot(A.hip[0]-A.knee[0],A.hip[1]-A.knee[1],A.hip[2]-A.knee[2])){ bodyPt(...A.hip); const dh=state.bpD; bodyPt(...A.knee); state.ipD[thighK]=dh*0.65+state.bpD*0.35; legTops.push(thighK); }
     ipAdd(...A.knee,shape.calf, ...A.foot,shape.ankle, PT);                                                                   // shin
     ipAdd(A.foot[0]-0.2,A.foot[1],A.foot[2]-0.15+heelLift,shape.heel, ...toe,shape.toe, L.shoe);                                   // prison shoe
-    ipAdd(...A.sh,shape.upperArm, ...A.el,shape.elbow, TP); ipAdd(...A.el,shape.forearm, ...wr,shape.wrist, L.rolledSleeves?SK:TP);
+    ipAdd(...shoulders[s===-1?0:1],shape.upperArm, ...A.el,shape.elbow, TP); ipAdd(...A.el,shape.forearm, ...wr,shape.wrist, L.rolledSleeves?SK:TP);
     const fist=o.fist?.side===s?o.fist:null;
     ipAdd(...wr,shape.wrist*0.92, ...A.hd,shape.fist*(1+(fist?.grow||0)), fist?fist.rp:SK);                                       // hand
     if(upright) legTops.push(state.ipN);
@@ -318,7 +320,7 @@ export function figureHD(C,J,L,o={}){
     for(let a=1;a<state.ipN;a++){ const v=state.ipOrd[a]; let b=a-1; while(b>=0&&state.ipD[state.ipOrd[b]]>state.ipD[v]){ state.ipOrd[b+1]=state.ipOrd[b]; b--; } state.ipOrd[b+1]=v; }
     for(let p=0;p<2;p++) for(let a=0;a<state.ipN;a++){ const k=state.ipOrd[a]; taper(Math.round(state.ipX0[k]),Math.round(state.ipY0[k]),state.ipR0[k],Math.round(state.ipX1[k]),Math.round(state.ipY1[k]),state.ipR1[k],p,state.ipRp[k],state.ipRp2[k],state.ipZ1[k],state.ipZ2[k],state.ipRp3[k]); }
     state.ipPose=0; state.ipBase=0; state.ipC=state.hubP; return; }
-  const P=J.pel, Q=J.chest, SL=J(-1).sh, SR=J(1).sh, T0=L.top[0], S0=L.sk[0];
+  const P=J.pel, Q=J.chest, T0=L.top[0], S0=L.sk[0];
   // The head and chest fixtures (face, collar, pocket...) sit in a frame that follows the neck and the spine, so a ragdoll that lies or
   // tumbles carries its face with it; standing figures use the plain body axes and draw exactly as before.
   const frame=(/** @type {number[]} */ from,/** @type {number[]} */ to)=>{ let ux=to[0]-from[0], uy=to[1]-from[1], uz=to[2]-from[2]; const ul=Math.hypot(ux,uy,uz)||1; ux/=ul; uy/=ul; uz/=ul;
@@ -327,7 +329,8 @@ export function figureHD(C,J,L,o={}){
   const at=(/** @type {number[]} */ o,/** @type {number[]|null} */ fr)=>(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>fr?[o[0]+a*fr[0]+b*fr[3]+c*fr[6],o[1]+a*fr[1]+b*fr[4]+c*fr[7],o[2]+a*fr[2]+b*fr[5]+c*fr[8]]:[o[0]+a,o[1]+b,o[2]+c];
   // look: the head turned (yaw) and bowed (pitch) on the neck while the body keeps its facing, as a frame [forward, side, up].
   const look=o.look?(()=>{ const [y,p]=o.look, cy=Math.cos(y), sy=Math.sin(y), cp=Math.cos(p), sp=Math.sin(p); return [cy*cp,sy*cp,-sp,-sy,cy,0,cy*sp,sy*sp,cp]; })():null;
-  const rawHp=at([J.head[0]+0.1,J.head[1],J.head[2]-0.6],look||(o.tilt?frame(Q,J.head):null));
+  const headAnchor=o.fixedPose?J.head:mix(Q,J.head,1.2);
+  const rawHp=at([headAnchor[0]+0.1,headAnchor[1],headAnchor[2]-0.6],look||(o.tilt?frame(Q,J.head):null));
   const hp=(x,y,z)=>rawHp(x*HK,y*HK,z*HK);
   const tp=at(Q,o.tilt?frame(J.abd||P,Q):null), pp=at(P,o.tilt?frame(P,J.abd||Q):null), H=hp(0,0,0);
   // Split waist, lower ribs and chest even for idle NPCs. When J.abd is present,
@@ -337,8 +340,9 @@ export function figureHD(C,J,L,o={}){
     ipAdd(P[0],P[1],P[2]+0.5,shape.pelvis, ...B,shape.waist, T0,L.waist,0.24,0.24,L.waist);
     ipAdd(...B,shape.waist, Q[0],Q[1],Q[2]-0.3,shape.chest, T0,L.waist,0.24,0.24,L.waist);
   } else {
-    ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),L.tuckedShirt?shape.waist:shape.pelvis, ...B,shape.waist, T0);
-    ipAdd(...B,shape.ribs, Q[0],Q[1],Q[2]-0.3,shape.chest, T0);
+    const looseTop=!L.bare&&!L.tuckedShirt&&!heavy;
+    ipAdd(P[0],P[1],P[2]+(L.tuckedShirt?1.5:0.5),L.tuckedShirt?shape.waist:shape.pelvis*(looseTop?1.25:1), ...B,shape.waist*(looseTop?1.15:1), T0);
+    ipAdd(...B,shape.ribs*(looseTop?1.1:1), Q[0],Q[1],Q[2]-0.3,shape.chest*(looseTop?1.1:1), T0);
   }
   if(legTops.length){ let top=-Infinity; for(const k of legTops) top=Math.max(top,state.ipD[k]); const shift=Math.max(0,top-(state.ipD[waistK]-0.005)); for(const k of legTops) state.ipD[k]-=shift; }   /* one shift keeps near over far */
   if(heavy){
@@ -354,11 +358,10 @@ export function figureHD(C,J,L,o={}){
       ipAdd(...pp(-1.1,s*1.3,-0.5),c*0.56, ...pp(-1.0,s*1.5,-1.6),c*0.54,L.pt[0]);               // a heavy seat
     }
   }
-  // A sloping trapezius/clavicle on each side replaces the former rigid shoulder bar.
-  // The actual arm sockets remain at J(s).sh, preserving all combat animation arcs.
-  for(const S of [SL,SR]) ipAdd(Q[0]-0.15,Q[1],Q[2]+0.55,shape.clavicle, S[0],S[1]*0.82,S[2]-0.15,shape.shoulderCap,T0);                               // shoulders
+  // The visible shoulder follows the upper arm; its actual socket stays on the rig.
+  for(const S of shoulders) ipAdd(Q[0]-0.15,Q[1],Q[2]+0.55,shape.clavicle, S[0],S[1]*0.82,S[2]-0.15,shape.shoulderCap,T0);
   const HS=L.style==='hood'?(L.cap??L.hair):S0;   /* under a hood the head is all canvas */
-  ipAdd(Q[0],Q[1],Q[2]+0.3,shape.neckLower, ...hp(-0.15,0,-1.3),shape.neckUpper, HS);                                            // neck
+  ipAdd(Q[0],Q[1],Q[2]+(L.bare?0.3:1.35),shape.neckLower, ...hp(-0.15,0,-1.3),shape.neckUpper, HS);                            // neck
   const headFrom=state.ipN;   /* primitives of the head: skull, jaw, ears and then hair or headgear */
   const cropped=L.style==='fringe'||L.style==='crop';   /* the hero: hair over the whole skull, the face in front of it */
   ipAdd(...H,shape.headRadius, ...H,shape.headRadius, cropped?L.hair:HS);                                                       // skull beneath the hair
@@ -393,7 +396,8 @@ export function figureHD(C,J,L,o={}){
   else { headAdd(...hp(-0.3,0,0.6),1.8, ...hp(-0.3,0,0.6),1.8, L.hair);                       // it shows on top and at the back, the face covers its front
     if(st==='fringe') headAdd(...hp(0.85,-0.95,1.15),0.52, ...hp(1.0,0.85,1.0),0.5, L.hair); }   // straight fringe
   if(L.heavyMustache) headAdd(...hp(1.7,-0.75,-0.68),0.56, ...hp(1.7,0.75,-0.68),0.56,L.hair);
-  if(L.beard) headAdd(...hp(0.75,0,-0.75),1.18, ...hp(0.95,0,-1.6),0.92, L.hair);
+  if(L.beard==='short') headAdd(...hp(0.95,0,-1.35),0.72, ...hp(0.95,0,-1.75),0.65, L.hair);
+  else if(L.beard) headAdd(...hp(0.75,0,-0.75),1.18, ...hp(0.95,0,-1.6),0.92, L.hair);
   if(L.chops) for(let s=-1;s<=1;s+=2) headAdd(...hp(0.35,s*1.45,-0.1),0.52, ...hp(0.8,s*1.2,-1.25),0.5, L.hair);   /* mutton chops down to the jaw */
   /* Depth is the i+j of a primitive's middle, so turning the head swaps skull and hair or cap, and the skin shows through. Whatever sits on the skull is drawn after it. */
   if(st!=='hood') for(let k=headFrom+1;k<state.ipN;k++) if(state.ipD[k]<state.ipD[headFrom]) state.ipD[k]=state.ipD[headFrom];
@@ -535,7 +539,7 @@ function drawIsoBoxer0(){
     ipAdd(ex,s*es,ez,1.0, hx,s*hs,hz,0.9, longS?SH:SK);
     ipAdd(hx,s*hs,hz-0.2,1.0, hx+0.1,s*hs,hz-0.2,1.0, SK);                            // bare fists
   }
-  if(HD){ const A=appearanceState, J=mv?heroWalk(jt):(/** @type {number} */ s)=>jt[s]; if(!mv){ J.pel=[0,0,6.6+bob]; J.chest=[0.4+swayI,swayJ,12.2+bob]; J.head=[0.35,0,15.6+bob]; }
+  if(HD){ const A=appearanceState, idle=!mv&&!state.ipPose&&!roomsState.hubAct&&!carryingTray(), J=mv?heroWalk(jt):idle?mocapBreathingIdle(boxingState.tick/IDLE_TICKS):(/** @type {number} */ s)=>jt[s]; if(!mv&&!idle){ J.pel=[0,0,6.6+bob]; J.chest=[0.4+swayI,swayJ,12.2+bob]; J.head=[0.35,0,15.6+bob]; }
     const look={sk:[A.R_SKIN,A.R_SKINF],top:[A.R_HSH,A.R_HSHF],pt:[A.R_HPT,A.R_HPTF],shoe:A.R_HSLIP,hair:A.R_HAIR,style:'crop',stubble:true};
     if(state.heroHood) Object.assign(look,{style:'hood',stubble:false});
     if(state.isoTowel){ const wet=!!(roomsState.hubAct&&roomsState.hubAct.kind==='shower'&&roomsState.hubAct.t>roomsState.ACT_FADE);   /* the bath: a towel and slippers, under the shower naked */

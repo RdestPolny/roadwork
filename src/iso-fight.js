@@ -1,5 +1,6 @@
 import { renderThamesPort, withThamesCamera, portFightOutfit, thamesBlocked, startPortAfterFight } from './thames-port.js';
 import { renderPub, withPubCamera, pubBlocked, PUB_RIVAL, followPubFight, preparePub } from './pub.js';
+import { state as alleyState, ALLEY, alleyBlocked, alleyPlace, withAlleyCamera, prepareAlley, renderAlley } from './alley.js';
 import { PORT_BRAWL } from './port-story.js';
 import { DASH, dashTravel, dashPose, dashDirection } from './combat-dash.js';
 import { BULL, createBullState, registerBullMiss, advanceBull, bullTiming, beginRun, chainHook, wantsCharge, beginCharge, launchCharge, chargeCatches } from './heavy-bruiser.js';
@@ -41,7 +42,7 @@ import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, dr
 // Runtime values owned by iso-fight; the fight is reset by startIsoFight().
 export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
   notice:'',noticeUntil:0,pointer:null,showRig:false,clinch:false,clinchAt:0,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null,
-  tape:/** @type {any[]} */ ([]),fin:/** @type {any} */ (null),windUsed:false,kick:0};
+  enemies:/** @type {any[]} */ ([]),tape:/** @type {any[]} */ ([]),fin:/** @type {any} */ (null),windUsed:false,kick:0};
 
 /** Seconds from the start of a punch to contact and to the end of the recovery. */
 const PT=[{hit:.10,end:.30},{hit:.15,end:.40},{hit:.19,end:.48},{hit:.19,end:.48}];
@@ -141,7 +142,7 @@ function makeFighter(i,j,fi,fj,look,wrap,rules,S,leadSide=1){
 
 /** Where the two stand: on the floor of the room, facing each other along the screen's horizontal, as in the side view.
  * @param {string} room @returns {[number[],number[]]} */
-function fightBlocked(i,j){ return state.venue==='sandy'?Math.hypot(i-5.55,j-5.15)>3.6:state.venue==='port'?thamesBlocked(i,j):state.venue==='pub'?pubBlocked(i,j):hubBlocked(i,j); }
+function fightBlocked(i,j){ return state.venue==='alley'?alleyBlocked(i,j):state.venue==='sandy'?Math.hypot(i-5.55,j-5.15)>3.6:state.venue==='port'?thamesBlocked(i,j):state.venue==='pub'?pubBlocked(i,j):hubBlocked(i,j); }
 function startSpots(room){
   const [w,h]=hubBounds(), pref=room==='cell'?[5.55,5.15]:[w/2,h/2], d=[0.7071,-0.7071], half=0.78;
   for(let r=0;r<6;r+=0.4) for(let a=0;a<(r?16:1);a++){
@@ -161,19 +162,28 @@ function foeFigure(venue,idx,O){
 /** Begin a brawl against rival `idx` of `venue` in that venue's isometric room; `station` is where the hero returns to.
  * @param {number} idx @param {string} [venue] @param {any} [station] */
 export function startIsoFight(idx,venue,station){
-  const S=state, save=progressionState.save, V=venue??sparringState.sparVenue, sandbox=V==='sandy', room=V==='port'||V==='pub'?'port':V==='yard'||V==='laznia'?V:'cell';
+  const S=state, save=progressionState.save, V=venue??sparringState.sparVenue, sandbox=V==='sandy', group=V==='alley', room=V==='port'||V==='pub'||group?'port':V==='yard'||V==='laznia'?V:'cell';
   const returnRoom=sandbox?(S.on&&S.venue==='sandy'?S.returnRoom:gymState.hubRoom):null;
   S.portraits=null;
   initAudio(); inputState.overEl.hidden=true;
-  setSparFight(idx,sandbox||V==='pub'?'cell':V,station);
-  if(sandbox||V==='pub'){ setRigged(false); setFightLimit(0); } // the preview never inherits Sunday-match cheats or a timer
+  setSparFight(idx,sandbox||V==='pub'||group?'cell':V,station);
+  if(sandbox||V==='pub'||group){ setRigged(false); setFightLimit(0); } // the preview never inherits Sunday-match cheats or a timer
   if(room!=='port'&&gymState.hubRoom!==room){ setRoomRaw(room); hubRebake(); }
-  const O=V==='port'?{...oppDef(idx),name:'PIJANY',title:'Pijany doker'}:oppDef(idx), st=save.stats, PS=fighterStats({str:st.str.lvl,spd:st.spd.lvl,end:st.end.lvl}), OS=fighterStats(oppLevels(O));
-  const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:V==='pub'?[[11.5,5.5],[PUB_RIVAL.i,PUB_RIVAL.j]]:startSpots(room);
+  const O=V==='port'?{...oppDef(idx),name:'PIJANY',title:'Pijany doker'}:group?{...oppDef(idx),name:'NAPASTNIK',title:'Czterech napastników'}:oppDef(idx), st=save.stats, PS=fighterStats({str:st.str.lvl,spd:st.spd.lvl,end:st.end.lvl}), OS=fighterStats(oppLevels(O));
+  const wounds=lastingSpec(save.injuries), cap=PS.staCap-(tiredness()*4+(wounds.nose?5:0)+wounds.ribs*5), hero=heroFigureLook(), [pa,oa]=group?[[alleyState.i,alleyState.j],[alleyState.i-2,alleyState.j]]:sandbox?[[4.95,5.75],[6.05,4.55]]:V==='port'?[PORT_BRAWL.hero,PORT_BRAWL.drunk]:V==='pub'?[[11.5,5.5],[PUB_RIVAL.i,PUB_RIVAL.j]]:startSpots(room);
   S.P=makeFighter(pa[0],pa[1],0.7071,-0.7071,hero.look,hero.wrap,{hpMax:100+PS.hpBonus,staCap:3*Math.max(25,cap),pow:PS.pow,regen:PS.regen,hunger:hungerLevel()},PS,-1);
   S.O=makeFighter(oa[0],oa[1],-0.7071,0.7071,V==='port'?{sk:[appearanceState.R_SKIN,appearanceState.R_SKINF],top:[appearanceState.R_HSH,appearanceState.R_HSHF],pt:[appearanceState.R_HPT,appearanceState.R_HPTF],shoe:appearanceState.R_HSLIP,hair:appearanceState.R_HAIR,cap:appearanceState.R_HPT,style:'flatcap',stubble:true,rolledSleeves:true,tuckedShirt:true}:foeFigure(V==='pub'?'cell':V,idx,O),V==='port'?portFightOutfit:fn=>fn(),{hpMax:O.hp,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
   if(O.heavy){ S.O.bull=createBullState(); S.O.rt.regen*=0.7; S.O.bullClock=0; }
   Object.assign(S.P.wounds,wounds); S.O.aiAt=0.6;
+  S.enemies=[]; if(group) for(let k=0;k<4;k++){
+    const angle=k*Math.PI/2, candidates=[];
+    for(let radius=2;radius<=6;radius+=.5) for(let n=0;n<16;n++){ const a=angle+n*Math.PI/8; candidates.push([pa[0]+Math.cos(a)*radius,pa[1]+Math.sin(a)*radius]); }
+    const spot=candidates.find(([i,j])=>!alleyBlocked(i,j)&&S.enemies.every(f=>Math.hypot(f.i-i,f.j-j)>1))||oa;
+    const C=npcsState.YN[k]||npcsState.CN[0], look={...cnLookHD(C),style:'hood',cap:C.rb+8,irons:false};
+    const F=makeFighter(spot[0],spot[1],-1,0,look,fn=>fn(),{hpMax:O.hp/2,staCap:3*Math.max(25,OS.staCap),pow:OS.pow,regen:OS.regen},OS);
+    F.aiAt=.6+k*.3; F.groupIndex=k; S.enemies.push(F);
+  }
+  if(group) S.O=S.enemies[0];
   Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
     notice:'Ciosy 1-4 · LPM: korpus · Spacja: blok · Q: slip · F: dash',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
@@ -189,7 +199,7 @@ export function startIsoFight(idx,venue,station){
   gymState.actors=[S.P,S.O]; gymState.preScene=drawDecals; gymState.hubNear=null; hubTransReset();
   boxingState.gstate='isofight';
   document.body.classList.remove('hub','pushup','port'); document.body.classList.add('spar');
-  showFightPlate(sandbox?'cell':V,O.title);
+  showFightPlate(sandbox?'cell':V,group?'Czterech napastników':O.title);
   setInfo();
 }
 
@@ -294,7 +304,7 @@ export function isoFightPointerLeave(){ state.pointer=null; }
 export function isoFightBodyAim(held){ state.low=!!held&&state.on&&(state.phase==='fight'||state.phase==='finisher')&&!inputState.paused; }
 
 /** Direction from the fighter's feet to the pointer in room coordinates. @returns {[number,number]} */
-function pointerDirection(){ return state.venue==='pub'?withPubCamera(pointerDirectionInRoom):state.venue==='port'?withThamesCamera(pointerDirectionInRoom):pointerDirectionInRoom(); }
+function pointerDirection(){ return state.venue==='alley'?withAlleyCamera(pointerDirectionInRoom):state.venue==='pub'?withPubCamera(pointerDirectionInRoom):state.venue==='port'?withThamesCamera(pointerDirectionInRoom):pointerDirectionInRoom(); }
 /** Resolve the pointer using the current room projection. */
 function pointerDirectionInRoom(){
   const S=state; if(!S.pointer||!S.P) return [0,0];
@@ -302,8 +312,8 @@ function pointerDirectionInRoom(){
   // Camera coordinates belong to the active framebuffer (3× in all isometric venues).
   const frame=isometricFrame(S.venue), scale=frame.W/144;
   // The port's camera is already in legacy 2× pixels between render calls.
-  const projectionScale=S.venue==='port'||S.venue==='pub'?scale/2:scale;
-  const C=S.cam, W=frame.W, H=frame.H, z=S.venue==='pub'?1:(Math.abs(C.z-2.35)<0.03?2.35:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom()));
+  const projectionScale=S.venue==='port'||S.venue==='pub'||S.venue==='alley'?scale/2:scale;
+  const C=S.cam, W=frame.W, H=frame.H, z=S.venue==='pub'?1:(Math.abs(C.z-2.35)<0.03?2.35:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom())+(S.venue==='alley'?S.kick:0));
   const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
   const sx=isoX(S.P.i,S.P.j), sy=isoY(S.P.i,S.P.j,0);
   const dx=S.pointer.x-(W/2+(sx*projectionScale-cx)*z)/scale;
@@ -317,7 +327,7 @@ const CLINCH_MAX=3;
 /** Take hold at close range (a tired rival may hang on the player too); a held Space remains the normal guard. @param {boolean} [byRival] */
 function startClinch(byRival=false){
   const S=state, P=S.P, O=S.O;
-  if(!S.on||S.phase!=='fight'||busy(P)||busy(O)||O.finStun||toward(P,O)[2]>1.25) return false;
+  if(!S.on||S.venue==='alley'||S.phase!=='fight'||busy(P)||busy(O)||O.finStun||toward(P,O)[2]>1.25) return false;
   if(P.rt.guarding) setGuard(P.rt,false,S.t);
   if(O.rt.guarding) setGuard(O.rt,false,S.t);
   P.buf=O.buf=null; O.combo=[]; O.tell=null; S.clinch=true; S.clinchAt=S.t; S.guardHeld=false;
@@ -447,7 +457,8 @@ function walk(F,G,di,dj,sp){
   const ok=(/** @type {number} */ a,/** @type {number} */ b)=>{
     if(fightBlocked(a,b)) return false;
     if(F.dash&&gymState.fightSpectators?.some(c=>c.step?.k==='spectator'&&Math.hypot(c.i-a,c.j-b)<.35)) return false;
-    const d=Math.hypot(a-G.i,b-G.j); return d>=MIN_SEP||d>=d0;
+    const d=Math.hypot(a-G.i,b-G.j); if(d<MIN_SEP&&d<d0) return false;
+    return state.venue!=='alley'||[state.P,...state.enemies].every(H=>H===F||H===G||H.ko||Math.hypot(a-H.i,b-H.j)>=MIN_SEP||Math.hypot(a-H.i,b-H.j)>=Math.hypot(F.i-H.i,F.j-H.j));
   };
   const n=Math.ceil(Math.max(Math.abs(di*sp),Math.abs(dj*sp))/.035), step=sp/Math.max(1,n);
   for(let k=0;k<n;k++){
@@ -604,6 +615,12 @@ function impact(A,D){
   if(D.pinUntil>now) D.stagger=Math.max(D.stagger,D.pinUntil-now);   // pinned to the wall: blows do not shorten the stun
   D.vib=S.freeze; D.vibI=ui; D.vibJ=uj;
   if(o.failedSlip&&D===S.P) say('Spóźniony slip'); else if(o.counter&&A===S.P) say('Kontra'); else if(interrupted&&A===S.P) say('Przerwany zamach');
+  if(D.rt.hp<=0&&S.venue==='alley'&&D!==S.P){
+    D.ko=true; D.pk=null; D.tell=null; D.dash=null; startIsoRagdoll(D,A,pid,true);
+    if(S.P.grab?.person===D) S.P.grab=null;
+    if(S.enemies.every(F=>F.ko)) endBout(S.P,'KO');
+    return;
+  }
   if(D.rt.hp<=0){
     const brutal=D.kdN>=2||(D.kdN===1&&o.counter&&pid===3);
     if(!D.down&&!brutal){
@@ -800,6 +817,14 @@ function ai(F,P){
   if(F.stagger>0) F.tell=null;
   if(F.tell){ if(now>=F.tell.until){ const t=F.tell; F.tell=null; if(t.feint) F.aiAt=Math.max(F.aiAt,now+.25); else press(F,t.pid,t.low); } return; }   // committed to the shown punch
   if(F.stagger>0||F.pk) return;
+  if(S.venue==='alley'){
+    if(F.holding){ if(P.grab?.person===F&&!F.ko&&!F.down&&now<P.grab.until) return; F.holding=false; if(P.grab?.person===F) P.grab=null; }
+    if(now<F.aiAt) return;
+    const behind=ui*P.fi+uj*P.fj>.25;
+    if(gap<1.05&&behind&&!P.grab&&!P.down&&!P.ko){ P.grab={person:F,until:now+1.6}; F.holding=true; P.pk=null; P.dash=null; P.buf=null; if(P.rt.guarding) setGuard(P.rt,false,now); say('Napastnik cię trzyma!'); F.aiAt=now+3; return; }
+    if(gap>1.25){ const flank=F.groupIndex%2?1:-1, f=gap<3?.55*flank:0; const m=Math.hypot(ui-si*f,uj-sj*f); const moved=walk(F,P,(ui-si*f)/m,(uj-sj*f)/m,WALK*.85*S.scale); F.moving=moved>0; F.mf=1; F.ms=f; return; }
+    startTell(F,F.groupIndex%3===0?1:0,Math.random()<.25); F.aiAt=now+.8+F.groupIndex*.12; return;
+  }
   if(S.venue==='port'){
     if(now<F.aiAt) return;
     if(gap>1.25){ walk(F,P,ui,uj,WALK*.4*S.scale); F.moving=true; F.mf=1; F.ms=0; return; }
@@ -882,29 +907,31 @@ function timeScale(){
 }
 
 /** One 60 Hz step of the fight. The fight's own dt is scaled by the slow motion; the input clock (uiT) and the pause are not. */
-export function isoFightTick(){ if(state.venue==='pub'){ followPubFight((state.P.i+state.O.i)/2,(state.P.j+state.O.j)/2); return withPubCamera(tickFight); } if(state.venue==='port') return withThamesCamera(tickFight); return tickFight(); }
+export function isoFightTick(){ if(state.venue==='alley'){ alleyPlace(state.P.i,state.P.j); return withAlleyCamera(tickFight); } if(state.venue==='pub'){ followPubFight((state.P.i+state.O.i)/2,(state.P.j+state.O.j)/2); return withPubCamera(tickFight); } if(state.venue==='port') return withThamesCamera(tickFight); return tickFight(); }
 function tickFight(){
   const S=state; if(!S.on) return;
-  for(const F of [S.P,S.O]) if(F&&F.vib>0) F.vib--;   // the struck man's tremble runs on real frames, through the hit-stop
+  const fighters=S.venue==='alley'?[S.P,...S.enemies]:[S.P,S.O];
+  if(S.venue==='alley') S.O=S.enemies.filter(F=>!F.ko).sort((a,b)=>toward(S.P,a)[2]-toward(S.P,b)[2])[0]||S.O;
+  for(const F of fighters) if(F&&F.vib>0) F.vib--;   // the struck man's tremble runs on real frames, through the hit-stop
   if(S.freeze>0){
     // Hit-stop freezes combat logic, but the struck torso still begins to fold
     // over the impact: otherwise the visual response starts frames after contact.
     S.freeze--;
-    for(const F of [S.P,S.O]) if(F?.hurtT>0) F.hurtT=Math.max(0,F.hurtT-1/60);
+    for(const F of fighters) if(F?.hurtT>0) F.hurtT=Math.max(0,F.hurtT-1/60);
     return;
   }
   if(S.phase==='finisher'){ tickFinisher(); return; }
   const rawDt=1/60, scale=S.kdSlow>0?(S.kdSlow>3?0.85:S.kdSlow>1.8?0.35:0.16):(S.phase==='fight'?timeScale():1), dt=rawDt*scale, P=S.P, O=S.O;
   S.scale=scale; if(S.kdSlow>0) S.kdSlow=Math.max(0,S.kdSlow-rawDt); if(S.slowMo>0) S.slowMo=Math.max(0,S.slowMo-rawDt);
   if(S.banner&&S.kdSlow<=0&&--S.banner.t<=0) S.banner=null;   // the knockdown's words wait for the comic to end
-  tickFeet(P,scale); tickFeet(O,scale); tickSpurt(P,scale); tickSpurt(O,scale); tickParts(scale);
-  for(const F of [P,O]){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/(F.pk||F.gUp>0.2?RISE_HURRY:RISE_TICKS))>=1) F.rise=null; }
+  for(const F of fighters){ tickFeet(F,scale); tickSpurt(F,scale); } tickParts(scale);
+  for(const F of fighters){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/(F.pk||F.gUp>0.2?RISE_HURRY:RISE_TICKS))>=1) F.rise=null; }
   if(S.kdSlow>3&&S.venue!=='sandy') recordKnockdownFrame();
   if(O.rt.guarding&&!O.gWas) O.gPop=1; O.gWas=O.rt.guarding; O.gPop=Math.max(0,(O.gPop||0)-dt*5);   // the rival's guard snaps up past its place and settles: a block you can see coming
-  for(const F of [P,O]){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*ZONES[F.rt.zone].guard*scale; F.tire+=(F.rt.zone/2-F.tire)*0.04*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
+  for(const F of fighters){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*ZONES[F.rt.zone].guard*scale; F.tire+=(F.rt.zone/2-F.tire)*0.04*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
   const [pi,pj]=toward(P,O), [oi,oj]=toward(O,P);
-  for(const [F,ti,tj] of [[P,pi,pj],[O,oi,oj]]){ if(F.ko||F.down) continue; const turn=F.bull?0.11:0.22; F.fi+=(ti-F.fi)*turn*scale; F.fj+=(tj-F.fj)*turn*scale; const m=Math.hypot(F.fi,F.fj)||1; F.fi/=m; F.fj/=m; }
-  P.moving=false; O.moving=false;
+  for(const [F,ti,tj] of [[P,pi,pj],...(S.venue==='alley'?S.enemies.map(F=>[F,...toward(F,P)]):[[O,oi,oj]])]){ if(F.ko||F.down) continue; const turn=F.bull?0.11:0.22; F.fi+=(ti-F.fi)*turn*scale; F.fj+=(tj-F.fj)*turn*scale; const m=Math.hypot(F.fi,F.fj)||1; F.fi/=m; F.fj/=m; }
+  for(const F of fighters) F.moving=false;
   if(S.phase==='intro'){
     S.pt++;
     if(S.pt>=45){ hideFightPlate(); S.phase='fight'; S.pt=0; if(!S.evadeHintShown){ S.evadeHintShown=true; say('Mysz: ruch · E: unik'); } setInfo(); }
@@ -923,8 +950,9 @@ function tickFight(){
   if(O.bull) O.bullClock=now;
   if(S.eTap&&S.uiT-S.eTap.at>TAP_WINDOW){ const {di,dj}=S.eTap; S.eTap=null; if(di||dj) evade(P,O,di,dj); }
   if(sparringState.timeLimit&&S.elapsed>=sparringState.timeLimit&&!S.fin){ timeUp(); return; }
-  for(const F of [P,O]){
+  for(const F of fighters){
     const G=F===P?O:P;
+    if(S.venue==='alley'&&F!==P){ F.rt.sta=F.rt.staCap; F.rt.zone=0; }
     tickCombatant(F.rt,dt,now,S.clinch?TUNING.clinchRegen:1);
     if(F.dash&&(F.ko||F.down||F.grab||F.stagger>0)) F.dash=null;
     if(F.dash){
@@ -983,9 +1011,11 @@ function tickFight(){
     const moved=walk(P,O,di,dj,sp); P.moving=moved>0; P.mf=di*P.fi+dj*P.fj; P.ms=di*(-P.fj)+dj*P.fi;
     if(moved>0) P.lastMove=[di,dj];
   }
-  ai(O,P);
-  for(const F of [O,P]) updateCrowdGrab(F);
-  for(const F of [P,O]) if(!F.ko&&!F.down){
+  if(S.venue==='alley'){
+    if(P.grab&&(P.down||P.ko||P.grab.person.ko||P.grab.person.down||P.grab.person.stagger>0||now>=P.grab.until)){ P.grab.person.holding=false; P.grab=null; }
+    for(const F of S.enemies) ai(F,P);
+  } else { ai(O,P); for(const F of [O,P]) updateCrowdGrab(F); }
+  for(const F of fighters) if(!F.ko&&!F.down){
     if((F.bleed||F.wounds.cuts)&&F.rt.hp/F.rt.hpMax<0.6&&Math.random()<0.02*scale) drip(F,'blood');
     if(F.bull?.mode==='EXHAUSTED'&&Math.random()<0.045*scale) drip(F,'sweat');
     else if(F.rt.zone&&Math.random()<0.012*F.rt.zone*scale) drip(F,'sweat');
@@ -1005,6 +1035,11 @@ function tickFight(){
 /** The result card of a brawl: XP, the fight record, the prison's verdict (respect, the turnkey, the list), the wounds. */
 function showResult(){
   hideFightPlate();
+  if(state.venue==='alley'){
+    inputState.overTitle.textContent=state.winner===state.P?'WYGRANA — ALEJKA':'PRZEGRANA — ALEJKA';
+    inputState.overStats.textContent='Walka testowa · bez XP i zmian zapisu · Esc — powrót do alejki';
+    inputState.againFn=()=>startIsoFight(0,'alley'); inputState.overEl.hidden=false; inputState.againBtn.focus(); setInfo(); return;
+  }
   if(state.venue==='sandy'){
     inputState.overTitle.textContent=state.winner===state.P?'WYGRANA — TEST HD':'PRZEGRANA — TEST HD';
     inputState.overStats.textContent='Bohater kontra Harry · arena piaskowa 432×288 · bez XP i zmian zapisu';
@@ -1479,7 +1514,7 @@ function bars(x,y,w,F,right){
   rect(x-1,y-1,w+2,9,A.C_OUT);
   const fill=(/** @type {number} */ yy,/** @type {number} */ hh,/** @type {number} */ k,/** @type {number} */ c)=>{ const n=Math.round(w*Math.max(0,Math.min(1,k))); rect(right?x+w-n:x,yy,n,hh,c); };
   fill(y,4,hp,A.C_RED);
-  rect(x,y+5,w,3,0xff2a2418); fill(y+5,3,cap,0xff4a4230); fill(y+5,3,sta,staCol);
+  if(state.venue!=='alley'||F===state.P){ rect(x,y+5,w,3,0xff2a2418); fill(y+5,3,cap,0xff4a4230); fill(y+5,3,sta,staCol); }
 }
 
 /** A fighter's HUD portrait: the painted, living bust of the hero or Harry (fight-portraits.js), else his head model rendered once.
@@ -1487,7 +1522,7 @@ function bars(x,y,w,F,right){
 function fightPortrait(F,hero){
   if(hasPainted(F,hero)){ let ink=null; F.wrap(()=>{ ink=portraitInks(F.look,appearanceState.PAL,hero); }); return {ink,buf:new Uint32Array(PW*PH)}; }
   const W=appearanceState.W, H=appearanceState.H, buf=new Uint32Array(W*H), previous=setFramebuffer(buf);
-  const C={i:5,j:5,fi:0.7071,fj:0.7071}, J=(s)=>({hip:[0,s*1.2,7],knee:[0,s*1.2,4],foot:[0,s*1.2,1],sh:[0,s*2.5,12],el:[0,s*2.5,10],hd:[0,s*1.5,13]});
+  const C={i:state.venue==='alley'?F.i:5,j:state.venue==='alley'?F.j:5,fi:0.7071,fj:0.7071}, J=(s)=>({hip:[0,s*1.2,7],knee:[0,s*1.2,4],foot:[0,s*1.2,1],sh:[0,s*2.5,12],el:[0,s*2.5,10],hd:[0,s*1.5,13]});
   J.pel=[0,0,7]; J.chest=[0,0,12]; J.head=[0,0,16];
   try{ F.wrap(()=>figureHD(C,J,F.look,{noShadow:true})); } finally { setFramebuffer(previous); }
   const cx=Math.round(isoX(C.i,C.j)), cy=Math.round(isoY(C.i,C.j,15.4));
@@ -1614,7 +1649,7 @@ function startIsoRagdoll(F,A,pid,ko){
     return {i:w.i,j:w.j,z,pi:w.i-vi,pj:w.j-vj,pz:z-vz};
   });
   const len=ragdollLengths(loc);
-  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A&&!state.fin){ state.kdSlow=3.8; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
+  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A&&!state.fin&&state.venue!=='alley'){ state.kdSlow=3.8; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
 }
 
 /** One 60 Hz step of the ragdoll. @param {any} F */
@@ -1690,7 +1725,7 @@ function drip(F,kind){
 
 /** Fly the mist and the drops; a fast drop splashes small on the boards; blood that lands stays as a stain, sweat leaves a faint wet spot. */
 function tickParts(scale=1){
-  const S=state, live=[], [bw,bh]=S.venue==='port'?[30,13]:hubBounds();
+  const S=state, live=[], [bw,bh]=S.venue==='alley'?[ALLEY.I,ALLEY.J]:S.venue==='port'?[30,13]:hubBounds();
   for(const p of S.parts){
     p.age+=scale; p.pi=p.i; p.pj=p.j; p.pz=p.z;
     if(p.creep>0&&p.host&&!p.host.ko&&!p.host.down){   // the viscous phase: it slides down the cheek and chin with the head
@@ -1788,11 +1823,13 @@ function renderRigOverlay(F){
 /** Zoom on the fighters: close in on the pair, wider only when they part; the centre follows with a lag. */
 function camera(){
   const S=state, C=S.cam, K=gymState.ISO_K, W=appearanceState.W, H=appearanceState.H, P=S.P, O=S.O;
-  const px=isoX(P.i,P.j), py=isoY(P.i,P.j,9), ox=isoX(O.i,O.j), oy=isoY(O.i,O.j,9);
-  const need=Math.max(Math.abs(px-ox)+52*K,(Math.abs(py-oy)+48*K)*1.5), zt=Math.min(2.35,Math.max(1.3,W/need));
-  if(C.init){ C.init=false; C.z=zt; C.x=(px+ox)/2; C.y=(py+oy)/2+4*K; }
+  const fighters=S.venue==='alley'?[P,...S.enemies.filter(F=>!F.ko)]:[P,O];
+  const xs=fighters.map(F=>isoX(F.i,F.j)), ys=fighters.map(F=>isoY(F.i,F.j,9));
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  const need=Math.max(maxX-minX+52*K,(maxY-minY+48*K)*1.5), zt=Math.min(2.35,Math.max(1.3,W/need));
+  if(C.init){ C.init=false; C.z=zt; C.x=(minX+maxX)/2; C.y=(minY+maxY)/2+4*K; }
   C.z+=(zt-C.z)*0.08; S.kick*=0.82; const z=(Math.abs(C.z-2.35)<0.03?2.35:C.z)*(1+0.35*Math.max(slowMoEffect(),knockdownZoom())+S.kick);
-  const tx=(px+ox)/2, ty=(py+oy)/2+4*K;
+  const tx=(minX+maxX)/2, ty=(minY+maxY)/2+4*K;
   C.x+=(tx-C.x)*0.1; C.y+=(ty-C.y)*0.1;
   const cx=Math.round(Math.max(W/(2*z),Math.min(W-W/(2*z),C.x))), cy=Math.round(Math.max(H/(2*z),Math.min(H-H/(2*z),C.y)));
   zoomBlit(z,cx,cy);
@@ -1840,13 +1877,14 @@ function comicCaption(){
 }
 
 /** Frame: the room with both fighters, bars, sparks and the notice. Called inside the 2× frame. */
-export function renderIsoFight(){ if(state.venue==='pub'){ preparePub(); return withPubCamera(renderFight); } if(state.venue==='port') return withThamesCamera(renderFight); return renderFight(); }
+export function renderIsoFight(){ if(state.venue==='alley'){ prepareAlley(); return withAlleyCamera(renderFight); } if(state.venue==='pub'){ preparePub(); return withPubCamera(renderFight); } if(state.venue==='port') return withThamesCamera(renderFight); return renderFight(); }
 function renderFight(){
   const S=state; if(!S.on) return;
   if(S.phase==='finisher'){ drawFinisherMontage(S.fin.t); return; }
   if(S.venue!=='sandy'&&S.kdSlow>0&&knockdownComicOnScreen(3.8-S.kdSlow,S.kdSlow)){ drawKnockdownComic(3.8-S.kdSlow,comicCaption()); return; }
   if(gymState.fightSpectators) for(const C of gymState.fightSpectators) C.t=S.t*60;
-  if(S.venue==='pub') renderPub([S.P,S.O]);
+  if(S.venue==='alley') renderAlley([S.P,...S.enemies]);
+  else if(S.venue==='pub') renderPub([S.P,S.O]);
   else if(S.venue==='port') renderThamesPort([S.P,S.O]);
   else if(S.venue==='sandy'){
     renderSandyArena(); drawDecals();
@@ -1875,7 +1913,7 @@ function marker(F){
 
 /** Text for the info line below the picture. */
 export function isoFightInfo(){
-  const S=state, V=S.venue, where=V==='sandy'?'TEST HD 432×288 · BOHATER VS HARRY':V==='port'?'BÓJKA W PORCIE':V==='yard'?'BÓJKA NA SPACERNIAKU':V==='canteen'?'BÓJKA PRZY POSIŁKU':V==='laznia'?'BÓJKA W ŁAŹNI':'BÓJKA W WARDZIE';
+  const S=state, V=S.venue, where=V==='alley'?'ALEJKA · WALKA GRUPOWA':V==='sandy'?'TEST HD 432×288 · BOHATER VS HARRY':V==='port'?'BÓJKA W PORCIE':V==='yard'?'BÓJKA NA SPACERNIAKU':V==='canteen'?'BÓJKA PRZY POSIŁKU':V==='laznia'?'BÓJKA W ŁAŹNI':'BÓJKA W WARDZIE';
   return where+' · '+(S.opp?S.opp.title:'')+' · '+(S.phase==='end'||S.phase==='ko'?'KONIEC':'DO KO')+(V==='sandy'?' · F7 szkielet · R restart · F9 PNG':'');
 }
 export const CONTROLS='mysz/WASD ruch · F dash ku kursorowi · E unik · 2× E odskok · 1 jab · 2 cross · 3 hook · 4 uppercut · LPM + cios: korpus · Spacja blok / klincz · Q slip · F10 pauza · Esc wyjście';

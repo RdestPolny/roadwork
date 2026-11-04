@@ -261,7 +261,7 @@ function guardBed(it){
     return n<70?C.woodD:n>215?C.woodH:C.wood; });
   isoLine(i0,j1,Z,i1,j1,Z,C.woodK);
   for(const ci of PALLETS) if(ci>i0+0.3&&ci<i1-0.3) pallet(ci);
-  if(!B2){ cup(3.05,1.6); bread(1.55,2.05); bible(3.55,1.75); } else { cup(6.35,1.9); bread(7.2,0.75); plate(8.5,1.9); }
+  if(!B2){ cup(3.05,1.6); bread(1.55,2.05); bible(3.55,1.75); plate(1.75,1.85); plate(1.98,1.95); } else { cup(6.35,1.9); bread(7.2,0.75); plate(8.5,1.9); }
 }
 /** A dented tin cup. @param {number} ci @param {number} cj */
 function cup(ci,cj){ const r=0.1; solidDraw(ci-r,cj-r,ci+r,cj+r,PALLET_Z,PALLET_Z+1.4,(a,b,z)=>{ const d=Math.hypot(a-ci,b-cj); if(d>r) return 0; if(z>PALLET_Z+1.25) return d<r*0.6?C.ironK:C.tinH; return (a-ci)-(b-cj)>0?C.tinD:C.tin; }); }

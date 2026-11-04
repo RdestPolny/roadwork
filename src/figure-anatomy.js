@@ -5,7 +5,7 @@
  * these render-only dimensions. Values are radii in legacy shape units, before
  * ISO_K scaling. Keep all characters on the same surface anatomy model.
  */
-export const HEAD_SCALE = 0.90;
+export const HEAD_SCALE = 1.08;
 export const FIGURE_PART_CAPACITY = 64;
 
 const bounded = (v, fallback) => Number.isFinite(v) && v > 0 ? Math.max(0.5, Math.min(2.5, v)) : fallback;
@@ -37,20 +37,20 @@ export function figureProportions(look = {}) {
     wrist: .65 * b.forearms,
     fist: .74 * b.forearms,
     pelvis: 1.91 * b.chest,
-    waist: 1.73 * b.chest,
-    ribs: 1.96 * b.chest,
+    waist: 1.95 * b.chest,
+    ribs: 2.12 * b.chest,
     chest: 2.20 * b.chest,
     thigh: 1.32 * b.thighs,
     knee: .98 * b.thighs,
     calf: 1.02 * b.calves,
     ankle: .72 * b.calves,
-    heel: .91,
-    toe: .72,
+    heel: 1.02,
+    toe: .88,
     belly: 2.35 * b.belly,
   };
 }
 
-/** Accessory/face coordinates in the same reduced head frame as the skull. */
+/** Accessory/face coordinates in the same head frame as the skull. */
 export function headDetailPoint(head, x, y, z) {
   return [head[0] + x * HEAD_SCALE, head[1] + y * HEAD_SCALE, head[2] + z * HEAD_SCALE];
 }

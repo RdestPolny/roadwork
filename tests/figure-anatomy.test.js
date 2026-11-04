@@ -7,13 +7,13 @@ test('HD figure has adequate geometry budget for detailed hairstyles, faces, clo
   assert.ok(FIGURE_PART_CAPACITY<128); // used by indexed sort buffers
 });
 
-test('normal fighter has a narrower head, tapered limbs and a defined waist, without moving any joint',()=>{
+test('normal fighter has an enlarged head, tapered limbs and a broad torso, without moving any joint',()=>{
   const p=figureProportions({style:'crop'});
   assert.equal(p.heavy,false);
-  assert.ok(HEAD_SCALE>=0.8&&HEAD_SCALE<1);
-  assert.ok(p.headRadius<1.75);
+  assert.equal(HEAD_SCALE,0.90*1.2);
+  assert.ok(p.headRadius>1.75);
   assert.ok(p.chest>p.ribs&&p.ribs>p.waist);
-  assert.ok(p.pelvis>p.waist);
+  assert.ok(p.waist>=p.pelvis);
   assert.ok(p.upperArm>p.elbow);
   assert.ok(p.forearm>p.wrist);
   assert.ok(p.thigh>p.knee);
@@ -21,7 +21,7 @@ test('normal fighter has a narrower head, tapered limbs and a defined waist, wit
   assert.ok(p.fist>p.wrist);
   // 3D silhouettes are in legacy units; the upper end of the head is near z=16.6.
   const visibleHeight=15.6-0.6+p.headRadius;
-  assert.ok(visibleHeight/(2*p.headRadius)>5);
+  assert.ok(visibleHeight/(2*p.headRadius)>4);
 });
 
 test('Bull remains a heavy, large-headed character with broad arms and a larger abdomen',()=>{
