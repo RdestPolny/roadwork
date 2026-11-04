@@ -434,16 +434,16 @@ export function cnDraw(C){
     case 'walk': case 'idle': case 'rest': case 'loose': case 'behind': drawIsoNPC(C); return;
     case 'bullLie': {
       const B=cnBedOf(C); if(!B) return;
-      // Frame 1 of Male Laying Pose.fbx, converted from metres to figure units.
-      const p=([x,y,z])=>[(-x-0.005)*7.3,(-y-0.007)*7.3,z*7.3];
-      const left={hip:p([0.083,0.053,0.145]),knee:p([0.363,-0.019,0.481]),foot:p([0.551,0.068,0.087]),sh:p([-0.211,0.114,0.402]),el:p([0,-0.015,0.274]),hd:p([-0.107,-0.209,0.099])};
-      const right={hip:p([0.038,-0.086,0.070]),knee:p([0.467,-0.185,0.123]),foot:p([0.909,-0.226,0.082]),sh:p([-0.431,-0.060,0.279]),el:p([-0.16,-0.11,0.30]),hd:p([0.12,-0.15,0.30])};
-      const J=s=>s>0?left:right;
-      J.pel=p([-0.005,-0.007,0.130]); J.abd=p([-0.103,0.017,0.144]); J.chest=p([-0.247,0.007,0.270]); J.head=p([-0.372,-0.011,0.475]);
-      const look=cnLookHD(C), opts={pose:2,base:B.base+0.25,noShadow:true,tilt:true,fixedPose:true};
+      // On his side, propped on the bent lower arm (elbow on the pallet, hand up under the jaw); the upper arm lies along the flank.
+      // Figure coordinates: fwd towards the head, side +1 = left, z above the pallet. Heavy body: the belly sags onto the pallet.
+      const low={hip:[0,0.3,1.8],knee:[-3.2,0.9,1.5],foot:[-5.8,0.4,1.0],sh:[3.0,0.2,4.4],el:[2.0,0.6,0.9],hd:[5.0,0.3,5.4]};
+      const up={hip:[0,-0.4,5.0],knee:[-3.0,-0.8,3.9],foot:[-5.6,-0.4,2.7],sh:[3.3,-0.4,7.4],el:[1.4,-1.1,6.0],hd:[-0.4,-1.0,4.8]};
+      const J=s=>s>0?low:up;
+      J.pel=[0,0,3.6]; J.abd=[1.3,0,4.2]; J.chest=[3.2,0,5.8]; J.head=[6.2,0,7.0];
+      const look=cnLookHD(C), opts={pose:2,base:B.base+0.25,noShadow:true,tilt:true,fixedPose:true,look:[0,1,0, 0,0,1, 1,0,0]};   // face to the +side, skull top along the body
       look.sk=[C.rb,C.rb]; look.bulk={...look.bulk,forearms:1.05};
       figureHD(C,J,look,opts);
-      figureHD(C,J,look,{...opts,only:'hands',side:-1}); return; }
+      figureHD(C,J,look,{...opts,only:'hands'}); return; }
     case 'bullSit': {
       // Deep breaths, elbows resting on knees; one hand wipes the bald head every few seconds.
       const breathe=Math.sin(t*0.085), wipe=(t%530)>430?(Math.sin(Math.PI*(t%530-430)/100)):0;

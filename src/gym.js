@@ -286,7 +286,7 @@ function litEnd(lit,st,cx,cy){
  * @param {{sk:number[],top:number[],pt:number[],shoe:number,hair:number,style?:string,yorks?:number,beard?:boolean|'short',stubble?:boolean,mustache?:boolean,bare?:boolean,waist?:number,censor?:boolean,belt?:boolean,baton?:boolean,cap?:number,chops?:boolean,scarf?:number,irons?:boolean,rolledSleeves?:boolean,tuckedShirt?:boolean}} L
  * Newgate: style 'flatcap' (L.cap ramp), L.chops mutton-chop whiskers, L.scarf a neckerchief colour, L.irons leg irons.
  * The docks: style 'bowler' (billycock) or 'knit' (a seaman's watch cap), both in the L.cap ramp; L.yorks ties each trouser leg below the knee with string of that colour.
- * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,fixedPose?:boolean,look?:number[],only?:string,side?:number,fist?:{side:number,grow:number,rp:number}}} [o]   fist: one hand drawn larger (grow: share of its size) in ramp rp, the rival's cue before a punch; look: [yaw, pitch] of the head against the body (pitch > 0 looks down); only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
+ * @param {{pose?:number,base?:number,noShadow?:boolean,light?:boolean,tilt?:boolean,fixedPose?:boolean,look?:number[],only?:string,side?:number,fist?:{side:number,grow:number,rp:number}}} [o]   fist: one hand drawn larger (grow: share of its size) in ramp rp, the rival's cue before a punch; look: [yaw, pitch] of the head against the body (pitch > 0 looks down), or a full frame of 9 numbers [forward, side, up]; only:'hands' redraws just the forearms and hands (side: one of them) over a prop drawn after the figure; light: shade him by the room's light (the brawl); tilt: head and chest fixtures follow a ragdoll's neck and spine
  */
 export function figureHD(C,J,L,o={}){
   if(!o.fixedPose) J=refitFigure(J);   // imported fixed poses retain their source joint positions
@@ -328,7 +328,7 @@ export function figureHD(C,J,L,o={}){
     return [sy*uz-sz*uy,sz*ux-sx*uz,sx*uy-sy*ux,sx,sy,sz,ux,uy,uz]; };   // forward = side × up, side = body side made square to the axis
   const at=(/** @type {number[]} */ o,/** @type {number[]|null} */ fr)=>(/** @type {number} */ a,/** @type {number} */ b,/** @type {number} */ c)=>fr?[o[0]+a*fr[0]+b*fr[3]+c*fr[6],o[1]+a*fr[1]+b*fr[4]+c*fr[7],o[2]+a*fr[2]+b*fr[5]+c*fr[8]]:[o[0]+a,o[1]+b,o[2]+c];
   // look: the head turned (yaw) and bowed (pitch) on the neck while the body keeps its facing, as a frame [forward, side, up].
-  const look=o.look?(()=>{ const [y,p]=o.look, cy=Math.cos(y), sy=Math.sin(y), cp=Math.cos(p), sp=Math.sin(p); return [cy*cp,sy*cp,-sp,-sy,cy,0,cy*sp,sy*sp,cp]; })():null;
+  const look=o.look?o.look.length===9?o.look:(()=>{ const [y,p]=o.look, cy=Math.cos(y), sy=Math.sin(y), cp=Math.cos(p), sp=Math.sin(p); return [cy*cp,sy*cp,-sp,-sy,cy,0,cy*sp,sy*sp,cp]; })():null;
   const headAnchor=o.fixedPose?J.head:mix(Q,J.head,1.2);
   const rawHp=at([headAnchor[0]+0.1,headAnchor[1],headAnchor[2]-0.6],look||(o.tilt?frame(Q,J.head):null));
   const hp=(x,y,z)=>rawHp(x*HK,y*HK,z*HK);
