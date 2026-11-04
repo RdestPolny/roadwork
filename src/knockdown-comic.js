@@ -35,6 +35,10 @@ const LAYOUT=[
   {poly:[[6,98],[282,98],[282,186],[6,186]],turn:0.35,zoom:1.35,light:3.6,shift:-0.17,at:P3_AT}];
 /** The finisher montage: tape ticks per tick of a blow's clip and of the fall's (slow motion). */
 const SLOW=0.3, FALL_SLOW=0.5;
+/** How long the knockdown page must wait past the usual entrance so it appears `delay` seconds after the body landed.
+ * @param {number} landedAt real seconds since the blow @param {number} delay */
+export function knockdownComicHold(landedAt,delay){ return Math.max(0,landedAt+delay-ENTER); }
+
 /** Begin a comic for the fall that starts now. @param {number} victim 0 the hero, 1 the rival @param {number} pid @param {boolean} low @param {string} venue */
 export function startKnockdownComic(victim,pid,low,venue){
   Object.assign(state,{frames:[],ref:0,victim,pid,low,venue,panels:[],framing:[],clips:[],layout:[]});

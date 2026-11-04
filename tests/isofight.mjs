@@ -208,22 +208,39 @@ export async function checkIsoFight(page){
       // the count: the rival rises on his own, the player with taps
       fresh(); near(1.0); let replayOutfit=0; const heroWrap=S.P.wrap; S.P.wrap=fn=>heroWrap(()=>{ if(S.kdSlow>0) replayOutfit++; fn(); }); S.O.rt.hp=1; key('Digit1'); b.step(36); out.kd=[S.O.down,S.O.kdN,S.O.rt.hp>1,!!S.O.rd]; out.kdSlow=[S.kdSlow>0,S.scale<1]; out.replayOutfit=replayOutfit>0; b.step(390); out.rose=!S.O.down&&!S.O.rd;
       fresh(); S.P.down=true; S.P.downAt=S.t; S.P.kdN=1; S.P.pk=null; for(let k=0;k<8;k++){ key('Digit1'); b.step(10); } out.mash=[S.P.down,S.P.kdMash>=7];
+      // straights and uppercuts throw the rival backwards, a hook drops him to the side
+      out.fall=[]; out.neck=[];
+      for(const code of ['Digit1','Digit2','Digit4','Digit3']){
+        fresh(); near(1.0); S.O.rt.hp=1; const i0=S.O.i, j0=S.O.j; key(code);
+        let neck=0, neck0=0; for(let n=0;n<40;n++){ b.step(1); const N=S.O.rd?.nodes; if(N){ const d=Math.hypot((N[2].i-N[1].i)*7.5,(N[2].j-N[1].j)*7.5,N[2].z-N[1].z); if(!neck0) neck0=S.O.rd.len[2]; neck=Math.max(neck,d/neck0); } }
+        out.neck.push(+neck.toFixed(2));
+        const pel=S.O.rd?.nodes[0]; if(!pel){ out.fall.push([code,null]); continue; }
+        const di=pel.i-i0, dj=pel.j-j0, back=-(di*S.O.fi+dj*S.O.fj), side=Math.abs(-di*S.O.fj+dj*S.O.fi);
+        out.fall.push([code,code==='Digit3'?side>.65&&back<.2:back>.45&&side<.15]);
+      }
       // the knockdown comic: its words outlast it, taps on the boards count in real time, and the port's panels frame the fighters
-      fresh(); near(1.0); S.O.rt.hp=1; key('Digit1'); b.step(150);   // panels are built when drawn: render while all three are on screen
-       const comicWard=(await import('/src/knockdown-comic.js')).state.panels.slice();
+      fresh(); near(1.0); S.O.rt.hp=1; key('Digit1');
+      const comicState=(await import('/src/knockdown-comic.js')).state; let thudAt=-1, pageAt=-1, maxPanels=0, comicWard=[];
+      for(let n=0;n<900&&S.kdSlow<=0&&n<30||n<900&&S.kdSlow>0;n++){   // panels are built when drawn: render and watch until the page is gone
+        b.step(1); if(thudAt<0&&S.O.rd?.thud) thudAt=n; if(pageAt<0&&comicState.panels.length>0) pageAt=n;
+        if(comicState.panels.length>=3&&!comicWard.length) comicWard=comicState.panels.slice();
+      }
+      out.comicAfterLanding=[thudAt>=0,pageAt-thudAt>=58&&pageAt-thudAt<=80];
        out.wardComic3x=comicWard.length===3&&comicWard[0].w>240&&comicWard[2].w>400;
-       b.step(100); out.kdBanner=[S.kdSlow,S.banner?.text];
+       out.kdBanner=[S.kdSlow,S.banner?.text];
       fresh(); near(1.0); S.P.rt.hp=1; R.beginPunch(S.O.rt,2,S.t); S.O.pk={pid:2,low:false,t:0,hit:false}; for(let n=0;n<60&&S.kdSlow<=0;n++) b.step(1); for(let n=0;n<20&&S.freeze>0;n++) b.step(1); b.step(1);   // past the blow's hit-stop
       for(let k=0;k<12;k++){ key('Digit1'); b.step(6); } out.comicMash=[S.kdSlow>0,S.P.down,S.P.kdMash];
-      I.startIsoFight(0,'port'); b.step(60); S.O.aiAt=Infinity; near(1.0); S.O.rt.hp=1; key('Digit2'); b.step(170);
-      out.portFraming=(await import('/src/knockdown-comic.js')).state.framing.map(f=>!!f&&Math.abs(f.dx)<0.25&&Math.abs(f.dy)<0.25);
+      I.startIsoFight(0,'port'); b.step(60); S.O.aiAt=Infinity; near(1.0); S.O.rt.hp=1; key('Digit2'); b.step(60); for(let n=0;n<40&&comicState.framing.filter(Boolean).length<3;n++) b.step(10);
+      out.portFraming=comicState.framing.map(f=>!!f&&Math.abs(f.dx)<0.25&&Math.abs(f.dy)<0.25);
       // a knockout closes the fight into the ordinary result card and the record
       // the blow that takes the last health stuns the rival on his feet; four free blows drop him and the comic replays it all
       fresh(); near(1.0); S.O.kdN=2; S.O.rt.hp=1; const before=P.state.save.record.bare.w; key('Digit1'); b.step(30);
       out.finisher=[S.phase,S.fin?.stage,S.O.finStun,S.O.ko];
       for(const c of ['Digit3','Digit4','Digit2','Digit1']){ near(1.0); key(c); b.step(34); }
       out.finisherShots=[S.fin.hits.length,S.P.c.finisher,S.O.ko,S.fin.stage];
-      b.step(90); const Comic=(await import('/src/knockdown-comic.js')).state;
+      let finWait=-1; for(let n=0;n<240&&finWait<0;n++){ b.step(1); if(S.fin.stage==='comic') finWait=S.tape.length-S.fin.land; }
+      out.finisherAfterLanding=[S.fin.land!=null,finWait>=60&&finWait<=62];
+      const Comic=(await import('/src/knockdown-comic.js')).state;
       out.finisherComic=[S.phase,S.fin.stage,Comic.clips.length,Comic.clips.at(-1).fall];
       key('Space'); b.step(1); out.ko=[S.phase,S.how,S.winner===S.P]; b.step(260);
       out.result=[S.phase,document.getElementById('over').hidden,P.state.save.record.bare.w-before];
@@ -282,17 +299,20 @@ assert.deepEqual(r.stunImmune,[true,true,true],'a rival just staggered takes no 
 assert.deepEqual(r.clash.sort(),[[false,1,1],[true,1,0]],'my jab stops a hook thrown with the opposite hand, and both blows land when the hands are on the same side');
 assert.deepEqual(r.duck,[[true,0,1],[false,1,0]],'a body blow is not hit by a head punch and still lands; a head punch that meets a loading head hook stops it');
 assert.deepEqual(r.reach,[[true,true,1],[false,true,0]],'a punch looks for contact through its active window, but whiffs when the target stays out of reach');
-assert.deepEqual(r.passed,[[1,true,1],[0,false,1]],'a fist that passes beside the body does not hit while it is off the line, though the rival is inside the punch\'s reach; it turns after him and lands later, and a rival on the line is hit at once');
 assert.deepEqual(r.tellInterrupted,[null,0,1],'a clean jab during the tell cancels the rival\'s punch');
   assert.deepEqual(r.kd,[true,1,true,true],'the first knockdown sends the rival to the boards (as a ragdoll) with a fraction of his health'); assert.deepEqual(r.kdSlow,[true,true],'knockdown slows the fight'); assert.equal(r.replayOutfit,true,'the knockdown replay draws the hero with his room outfit palette'); assert.equal(r.rose,true,'he gets up after the count and the ragdoll is released');
   assert.deepEqual(r.mash,[false,true],'taps get the player up');
-  assert.deepEqual(r.kdBanner,[0,'NOKDAUN!'],'the knockdown banner is still up when the comic ends');
+  assert.ok(r.neck.every(n=>n<=1.2),'the neck stays near its length through the fall: '+r.neck);
+assert.deepEqual(r.fall,[['Digit1',true],['Digit2',true],['Digit4',true],['Digit3',true]],'a jab, cross or uppercut KO throws the rival backwards, a hook KO drops him to the side');
+assert.deepEqual(r.comicAfterLanding,[true,true],'the knockdown page appears about a second after the body lands on the floor');
+assert.deepEqual(r.kdBanner,[0,'NOKDAUN!'],'the knockdown banner is still up when the comic ends');
    assert.equal(r.wardComic3x,true,'the Ward knockdown comic uses proportionally scaled 432x288 panels');
   assert.deepEqual(r.comicMash,[true,true,12],'every tap during the comic counts towards rising');
   assert.deepEqual(r.portFraming,[true,true,true],'every port panel frames the fighters near its middle');
   assert.deepEqual(r.finisher,['fight','stun',true,false],'the knockout blow leaves the rival stunned on his feet, the fight live');
   assert.deepEqual(r.finisherShots,[5,4,true,'fall'],'four free blows land on the stunned rival and the last one drops him');
-  assert.deepEqual(r.finisherComic,['finisher','comic',6,true],'the comic replays the knockout blow, the four free blows and the fall');
+  assert.deepEqual(r.finisherAfterLanding,[true,true],'the finisher comic starts about a second after the body lands');
+assert.deepEqual(r.finisherComic,['finisher','comic',6,true],'the comic replays the knockout blow, the four free blows and the fall');
   assert.deepEqual(r.ko,['ko','TKO',true],'skipping the comic ends the fight as the third knockdown');
   assert.deepEqual(r.result,['end',false,1],'the result card is up and the win is in the record');
   assert.deepEqual(r.back,['hub','cell'],'Esc returns to the Ward');

@@ -37,10 +37,10 @@ import { doneToday, takeFightTrial } from './training-session.js';
 import { prisonFightEnd, countFight, showFightPlate, hideFightPlate } from './prison.js';
 import { hungerLevel, tiredness } from './simulation.js';
 import { lastingSpec } from './card-data.js';
-import { state as comicState, startKnockdownComic, recordKnockdownComicFrame, drawKnockdownComic, knockdownComicOnScreen, startFinisherMontage, finisherMontageLength, drawFinisherMontage } from './knockdown-comic.js';
+import { state as comicState, startKnockdownComic, knockdownComicHold, recordKnockdownComicFrame, drawKnockdownComic, knockdownComicOnScreen, startFinisherMontage, finisherMontageLength, drawFinisherMontage } from './knockdown-comic.js';
 
 // Runtime values owned by iso-fight; the fight is reset by startIsoFight().
-export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
+export const state = {on:false,t:0,uiT:0,slowMo:0,kdSlow:0,kdLen:3.8,kdHold:null,scale:1,P:null,O:null,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,evadeHintShown:false,low:false,guardHeld:false,phase:'off',pt:0,elapsed:0,winner:null,how:'',idx:0,venue:'cell',opp:null,rigKO:false,
   notice:'',noticeUntil:0,pointer:null,showRig:false,clinch:false,clinchAt:0,push:null,spaceAt:-1,freeze:0,slipFlip:1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},xpToday:0,trial:null,banner:null,
   enemies:/** @type {any[]} */ ([]),tape:/** @type {any[]} */ ([]),fin:/** @type {any} */ (null),windUsed:false,kick:0};
 
@@ -195,7 +195,7 @@ export function startIsoFight(idx,venue,station){
     F.aiAt=.6+k*.3; F.groupIndex=k; S.enemies.push(F);
   }
   if(group) S.O=S.enemies[0];
-  Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
+  Object.assign(S,{on:true,t:0,uiT:0,slowMo:0,kdSlow:0,kdLen:3.8,kdHold:null,scale:1,keys:{},tapAt:{u:-9,d:-9,l:-9,r:-9},upAt:{u:-9,d:-9,l:-9,r:-9},eTap:null,eHeld:false,low:false,guardHeld:false,phase:'intro',pt:0,elapsed:0,winner:null,how:'',idx,venue:V,opp:O,rigKO:false,banner:null,pointer:null,clinch:false,clinchAt:0,push:null,tape:[],fin:null,windUsed:false,kick:0,spaceAt:-1,parts:[],decals:[],cam:{z:2,x:144,y:96,init:true},freeze:0,
     notice:'Ciosy 1-4 · LPM: korpus · Spacja: blok · Q: slip · F: dash',noticeUntil:3,slipFlip:1,xpToday:0,trial:null,returnRoom});
   if(room==='cell'&&!sandbox){
     const center=[(pa[0]+oa[0])/2,(pa[1]+oa[1])/2], positions=[[-2,-1.2],[-1,-1.8],[0,-2],[1,-1.8],[2,-1.2],[-2.6,0.3],[2.6,0.3]];
@@ -692,7 +692,9 @@ function hitFeel(blocked,damage,counter,pid,low){
    FIN_HITS free blows in the live fight (he falls on the last one, or when FIN_WINDOW runs out), and then the comic replays the
    knockout blow, every free blow and the fall in slow motion, one panel after another. */
 /** Free blows, the seconds the stunned rival stays up, ticks of the fall recorded before the comic. */
-const FIN_HITS=4, FIN_WINDOW=4, FIN_FALL=80;
+const FIN_HITS=4, FIN_WINDOW=4, FIN_FALL=200, FIN_LAND=60;   // the comic comes FIN_LAND ticks after the body lands (FIN_FALL: if it never seems to)
+/** Seconds the body lies on the floor before a knockdown page appears. */
+const KD_COMIC_DELAY=1;
 /** Seconds the finished comic page holds before the result. */
 const FIN_HOLD=1.2;
 
@@ -703,7 +705,7 @@ function startFinisher(A,D,how){
   if(D.rt.guarding) setGuard(D.rt,false,S.t);
   S.clinch=false; S.push=null;
   S.tape.push(snapshot());
-  S.fin={stage:'stun',how,at:S.t,hits:[{idx:S.tape.length-1,pid:pk?.pid??1,low:!!pk?.low}],fall:0,t:0,skip:false};
+  S.fin={stage:'stun',how,at:S.t,hits:[{idx:S.tape.length-1,pid:pk?.pid??1,low:!!pk?.low}],fall:0,land:null,t:0,skip:false};
   say('Rywal się chwieje · dobij go');
 }
 
@@ -956,12 +958,12 @@ function tickFight(){
     return;
   }
   if(S.phase==='finisher'){ tickFinisher(); return; }
-  const rawDt=1/60, scale=S.kdSlow>0?(S.kdSlow>3?0.85:S.kdSlow>1.8?0.35:0.16):(S.phase==='fight'?timeScale():1), dt=rawDt*scale, P=S.P, O=S.O;
-  S.scale=scale; if(S.kdSlow>0) S.kdSlow=Math.max(0,S.kdSlow-rawDt); if(S.slowMo>0) S.slowMo=Math.max(0,S.slowMo-rawDt);
+  const rawDt=1/60, scale=S.kdSlow>0?(S.kdLen-S.kdSlow<0.8?0.85:S.kdLen-S.kdSlow<2?0.35:0.16):(S.phase==='fight'?timeScale():1), dt=rawDt*scale, P=S.P, O=S.O;
+  S.scale=scale; /* no landing seen after 1.5 s: the page still comes */ if(S.kdSlow>0){ S.kdSlow=Math.max(0,S.kdSlow-rawDt); if(S.kdHold==null&&S.kdLen-S.kdSlow>=1.5) holdKnockdownComic(); } if(S.slowMo>0) S.slowMo=Math.max(0,S.slowMo-rawDt);
   if(S.banner&&S.kdSlow<=0&&--S.banner.t<=0) S.banner=null;   // the knockdown's words wait for the comic to end
   for(const F of fighters){ tickFeet(F,scale); tickSpurt(F,scale); } tickParts(scale);
   for(const F of fighters){ if((F.ko||F.down)&&!F.rd) startIsoRagdoll(F,null,1,F.ko); if(F.rd){ F.rd.steps+=scale; while(F.rd.steps>=1){ stepIsoRagdoll(F); F.rd.steps-=1; } } if(F.rise&&(F.rise.t+=scale/(F.pk||F.gUp>0.2?RISE_HURRY:RISE_TICKS))>=1) F.rise=null; }
-  if(S.kdSlow>3&&S.venue!=='sandy') recordKnockdownFrame();
+  if(S.kdSlow>0&&S.kdLen-S.kdSlow<0.8&&S.venue!=='sandy') recordKnockdownFrame();
   if(O.rt.guarding&&!O.gWas) O.gPop=1; O.gWas=O.rt.guarding; O.gPop=Math.max(0,(O.gPop||0)-dt*5);   // the rival's guard snaps up past its place and settles: a block you can see coming
   for(const F of fighters){ F.gUp+=((F.rt.guarding?1:0)-F.gUp)*0.35*ZONES[F.rt.zone].guard*scale; F.tire+=(F.rt.zone/2-F.tire)*0.04*scale; F.hurtT=Math.max(0,F.hurtT-dt); F.stagger=Math.max(0,F.stagger-dt*(S.phase==='fight'?1:0)); }
   const [pi,pj]=toward(P,O), [oi,oj]=toward(O,P);
@@ -1060,7 +1062,7 @@ function tickFight(){
   }
   recordTape();
   if(S.fin?.stage==='stun'&&now-S.fin.at>=FIN_WINDOW) finisherFall(P,O);
-  else if(S.fin?.stage==='fall'&&S.tape.length-S.fin.fall>=FIN_FALL){ startFinisherComic(); return; }
+  else if(S.fin?.stage==='fall'&&(S.tape.length-S.fin.fall>=FIN_FALL||S.fin.land!=null&&S.tape.length-S.fin.land>=FIN_LAND)){ startFinisherComic(); return; }
   if(sparringState.rigged&&!S.fin&&!S.rigKO&&(P.rt.hp/P.rt.hpMax-O.rt.hp/O.rt.hpMax>.15||now>35)){
     S.rigKO=true; P.rt.hp=0; P.ko=true; P.pk=null; if(!P.rd) startIsoRagdoll(P,O,2,true); S.phase='ko'; S.pt=0; S.winner=O; S.how='KASTET';
     banner('KASTET!',appearanceState.C_RED,150); sfxKO(); setInfo();
@@ -1676,7 +1678,8 @@ function footJoint(F,s){
 function startIsoRagdoll(F,A,pid,ko){
   const J=fighterJoints(F), a=J(1), b=J(-1), loc=[J.pel,J.chest,J.head,a.knee,a.foot,b.knee,b.foot,a.el,a.hd,b.el,b.hd,J.abd||J.pel.map((v,k)=>(v+J.chest[k])/2)];
   let af=-1, as=0; if(A){ const [ui,uj]=toward(A,F); af=ui*F.fi+uj*F.fj; as=ui*-F.fj+uj*F.fi; }
-  if(pid===2){ const side=A?.pk?.hand||1; af*=0.25; as=side; }
+  if(pid===2){ const side=A?.pk?.hand||1; af*=0.1; as=side*1.2; }   // a hook drops the man to the side
+  else af*=1.25;   // straights and uppercuts throw him backwards
   const sp=ko?0.75:0.62, kick=pid===3?0.3:0.1, gut=!!A?.pk?.low;   // a body blow caves the belly in while the chest and head fold forward over the fist
   const nodes=loc.map(([f,s,z],k)=>{
     const w=world(F,f,s), m=gut?(k===11?1.5:k===0?0.9:k===1?-0.15:k===2?0.05:k>=7&&k<=10?0.6:0.3):k===11?0.7:k===2?1.35:k===1?0.95:k===0?0.45:k>=7?1.1:0.15;
@@ -1684,12 +1687,18 @@ function startIsoRagdoll(F,A,pid,ko){
     return {i:w.i,j:w.j,z,pi:w.i-vi,pj:w.j-vj,pz:z-vz};
   });
   const len=ragdollLengths(loc);
-  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A&&!state.fin&&state.venue!=='alley'){ state.kdSlow=3.8; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
+  F.rd={nodes,len,thud:false,steps:0}; F.rise=null; if(A&&!state.fin&&state.venue!=='alley'){ state.kdSlow=3.8; state.kdLen=3.8; state.kdHold=null; if(state.venue!=='sandy'){ startKnockdownComic(F===state.P?0:1,pid,!!A.pk?.low,state.venue); recordKnockdownFrame(); } }
 }
 
 /** One 60 Hz step of the ragdoll. @param {any} F */
+/** The body has just hit the floor: the knockdown page waits a second after it, and the slow-motion window grows by the wait so the whole page still plays. */
+function holdKnockdownComic(){
+  const S=state, hold=knockdownComicHold(S.kdLen-S.kdSlow,KD_COMIC_DELAY);
+  S.kdHold=hold; S.kdLen+=hold; S.kdSlow+=hold;
+}
+
 function stepIsoRagdoll(F){
-  stepRagdoll(F.rd,{blocked:fightBlocked,onThud:vz=>{ sfxLand(Math.min(1.5,-vz*1.3)); boxingState.shakeT=boxingState.shakeDur=5; boxingState.shakeAmp=1; boxingState.shakeAxis=1; }});   // the first heavy landing of the chest
+  stepRagdoll(F.rd,{blocked:fightBlocked,onThud:vz=>{ if(state.fin?.stage==='fall') state.fin.land=state.tape.length; if(state.kdSlow>0&&state.kdHold==null) holdKnockdownComic(); sfxLand(Math.min(1.5,-vz*1.3)); boxingState.shakeT=boxingState.shakeDur=5; boxingState.shakeAmp=1; boxingState.shakeAxis=1; }});   // the first heavy landing of the chest
   const pel=F.rd.nodes[0]; if(!fightBlocked(pel.i,pel.j)){ F.i=pel.i; F.j=pel.j; F.li=F.i; F.lj=F.j; }
 }
 
@@ -1827,7 +1836,7 @@ function slowMoEffect(){
 
 /** Ease the knockdown close-up in and back out over its slow-motion window. */
 function knockdownZoom(){
-  const t=state.kdSlow; return t>0?smooth(Math.min(1,(3.8-t)/0.2))*smooth(Math.min(1,t/0.3)):0;
+  const t=state.kdSlow; return t>0?smooth(Math.min(1,(state.kdLen-t)/0.2))*smooth(Math.min(1,t/0.3)):0;
 }
 
 /** F7: unzoomed skeletal overlay rendered over the 432x288 sandy scene.
@@ -1916,7 +1925,7 @@ export function renderIsoFight(){ if(state.venue==='alley'){ prepareAlley(); ret
 function renderFight(){
   const S=state; if(!S.on) return;
   if(S.phase==='finisher'){ drawFinisherMontage(S.fin.t); return; }
-  if(S.venue!=='sandy'&&S.kdSlow>0&&knockdownComicOnScreen(3.8-S.kdSlow,S.kdSlow)){ drawKnockdownComic(3.8-S.kdSlow,comicCaption()); return; }
+  if(S.venue!=='sandy'&&S.kdSlow>0&&S.kdHold!=null&&knockdownComicOnScreen(S.kdLen-S.kdSlow-S.kdHold,S.kdSlow)){ drawKnockdownComic(S.kdLen-S.kdSlow-S.kdHold,comicCaption()); return; }
   if(gymState.fightSpectators) for(const C of gymState.fightSpectators) C.t=S.t*60;
   if(S.venue==='alley') renderAlley([S.P,...S.enemies]);
   else if(S.venue==='pub') renderPub([S.P,S.O]);

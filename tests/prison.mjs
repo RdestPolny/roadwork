@@ -322,7 +322,7 @@ export async function checkSundayAndEvents(page) {
       const resp0 = PR.respekt;
       for (let f = 0; f < 3; f++) {
         for (let i = 0; i < 80 && IFS.phase !== 'fight'; i++) b.step(1);
-        IFM.isoFightFinish(0, 'KO'); b.step(300);
+        IFM.isoFightFinish(0, 'KO'); b.step(420);   // the knockdown page now waits a second for the body to land
         out['how' + f] = IFS.how;
         N.exitToHub(); b.step(30); run(3);
       }
@@ -376,7 +376,7 @@ export async function checkBath(page) {
       const fo = G.stationOptions(G.state.hubNear); out.fight = fo[0][0];
       fo[0][1](); out.venue = [SP.state.sparVenue, SP.isBareknuckle(), G.state.hubRoom, B.state.gstate];
       b.step(5); b.step(1);
-      IFM.isoFightFinish(0, 'KO'); b.step(300);
+      IFM.isoFightFinish(0, 'KO'); b.step(420);   // the knockdown page now waits a second for the body to land
       out.won = IFS.winner === IFS.P;
       NV.exitToHub(); for (let i = 0; i < 40; i++) b.step(1);
       out.back = [G.state.hubRoom, B.state.gstate, N.state.YN.filter(C => C.sleeves).length];
@@ -415,7 +415,7 @@ export async function checkCharSheet(page) {
     out.look = JSON.stringify(P.state.save.look) === JSON.stringify(D.HERO_LOOK);
     out.lookTab = !!document.querySelector('#shop .tabs [data-slot="look"]');
     // a bare fight goes into the record
-    SP.startSpar(0, 'cell', null); b.step(60); IFM.isoFightFinish(0, 'KO'); b.step(300);
+    SP.startSpar(0, 'cell', null); b.step(60); IFM.isoFightFinish(0, 'KO'); b.step(420);   // the knockdown page now waits a second for the body to land
     NV.exitToHub(); b.step(30);
     out.record = [P.state.save.record.bare.w + P.state.save.record.bare.l + P.state.save.record.bare.d, P.state.save.record.last.length, P.state.save.record.last[0]?.v];
     return out;
